@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0e1a" />
+    <meta name="description" content="SME-Guard - Intelligent Web SOC Platform" />
+    <title>SME-Guard | Web SOC Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <script>
+      (function () {
+        var pref = localStorage.getItem('sme-guard-theme') || 'dark';
+        var mode = pref === 'light' ? 'light' : pref === 'dark' ? 'dark'
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', mode);
+        document.write('<style>body{margin:0;background:' + (mode === 'dark' ? '#0a0e1a' : '#f4f6f9') + '}#root{min-height:100vh}</style>');
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

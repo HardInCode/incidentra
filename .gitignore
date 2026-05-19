@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Secrets — never commit (use *.example as template)
+.env
+**/.env
+!**/.env.example
+backend/.env
+vuln-web/.env
+frontend/.env
+.env.local
+**/.env.local
+
+# Docker secrets file (optional keys) — use example as template
+backend/.env.docker
+
+# Node
+node_modules/
+build/
+dist/
+
+# DB
+*.db
+*.sqlite3
+
+# Logs & runtime JSON (local enforcement state)
+logs/
+*.log
+**/logs/access.log
+**/logs/blocked_ips.json
+**/logs/rate_limited.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Docker local volumes (not used by compose named volumes, but safe)
+postgres_data/
+redis_data/

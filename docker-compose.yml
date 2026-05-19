@@ -1,0 +1,156 @@
+# SME-Guard — Docker Compose (selaras dengan setup manual di docs/TUTORIAL.md)
+#
+# Opsional: edit backend/.env.docker (GROQ_API_KEY)
+#   docker compose up --build -d
+#
+# Dashboard: http://localhost:3000  |  admin / Admin@SMEGuard2026!
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: smeguard_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smeguard_db
+      POSTGRES_USER: smeguard
+      POSTGRES_PASSWORD: smeguard123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smeguard -d smeguard_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smeguard_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: smeguard_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smeguard_net
+
+  vuln_web:
+    build:
+      context: ./vuln-web
+      dockerfile: Dockerfile
+    container_name: smeguard_vulnweb
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    environment:
+      VULN_PORT: "5050"
+      VULN_LOG_FILE: /app/logs/access.log
+      BLOCKED_IPS_JSON: /app/logs/blocked_ips.json
+      RATE_LIMITED_JSON: /app/logs/rate_limited.json
+      RATE_LIMIT_MAX_REQUESTS: "10"
+      RATE_LIMIT_WINDOW: "60"
+    volumes:
+      - vuln_logs:/app/logs
+    networks:
+      - smeguard_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smeguard_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      USE_SIMULATED_LOGS: "false"
+      DEMO_MODE: "false"
+      WEB_SERVER_LOG_PATH: /app/watched_logs/access.log
+      BLOCKED_IPS_JSON_PATH: /app/watched_logs/blocked_ips.json
+      RATE_LIMITED_JSON_PATH: /app/watched_logs/rate_limited.json
+      RATE_LIMIT_MAX_REQUESTS: "10"
+      BRUTE_FORCE_THRESHOLD: "10"
+      FLASK_ENV: production
+      WATCHED_LOG_DIR: /app/watched_logs
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vuln_web:
+        condition: service_started
+    volumes:
+      - vuln_logs:/app/watched_logs
+    networks:
+      - smeguard_net
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smeguard_celery
+    restart: unless-stopped
+    command: >
+      sh -c "celery -A celery_worker.celery worker --loglevel=info --concurrency=2 &
+             celery -A celery_worker.celery beat --loglevel=info &
+             wait"
+    env_file:
+      - ./backend/.env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      BLOCKED_IPS_JSON_PATH: /app/watched_logs/blocked_ips.json
+      RATE_LIMITED_JSON_PATH: /app/watched_logs/rate_limited.json
+      FLASK_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - vuln_logs:/app/watched_logs
+    networks:
+      - smeguard_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:5000/api
+    container_name: smeguard_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - smeguard_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  vuln_logs:
+
+networks:
+  smeguard_net:
+    driver: bridge
