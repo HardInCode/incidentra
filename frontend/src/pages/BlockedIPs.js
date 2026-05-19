@@ -508,18 +508,38 @@ export default function BlockedIPs() {
 
       {isAdmin && (
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{t('blockedIps.dialogTitle')}</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField fullWidth label={t('blockedIps.ipLabel')} value={form.ip_address} onChange={e => setForm(f => ({ ...f, ip_address: e.target.value }))} placeholder="e.g. 192.168.1.100" />
-            <TextField fullWidth label={t('blockedIps.reason')} value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} />
+          <DialogTitle sx={{ pb: 1 }}>{t('blockedIps.dialogTitle')}</DialogTitle>
+          <DialogContent sx={dialogContentSx}>
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('blockedIps.ipLabel')}
+              value={form.ip_address}
+              onChange={e => setForm(f => ({ ...f, ip_address: e.target.value }))}
+              placeholder="e.g. 192.168.1.100"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('blockedIps.reason')}
+              value={form.reason}
+              onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
             <RadioGroup value={form.block_type} onChange={e => setForm(f => ({ ...f, block_type: e.target.value }))}>
               <FormControlLabel value="permanent" control={<Radio />} label={t('blockType.permanent')} />
               <FormControlLabel value="temporary" control={<Radio />} label={t('blockType.temporary')} />
             </RadioGroup>
             {form.block_type === 'temporary' && (
               <FormControl fullWidth size="small">
-                <InputLabel>{t('blockedIps.duration')}</InputLabel>
-                <Select value={form.hours} label={t('blockedIps.duration')} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}>
+                <InputLabel id="block-hours-label" shrink>{t('blockedIps.duration')}</InputLabel>
+                <Select
+                  labelId="block-hours-label"
+                  value={form.hours}
+                  label={t('blockedIps.duration')}
+                  onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}
+                >
                   {BLOCK_HOUR_OPTIONS.map(h => (
                     <MenuItem key={h} value={h}>{h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
                   ))}
@@ -536,25 +556,47 @@ export default function BlockedIPs() {
 
       {isAdmin && (
         <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{t('blockedIps.editTitle')}</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField fullWidth label={t('blockedIps.ipLabel')} value={editingIp?.ip_address || ''} disabled />
-            <TextField fullWidth label={t('blockedIps.reason')} value={editForm.reason} onChange={(e) => setEditForm((f) => ({ ...f, reason: e.target.value }))} />
+          <DialogTitle sx={{ pb: 1 }}>{t('blockedIps.editTitle')}</DialogTitle>
+          <DialogContent sx={dialogContentSx}>
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                {t('blockedIps.ipLabel')}
+              </Typography>
+              <Typography
+                component="code"
+                sx={{ fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, color: '#ff6d00' }}
+              >
+                {editingIp?.ip_address || '—'}
+              </Typography>
+            </Box>
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('blockedIps.reason')}
+              value={editForm.reason}
+              onChange={(e) => setEditForm((f) => ({ ...f, reason: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
             <RadioGroup value={editForm.block_type} onChange={(e) => setEditForm((f) => ({ ...f, block_type: e.target.value }))}>
               <FormControlLabel value="permanent" control={<Radio />} label={t('blockType.permanent')} />
               <FormControlLabel value="temporary" control={<Radio />} label={t('blockType.temporary')} />
             </RadioGroup>
             {editForm.block_type === 'temporary' && (
               <FormControl fullWidth size="small">
-                <InputLabel>{t('blockedIps.duration')}</InputLabel>
-                <Select value={editForm.hours} label={t('blockedIps.duration')} onChange={(e) => setEditForm((f) => ({ ...f, hours: e.target.value }))}>
+                <InputLabel id="edit-hours-label" shrink>{t('blockedIps.duration')}</InputLabel>
+                <Select
+                  labelId="edit-hours-label"
+                  value={editForm.hours}
+                  label={t('blockedIps.duration')}
+                  onChange={(e) => setEditForm((f) => ({ ...f, hours: e.target.value }))}
+                >
                   {BLOCK_HOUR_OPTIONS.map((h) => (
                     <MenuItem key={h} value={h}>{h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('blockedIps.editHint')}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>{t('blockedIps.editHint')}</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setEditOpen(false)}>{t('common.cancel')}</Button>

@@ -1,7 +1,8 @@
 """Seed the database with default detection rules and admin user."""
+import os
 from werkzeug.security import generate_password_hash
 from app import db
-from app.models import DetectionRule, User, SeverityLevel
+from app.models import DetectionRule, User, SeverityLevel, AppSetting
 
 
 def seed_rules():
@@ -130,7 +131,29 @@ def seed_analyst():
     print("Analyst user created: analyst / Analyst@SMEGuard2026!")
 
 
+def seed_settings_from_env():
+    """Copy non-empty env vars into app_settings (Docker .env.docker → AI/notifications)."""
+    keys = [
+        'GROQ_API_KEY', 'GROQ_MODEL', 'ABUSEIPDB_API_KEY',
+        'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL',
+        'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
+    ]
+    for key in keys:
+        val = os.getenv(key, '').strip()
+        if not val:
+            continue
+        existing = AppSetting.query.filter_by(key=key).first()
+        if existing and existing.value:
+            continue
+        if existing:
+            existing.value = val
+        else:
+            db.session.add(AppSetting(key=key, value=val))
+    db.session.commit()
+
+
 def seed_all():
     seed_admin()
     seed_analyst()
     seed_rules()
+    seed_settings_from_env()

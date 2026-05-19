@@ -115,6 +115,34 @@ Sesuai desain sejak Bab 3 capstone: rate limit adalah **kebijakan enforcement se
 
 Unblock IP di tab Blocked juga menghapus entry rate limit.
 
+### Keselarasan Form 2/3 (ERD & diagram alur)
+
+Diagram capstone Anda sudah benar secara konsep:
+
+| Komponen Form 2 | Implementasi kode |
+|-----------------|-------------------|
+| `blocked_ips` di ERD | Tabel PostgreSQL + salinan `blocked_ips.json` |
+| Rate limit di diagram JSON | `rate_limited.json` + Redis (tanpa tabel terpisah) |
+| `incident_logs.action_taken` | Mencatat "rate limiting applied" / blokir — bukan menggantikan tabel rate limit |
+
+**Mengapa blocked IP di DB tetapi rate limit tidak?**
+
+- **Blocked IP (high/critical):** butuh metadata SOC (alasan, expire, edit dari UI, jumlah insiden, audit). Itu cocok di relational DB.
+- **Rate limit (medium):** sifatnya **sementara**; Form 2 menempatkan enforcement di JSON agar vuln-web baca tanpa koneksi DB. Histori ada lewat `incident` + `incident_logs`, bukan tabel `rate_limited_ips`.
+
+**Keduanya tetap pakai JSON** untuk vuln-web — blocked IP **juga** ditulis ke `blocked_ips.json` setelah disimpan di DB (dual-write).
+
+### Keamanan JSON — apakah bisa dibypass?
+
+**Ya, jika penyerang punya akses tulis ke folder log di server yang sama** dengan vuln-web (mis. shell di container/host). Mereka bisa mengedit `blocked_ips.json` / `rate_limited.json` dan menghapus IP mereka.
+
+Untuk **capstone lab** ini dapat diterima dengan asumsi:
+
+- Penyerang hanya mengirim HTTP, tidak punya SSH/RCE ke server SOC.
+- File JSON di volume bersama dengan permission terbatas.
+
+Mitigasi produksi (sebut di Bab 4 sebagai *future work*): permission file ketat, WAF di depan app, enforcement di reverse proxy, atau vuln-web baca policy dari API internal — bukan file world-writable.
+
 Grafik Dashboard memakai **`Incident.created_at`** — bukan isi log. Demo grafik: `scripts/seed_chart_demo.py`.
 
 Skema DB dibuat dengan `db.create_all()` (bukan migrasi Alembic terpisah). Lihat [LEARNING.md §6](LEARNING.md#6-database-json-dan-bab-capstone).

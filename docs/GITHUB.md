@@ -79,6 +79,15 @@ Lalu buat Pull Request di GitHub untuk review tim.
 
 Frontend Docker: `REACT_APP_API_URL` di-bake saat **build** (`docker compose build frontend`). Ubah IP server → rebuild frontend (lihat [DEPLOY.md](DEPLOY.md)).
 
+### AI / Groq tidak jalan di Docker
+
+1. Isi `GROQ_API_KEY=gsk_...` di `backend/.env.docker` (bukan hanya di `.env` manual).
+2. Restart backend: `docker compose up -d --build backend`
+3. Atau simpan key lewat **Settings** di UI (disimpan ke tabel `app_settings`).
+4. Uji: Settings → **Test Groq** atau generate explanation di detail insiden.
+
+Backend menyalin env kosong ke DB saat startup (`seed_settings_from_env`) jika key belum ada di database.
+
 ---
 
 *Terakhir diselaraskan: Mei 2026 — SME-Guard Capstone.*
