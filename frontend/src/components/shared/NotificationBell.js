@@ -44,7 +44,7 @@ export default function NotificationBell({ compact = false }) {
         const latest = data.recent[0];
         toast.info(
           t('notifications.newAlert', { type: latest.attack_type, ip: latest.source_ip }),
-          { autoClose: 4000 },
+          { autoClose: 2500, position: 'top-right' },
         );
         playNotificationSound();
       }

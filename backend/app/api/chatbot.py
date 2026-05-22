@@ -15,7 +15,7 @@ def _check_auth():
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-SYSTEM_PROMPT = """You are a cybersecurity assistant for SME-Guard, an intelligent Web-SOC platform.
+SYSTEM_PROMPT = """You are a cybersecurity assistant for Incidentra SOC, an intelligent Web-SOC platform.
 You help IT administrators understand security incidents, write regex detection patterns,
 explain attack techniques, and provide security recommendations.
 Be concise and practical. When asked to write a regex pattern for detection rules,
@@ -40,7 +40,7 @@ def _get_groq_reply(messages: list) -> str:
     if not api_key:
         return "⚠️ Groq API key not configured. Please set GROQ_API_KEY in your .env file to enable the AI chatbot."
 
-    primary_model = os.getenv('GROQ_MODEL', GROQ_MODELS[0])
+    primary_model = _get_setting('GROQ_MODEL') or os.getenv('GROQ_MODEL', GROQ_MODELS[0])
     models_to_try = [primary_model] + [m for m in GROQ_MODELS if m != primary_model]
 
     headers = {

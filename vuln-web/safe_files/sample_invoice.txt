@@ -1,0 +1,6 @@
+SME Shop — Sample invoice (demo)
+Order ID: DEMO-1001
+Customer: guest@shop.local
+Items: Gayo Arabica Coffee x1
+Total: IDR 89.000
+Status: PAID (simulated)

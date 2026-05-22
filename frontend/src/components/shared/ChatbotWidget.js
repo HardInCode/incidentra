@@ -1,12 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, IconButton, Typography, TextField,
   CircularProgress, Chip, Divider, Tooltip, Drawer, useTheme,
 } from '@mui/material';
-import { Close, Send, Delete, AutoAwesome } from '@mui/icons-material';
+import { Close, Send, Delete, AutoAwesome, OpenWith } from '@mui/icons-material';
 import { sendChatMessage } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const SESSION_ID = 'chatbot-' + Math.random().toString(36).slice(2);
+const POS_STORAGE_KEY = 'sme_chatbot_pos';
+const FAB_SIZE = 52;
+const DRAG_THRESHOLD_PX = 6;
 
 const QUICK_PROMPTS = [
   'Explain SQL Injection to a non-technical person',
@@ -14,6 +18,34 @@ const QUICK_PROMPTS = [
   'What should I do when I see a CRITICAL incident?',
   'How does brute force attack work?',
 ];
+
+function loadSavedPosition() {
+  try {
+    const raw = localStorage.getItem(POS_STORAGE_KEY);
+    if (!raw) return null;
+    const { x, y } = JSON.parse(raw);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function defaultPosition() {
+  return {
+    x: Math.max(16, window.innerWidth - FAB_SIZE - 24),
+    y: Math.max(16, window.innerHeight - FAB_SIZE - 24),
+  };
+}
+
+function clampPosition(pos) {
+  const maxX = window.innerWidth - FAB_SIZE - 8;
+  const maxY = window.innerHeight - FAB_SIZE - 8;
+  return {
+    x: Math.min(Math.max(8, pos.x), maxX),
+    y: Math.min(Math.max(8, pos.y), maxY),
+  };
+}
 
 function TypingIndicator() {
   return (
@@ -76,17 +108,73 @@ function Message({ msg }) {
 
 export default function ChatbotWidget({ incidentContext = null }) {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fabPos, setFabPos] = useState(() => loadSavedPosition() || defaultPosition());
   const messagesEndRef = useRef(null);
+  const dragRef = useRef({ active: false, moved: false, offsetX: 0, offsetY: 0, startX: 0, startY: 0 });
 
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, loading]);
+
+  useEffect(() => {
+    const onResize = () => setFabPos((p) => clampPosition(p));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const onPointerMove = useCallback((e) => {
+    if (!dragRef.current.active) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
+      dragRef.current.moved = true;
+    }
+    setFabPos(clampPosition({
+      x: e.clientX - dragRef.current.offsetX,
+      y: e.clientY - dragRef.current.offsetY,
+    }));
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    setFabPos((p) => {
+      localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(p));
+      return p;
+    });
+  }, [onPointerMove]);
+
+  const onFabPointerDown = (e) => {
+    if (e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      active: true,
+      moved: false,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  const onFabClick = () => {
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    setOpen(true);
+  };
 
   const sendMessage = async (text) => {
     const msg = text || input.trim();
@@ -125,20 +213,23 @@ export default function ChatbotWidget({ incidentContext = null }) {
 
   return (
     <>
-      <Tooltip title="AI Security Assistant" placement="left">
+      <Tooltip title={t('chatbot.dragHint')} placement="left">
         <IconButton
-          onClick={() => setOpen(true)}
+          onPointerDown={onFabPointerDown}
+          onClick={onFabClick}
           sx={{
             position: 'fixed',
-            bottom: 80,
-            right: 24,
-            width: 52,
-            height: 52,
+            left: fabPos.x,
+            top: fabPos.y,
+            width: FAB_SIZE,
+            height: FAB_SIZE,
             bgcolor: 'primary.main',
             color: 'primary.contrastText',
-            zIndex: 1300,
+            zIndex: 1200,
+            cursor: 'grab',
+            '&:active': { cursor: 'grabbing' },
             '&:hover': { bgcolor: 'primary.dark' },
-            transition: 'all 0.2s',
+            transition: 'background-color 0.2s',
             p: 0,
             overflow: 'hidden',
           }}
@@ -172,8 +263,8 @@ export default function ChatbotWidget({ incidentContext = null }) {
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               AI Security Assistant
             </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Powered by Groq · SME-Guard
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <OpenWith sx={{ fontSize: 12 }} /> {t('chatbot.dragHint')}
             </Typography>
           </Box>
           {messages.length > 0 && (

@@ -291,6 +291,9 @@ export default function Settings() {
                 ))}
               </Select>
             </FormControl>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t('settings.groqTestHint')}
+            </Typography>
             <Button
               variant="outlined"
               size="small"
@@ -442,10 +445,39 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* Detection lab mode (capstone demo) */}
+      {isAdmin && (
+        <Card sx={{ mb: 2, border: '1px solid rgba(255,214,0,0.25)' }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 1 }}>{t('settings.labModeTitle')}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('settings.labModeHint')}
+            </Typography>
+            <FormControlLabel
+              control={(
+                <Switch
+                  checked={['true', '1', 'yes', 'on'].includes(
+                    String(getValue('DETECTION_LAB_MODE_UI_ONLY') || '').toLowerCase(),
+                  )}
+                  onChange={(e) => setValue(
+                    'DETECTION_LAB_MODE_UI_ONLY',
+                    e.target.checked ? 'true' : 'false',
+                  )}
+                />
+              )}
+              label={t('settings.labModeLabel')}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Section 5 — Detection Thresholds */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 2 }}>{t('settings.thresholds')}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            {t('settings.thresholdsHint')}
+          </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 300 }}>
             <TextField
               label={t('settings.bruteForce')}

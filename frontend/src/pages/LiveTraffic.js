@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  Box, Card, CardContent, Typography, TextField, Button, Table, TableBody, TableCell, TableHead, TableRow,
+  Box, Card, CardContent, Typography, TextField, Table, TableBody, TableCell, TableHead, TableRow,
   Chip, IconButton, ToggleButton, ToggleButtonGroup, Select, MenuItem, FormControl, InputLabel, Alert,
+  FormControlLabel, Checkbox,
 } from '@mui/material';
 import {
   Wifi, Pause, PlayArrow, Refresh, BugReport, Warning, Block, CheckCircle,
@@ -46,6 +47,7 @@ export default function LiveTraffic() {
   const [tagFilter, setTagFilter] = useState('all');
   const [rowCount, setRowCount] = useState(100);
   const [sortDir, setSortDir] = useState('desc');
+  const [hideStatic, setHideStatic] = useState(true);
 
   const fetchTraffic = useCallback(async () => {
     if (paused) return;
@@ -69,8 +71,14 @@ export default function LiveTraffic() {
     return () => clearInterval(interval);
   }, [fetchTraffic, paused]);
 
+  const isStaticAsset = (path) => (
+    (path || '').startsWith('/static/')
+    || path === '/favicon.ico'
+  );
+
   const filtered = useMemo(() => {
     const list = (data.entries || []).filter((e) => {
+      if (hideStatic && isStaticAsset(e.path)) return false;
       if (tagFilter !== 'all' && e.tag !== tagFilter) return false;
       if (!search) return true;
       const s = search.toLowerCase();
@@ -87,7 +95,7 @@ export default function LiveTraffic() {
       const diff = tb - ta;
       return sortDir === 'desc' ? diff : -diff;
     });
-  }, [data.entries, tagFilter, search, sortDir]);
+  }, [data.entries, tagFilter, search, sortDir, hideStatic]);
 
   const toggleTagFilter = (tag) => {
     setTagFilter((prev) => (prev === tag ? 'all' : tag));
@@ -132,6 +140,10 @@ export default function LiveTraffic() {
           {paused ? t('traffic.paused') : t('traffic.live', { count: data.entries?.length ?? 0 })}
         </Typography>
       </Box>
+
+      <Alert severity="info" sx={{ mb: 2 }}>
+        {t('traffic.tagHint')}
+      </Alert>
 
       {/* Error alert */}
       {data.error && (
@@ -204,6 +216,16 @@ export default function LiveTraffic() {
             <MenuItem value="asc">{t('traffic.oldest')}</MenuItem>
           </Select>
         </FormControl>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={hideStatic}
+              onChange={(e) => setHideStatic(e.target.checked)}
+              size="small"
+            />
+          }
+          label={t('traffic.hideStatic', { defaultValue: 'Hide static assets (CSS/JS)' })}
+        />
       </Box>
 
       {/* Table */}

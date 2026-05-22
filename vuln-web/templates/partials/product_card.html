@@ -1,0 +1,13 @@
+<article class="product-card {{ product.theme }}">
+  <div class="product-card-image" role="img" aria-label="{{ product.name }}"></div>
+  <div class="product-card-body">
+    <h3>{{ product.name }}</h3>
+    <p>{{ product.description }}</p>
+    <div class="product-card-footer">
+      <span class="price">{{ product.price|idr }}</span>
+      <form method="post" action="{{ url_for('cart.add', product_id=product.id) }}" class="add-cart-form">
+        <button type="submit" class="btn-add">Add to cart</button>
+      </form>
+    </div>
+  </div>
+</article>

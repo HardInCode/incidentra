@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "=== SME-Guard Backend Starting ==="
+echo "=== Incidentra SOC Backend Starting ==="
 
 echo "Waiting for PostgreSQL..."
 python -c "

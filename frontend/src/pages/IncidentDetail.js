@@ -61,7 +61,13 @@ function AIExplanationCard({ explanation, onGenerate, generating }) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <AutoAwesome sx={{ color: '#7c4dff' }} />
           <Typography variant="h6">{t('incidentDetail.aiTitle')}</Typography>
-          <Chip label={explanation.model_used} size="small" sx={{ ml: 'auto', color: 'text.secondary', fontSize: '0.7rem' }} />
+          <Tooltip title={t('incidentDetail.modelTooltip', { model: explanation.model_used })}>
+            <Chip
+              label={explanation.model_used}
+              size="small"
+              sx={{ ml: 'auto', color: 'text.secondary', fontSize: '0.7rem', maxWidth: 220 }}
+            />
+          </Tooltip>
         </Box>
 
         <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: '3px solid #00d4aa' }}>

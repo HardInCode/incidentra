@@ -1,9 +1,9 @@
-# SME-Guard — Docker Compose (selaras dengan setup manual di docs/TUTORIAL.md)
+# SME-Guard — Docker Compose (selaras dengan setup manual di docs/GUIDE.md)
 #
 # Opsional: edit backend/.env.docker (GROQ_API_KEY)
 #   docker compose up --build -d
 #
-# Dashboard: http://localhost:3000  |  admin / Admin@SMEGuard2026!
+# Dashboard: http://localhost:3000  |  admin / Admin@Incidentra2026!
 
 services:
   postgres:
@@ -58,6 +58,8 @@ services:
       RATE_LIMITED_JSON: /app/logs/rate_limited.json
       RATE_LIMIT_MAX_REQUESTS: "10"
       RATE_LIMIT_WINDOW: "60"
+      VULN_UNSAFE_CMD: "1"
+      VULN_UNSAFE_UPLOAD: "1"
     volumes:
       - vuln_logs:/app/logs
     networks:
@@ -154,3 +156,5 @@ volumes:
 networks:
   smeguard_net:
     driver: bridge
+
+

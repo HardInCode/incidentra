@@ -14,7 +14,7 @@ copy backend\.env.docker.example backend\.env.docker
 docker compose up --build -d
 ```
 
-Manual Windows: ikuti [TUTORIAL.md](TUTORIAL.md) Opsi B (`backend\.env` dari `.env.example`).
+Manual Windows: ikuti [../GUIDE.md](../GUIDE.md) Opsi B (`backend\.env` dari `.env.example`).
 
 ---
 

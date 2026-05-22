@@ -1,6 +1,5 @@
-// frontend/src/pages/DetectionRules.js
-// REVISI 1B: tambah FilterBar (Status, Attack Type, Sort)
-// REVISI 3B: sembunyikan Add/Edit/Delete jika bukan admin
+// Detection Rules UI — CRUD + sandbox test (/api/detection/test).
+// Info icon (hover): lab mode vs OWASP baseline. SIDANG: DetectionRules, rules.py, detection_engine.
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -10,14 +9,14 @@ import {
   Tooltip, CircularProgress, Select, MenuItem, FormControl, InputLabel,
   Tabs, Tab,
 } from '@mui/material';
-import { Add, Delete, Edit, Refresh, Science } from '@mui/icons-material';
+import { Add, Delete, Edit, Refresh, Science, InfoOutlined } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import { getRules, createRule, updateRule, deleteRule, testPayload } from '../services/api';
+import { getRules, createRule, updateRule, deleteRule, testPayload, getSettings } from '../services/api';
 import FilterBar from '../components/shared/FilterBar';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 
-const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI'];
+const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI', 'FILE_UPLOAD'];
 
 const DEFAULT_PAYLOAD = "' OR 1=1--";
 const EXAMPLE_LOG_LINE = '192.168.1.50 - - [15/May/2026:10:30:00 +0000] "GET /search?q=\'+OR+1=1+UNION+SELECT+username,password+FROM+users-- HTTP/1.1" 200 512 "-" "sqlmap/1.7"';
@@ -39,6 +38,7 @@ export function DetectionRules() {
   const [logInput, setLogInput] = useState(EXAMPLE_LOG_LINE);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+  const [labModeOnly, setLabModeOnly] = useState(false);
 
   const currentUser = useCurrentUser(); // REVISI 3B
   const isAdmin = currentUser?.role === 'admin';
@@ -82,6 +82,13 @@ export function DetectionRules() {
   }, [sortBy, sortDir, filterValues]);
 
   useEffect(() => { fetchRules(); }, [fetchRules]);
+
+  useEffect(() => {
+    getSettings().then((res) => {
+      const raw = res.data?.DETECTION_LAB_MODE_UI_ONLY?.value || '';
+      setLabModeOnly(['true', '1', 'yes', 'on'].includes(String(raw).toLowerCase()));
+    }).catch(() => {});
+  }, []);
 
   const handleFilterChange = (key, val) => {
     setFilterValues(prev => ({ ...prev, [key]: val }));
@@ -161,7 +168,7 @@ export function DetectionRules() {
           <Typography variant="h4" sx={{ fontWeight: 800 }}>{t('rules.title')}</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('rules.subtitle', { count: rules.filter(r => r.is_active).length })}</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {/* REVISI 3B: Add Rule hanya untuk admin */}
           {isAdmin && (
             <Button
@@ -173,6 +180,16 @@ export function DetectionRules() {
               {t('rules.addRule')}
             </Button>
           )}
+          <Tooltip
+            title={labModeOnly ? t('rules.labModeOn') : t('rules.baselineActive')}
+            placement="bottom"
+            arrow
+            slotProps={{ tooltip: { sx: { maxWidth: 360, fontSize: '0.8rem' } } }}
+          >
+            <IconButton size="small" aria-label={t('rules.detectionInfo')} sx={{ color: 'text.secondary' }}>
+              <InfoOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <IconButton onClick={fetchRules} sx={{ color: 'primary.main' }}><Refresh /></IconButton>
         </Box>
       </Box>
@@ -319,8 +336,15 @@ export function DetectionRules() {
       {isAdmin && (
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>{editRule ? t('rules.editTitle') : t('rules.createTitle')}</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField fullWidth label={t('rules.ruleName')} value={form.rule_name} onChange={e => setForm(f => ({ ...f, rule_name: e.target.value }))} />
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3, px: 3, pb: 1 }}>
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('rules.ruleName')}
+              value={form.rule_name}
+              onChange={e => setForm(f => ({ ...f, rule_name: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormControl fullWidth>
                 <InputLabel>{t('incidents.attackType')}</InputLabel>
@@ -337,9 +361,26 @@ export function DetectionRules() {
                 </Select>
               </FormControl>
             </Box>
-            <TextField fullWidth label={t('rules.pattern')} value={form.pattern} onChange={e => setForm(f => ({ ...f, pattern: e.target.value }))}
-              sx={{ '& input': { fontFamily: 'monospace' } }} placeholder="(?i)(union\s+select|select\s+.*\s+from)" />
-            <TextField fullWidth label={t('rules.description')} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} multiline rows={2} />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('rules.pattern')}
+              value={form.pattern}
+              onChange={e => setForm(f => ({ ...f, pattern: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              sx={{ '& input': { fontFamily: 'monospace' } }}
+              placeholder="(?i)(union\s+select|select\s+.*\s+from)"
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('rules.description')}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              multiline
+              rows={2}
+            />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>

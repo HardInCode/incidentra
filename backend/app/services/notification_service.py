@@ -42,9 +42,9 @@ def _do_notify(incident_id: int, severity: str = 'critical'):
                    if severity == 'critical'
                    else 'IP temporarily blocked for 24 hours.')
 
-    subject = f"[SME-Guard {level}] {incident.attack_type} from {incident.source_ip}"
+    subject = f"[Incidentra SOC {level}] {incident.attack_type} from {incident.source_ip}"
     body = f"""
-SME-Guard Security Alert — {level}
+Incidentra SOC Security Alert — {level}
 =====================================
 Incident ID   : #{incident.id}
 Attack Type   : {incident.attack_type}
@@ -60,7 +60,7 @@ Review: http://localhost:3000/incidents/{incident.id}
 """
     _send_email(subject, body)
     _send_telegram(
-        f"{emoji} *SME-Guard {level} ALERT*\n\n"
+        f"{emoji} *Incidentra SOC {level} ALERT*\n\n"
         f"*Attack:* {incident.attack_type}\n"
         f"*IP:* `{incident.source_ip}`\n"
         f"*Path:* `{incident.request_path}`\n"

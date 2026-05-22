@@ -1,11 +1,11 @@
-# SME-Guard — Aplikasi & Arsitektur
+# SME-Guard — Architecture & Application
 
 **SME-Guard** adalah platform Web-SOC untuk UKM: memantau log aplikasi web, mendeteksi serangan (SQLi, XSS, brute force, path traversal, dll.), membuat insiden, memblokir IP otomatis, dan menampilkan dashboard analis keamanan.
 
 > Capstone — President University, Faculty of Computer Science  
 > Repo: [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)
 
-**Menjalankan sistem:** [TUTORIAL.md](TUTORIAL.md) · **Clone & push:** [GITHUB.md](GITHUB.md) · **Checklist uji:** [AUDIT_2026-05-19.md](AUDIT_2026-05-19.md)
+**Run:** [GUIDE.md](GUIDE.md) · **Detection:** [DETECTION.md](DETECTION.md) · **Audit:** [AUDIT.md](AUDIT.md) · **Deploy:** [additional/DEPLOY.md](additional/DEPLOY.md)
 
 ---
 
@@ -14,13 +14,16 @@
 | Area | Kemampuan |
 |------|-----------|
 | Monitoring | Tail `access.log` atau mode simulasi demo |
-| Deteksi | Regex + aturan DB + threshold brute force (Redis) |
+| Deteksi | Regex + aturan DB + threshold brute force (Redis); FILE_UPLOAD hanya ekstensi berbahaya (.php, .jsp, dll.) |
 | Respons | Monitor / rate limit / blokir temp / blokir permanen |
 | SOC UI | Dashboard, insiden (ongoing vs arsip), **IP Management**, rules, live traffic |
 | AI | Penjelasan insiden & chatbot (Groq, opsional) |
 | Intel | AbuseIPDB (opsional), notifikasi email/Telegram |
 | Akses | JWT, peran admin & analyst, i18n EN/ID, dark theme |
-| Deploy | Docker Compose (laptop/VPS) — [DEPLOY.md](DEPLOY.md) |
+| Deploy | Docker Compose (laptop/VPS) — [additional/DEPLOY.md](additional/DEPLOY.md) |
+| Whitelist IP | Skip deteksi + tidak masuk `blocked_ips.json` |
+| Lab mode | UI rules only; baseline OWASP off |
+| Export CSV | `incidents-ongoing.csv` vs `incidents-all.csv` |
 
 ---
 
@@ -143,9 +146,11 @@ Untuk **capstone lab** ini dapat diterima dengan asumsi:
 
 Mitigasi produksi (sebut di Bab 4 sebagai *future work*): permission file ketat, WAF di depan app, enforcement di reverse proxy, atau vuln-web baca policy dari API internal — bukan file world-writable.
 
+Demo lengkap path traversal, path absolut Windows, dan bypass edit JSON: **[DETECTION.md](DETECTION.md)** § Security Lab.
+
 Grafik Dashboard memakai **`Incident.created_at`** — bukan isi log. Demo grafik: `scripts/seed_chart_demo.py`.
 
-Skema DB dibuat dengan `db.create_all()` (bukan migrasi Alembic terpisah). Lihat [LEARNING.md §6](LEARNING.md#6-database-json-dan-bab-capstone).
+Skema DB dibuat dengan `db.create_all()` (bukan migrasi Alembic terpisah). Lihat [additional/LEARNING.md](additional/LEARNING.md).
 
 ---
 
@@ -188,13 +193,37 @@ Entry: `run.py` (manual) · `docker_entrypoint.sh` + gunicorn (Docker).
 | Incident Detail | `/incidents/:id` | AI, catatan |
 | **IP Management** | `/blocked-ips` | Tab **Blocked** \| **Rate Limited** |
 | Rules | `/rules` | |
-| Live Traffic | `/traffic` | Dari log file |
+| Live Traffic | `/traffic` | Heuristic tags only — see [DETECTION.md](DETECTION.md) |
+| Chatbot | widget | `ChatbotWidget.js`, `/api/chatbot` |
+| Session timeout | overlay | `SessionTimeoutWarning.js` |
+| IP History | drawer | `IPHistoryDrawer.js`, `/api/ip/<ip>/history` |
 | Settings | `/settings` | |
 | Audit Log | `/audit` | Admin |
 
 ### Vuln-web
 
 Target rentan + middleware JSON (403/429). Per-IP rate policy dari `limits` di `rate_limited.json`.
+
+**Konfigurasi lab (`vuln-web/config.py`, file `vuln-web/.env`):**
+
+| Variabel | Efek jika `1` / `true` / `yes` |
+|----------|--------------------------------|
+| `VULN_UNSAFE_CMD` | `/cmd` → `subprocess` shell nyata (timeout `VULN_CMD_TIMEOUT`, default 5s) |
+| `VULN_UNSAFE_UPLOAD` | POST `/files` boleh simpan di luar `safe_files/` via `../` di nama file |
+
+Tanpa flag: `/cmd` simulated; `/profile` avatar tetap tanpa filter ekstensi (CTF). **Restart** vuln-web setelah ubah `.env`. Docker: set env di `docker-compose.yml` service `vuln_web` (`.env` tidak otomatis masuk container).
+
+---
+
+## Live Traffic vs insiden vs blokir
+
+Tiga lapisan terpisah:
+
+1. **Log** — setiap request vuln-web → `vuln-web/logs/access.log`.
+2. **Live Traffic (tag)** — `traffic.py` menandai pola cepat (mis. `cmd=` → Attack). Status **200** + tag Attack **tidak** berarti IP diblokir.
+3. **Insiden + enforcement** — `DetectionEngine` → PostgreSQL → `ResponseManager` menulis `blocked_ips.json` → middleware vuln-web mengembalikan **403**.
+
+Demo & troubleshooting: [GUIDE.md](GUIDE.md). Phase 3 (`VULN_UNSAFE_CMD=1`) only changes vuln-web behavior; detection/blocking still via SOC backend.
 
 ---
 
@@ -281,7 +310,9 @@ Celery ada; notifikasi/AI punya fallback thread jika worker tidak jalan.
 | IP Management + rate limit UI | ✅ |
 | Per-IP max requests / window | ✅ (JSON `limits`) |
 | Docker Compose end-to-end | ✅ |
-| Notification bell in-app | 🔲 opsional |
+| Notification bell + chatbot + session timeout | ✅ |
+| Ongoing vs All Incidents + IP History drawer | ✅ |
+| Whitelist IP + bulk resolve (admin) | ✅ |
 | Pengelompokan insiden (correlation) | 🔲 opsional Bab 4+ |
 
 ---
@@ -293,3 +324,97 @@ Celery ada; notifikasi/AI punya fallback thread jika worker tidak jalan.
 | Hardin Irfan | 001202300066 | Project Lead & Backend |
 | Nasywa Kamila | 001202300211 | AI Engineer & Frontend |
 | Zaidan Mahfudz Azzam Saidi | 001202300144 | Security & QA |
+
+---
+
+## Panduan tim — lima lapisan (hafalan sidang)
+
+```
+[L1] Browser  →  HTTP ke vuln-web :5050
+[L2] vuln-web →  access.log + baca blocked_ips.json / rate_limited.json
+[L3] Backend  →  tail log → deteksi → PostgreSQL + tulis JSON
+[L4] Frontend →  dashboard SOC :3000
+[L5] Infra    →  PostgreSQL + Redis (+ Docker atau service lokal)
+```
+
+**Aturan emas:** Insiden & rules = **L3 + PostgreSQL**. Blokir HTTP di target = **L2 + JSON**. Live Traffic = cermin log, **bukan** keputusan final blokir.
+
+### Alur lengkap (SQLi login → 403)
+
+1. Browser `POST /login` dengan payload SQLi → vuln-web tulis baris ke `access.log` (+ `POST_DATA`).
+2. `LogTailer` baca baris baru → `parse_log_line()`.
+3. `DetectionEngine.analyze()` → `SQL_INJECTION` (rules DB + baseline, kecuali Lab mode ON).
+4. Whitelist check: jika IP `is_whitelist=True` → **tidak** ada insiden.
+5. `log_monitor` insert `Incident` (dedup 5 menit per IP + attack_type).
+6. `ResponseManager` → critical → `permanent_block` → `BlockedIP` (`is_whitelist=False`) + `_write_blocked_ips.json()`.
+7. Analis melihat insiden di `/incidents` (ongoing).
+8. Request berikutnya dari IP sama ke vuln-web → middleware → **HTTP 403**.
+9. Live Traffic: baris pertama bisa **Attack 200**, baris berikut **Blocked 403**.
+
+### Manual vs Docker (tim baru)
+
+| Aspek | Manual | Docker |
+|-------|--------|--------|
+| Postgres | Service Windows lokal | Container — **data terpisah** dari Postgres Windows |
+| Log + JSON | `vuln-web/logs/` | Volume `vuln_logs` |
+| Fase 3 | `vuln-web/.env` + restart | `environment:` di `docker-compose.yml` |
+| Reset log | `--clear-logs` langsung | `docker compose exec vuln_web` (lihat [GUIDE.md](GUIDE.md)) |
+
+**Port 5432 bentrok** jika Postgres Windows dan container keduanya aktif.
+
+### Docker — enam container
+
+`docker compose up` menjalankan: `postgres`, `redis`, `vuln_web`, `backend`, `frontend`, `celery_worker`. Volume `vuln_logs` dipasang ke `/app/logs` (vuln-web) dan `/app/watched_logs` (backend). Logika aplikasi **sama** dengan manual; hanya packaging berbeda.
+
+### Modul backend (referensi cepat)
+
+| File | Fungsi |
+|------|--------|
+| `log_parser.py` | `parse_log_line`, `LogTailer` |
+| `log_monitor.py` | Pipeline parse → analyze → incident |
+| `detection_engine.py` | Pola, lab mode, whitelist skip, brute force |
+| `response_manager.py` | Severity → aksi + dual-write JSON |
+| `settings_reader.py` | Threshold + `is_lab_mode_ui_only()` |
+| `api/incidents.py` | List, `list_scope`, export, bulk, simulate |
+| `api/blocked_ips.py` | Block, unblock, whitelist upsert |
+| `api/ip_history.py` | Drawer per IP |
+| `api/traffic.py` | Tag heuristik (bukan deteksi) |
+| `api/chatbot.py` | Asisten Groq |
+
+### Frontend (Mei 2026)
+
+| Route | Catatan |
+|-------|---------|
+| `/incidents` | Ongoing: `new`, `investigating` |
+| `/incidents/all` | Arsip resolved / false_positive |
+| `/blocked-ips` | IP Management — Blocked \| Rate Limited |
+| Widget global | `NotificationBell`, `ChatbotWidget`, `SessionTimeoutWarning` |
+| Drawer | `IPHistoryDrawer` dari klik IP |
+
+### FAQ tim (ringkas)
+
+| Q | A |
+|---|---|
+| Rules di JSON? | **Tidak** — `detection_rules` di PostgreSQL |
+| Live Traffic Attack tapi tidak 403? | Tag heuristik; cek **Incidents** + JSON |
+| PATH_TRAVERSAL permanen? | **Tidak** — high → blokir **sementara** |
+| Whitelist? | Tidak deteksi; tidak di `blocked_ips.json` |
+| Export ongoing vs all? | File berbeda + filter `list_scope` |
+| Groq wajib? | Tidak — `fallback-static` |
+| Celery wajib? | Tidak — thread fallback notifikasi |
+| Postgres Docker vs Windows? | Instance berbeda — data tidak shared |
+| Urutan baca tim baru? | ARCHITECTURE (ini) → GUIDE → DETECTION → AUDIT → form4 v2 |
+
+### Glosarium
+
+| Istilah | Arti |
+|---------|------|
+| SOC | Security Operations Center |
+| Dual-write | `BlockedIP` di DB + salinan ke `blocked_ips.json` |
+| Lab mode | Hanya rule UI aktif; baseline OWASP mati |
+| Heuristik | Tag Live Traffic — bisa Attack 200 tanpa blokir |
+| `list_scope` | `ongoing` \| `all` untuk list/export insiden |
+
+---
+
+*Architecture + team mastery — SME-Guard, May 2026.*

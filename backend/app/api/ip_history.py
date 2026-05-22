@@ -28,8 +28,8 @@ def get_ip_history(ip_address):
 
     if total == 0:
         # IP tidak ditemukan di incidents, kembalikan data kosong
-        is_blocked = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=False).first() is not None
-        is_whitelisted = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=True).first() is not None
+        blocked_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=False).first()
+        whitelist_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=True).first()
         return jsonify({
             'ip_address': ip_address,
             'total_incidents': 0,
@@ -40,8 +40,13 @@ def get_ip_history(ip_address):
             'top_rules_triggered': [],
             'risk_score': 0,
             'pattern_summary': empty_history_summary(ip_address, lang),
-            'is_blocked': is_blocked,
-            'is_whitelisted': is_whitelisted,
+            'is_blocked': blocked_entry is not None,
+            'is_whitelisted': whitelist_entry is not None,
+            'blocked_id': blocked_entry.id if blocked_entry else None,
+            'whitelist_id': whitelist_entry.id if whitelist_entry else None,
+            'block_type': blocked_entry.block_type if blocked_entry else None,
+            'block_reason': blocked_entry.reason if blocked_entry else None,
+            'whitelist_reason': whitelist_entry.reason if whitelist_entry else None,
             'recent_incidents': [],
         })
 
@@ -84,7 +89,7 @@ def get_ip_history(ip_address):
     dominant_count = top_attack_types[0]['count'] if top_attack_types else 0
 
     now = datetime.utcnow()
-    diff_seconds = (now - last_seen).total_seconds()
+    diff_seconds = max(0, (now - last_seen).total_seconds())
     last_active_str = format_last_active(diff_seconds, lang)
     days_span = max(int(delta_days), 1)
     pattern_summary = build_pattern_summary(
@@ -99,9 +104,10 @@ def get_ip_history(ip_address):
         lang,
     )
 
-    # Cek status blocked / whitelisted
-    is_blocked = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=False).first() is not None
-    is_whitelisted = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=True).first() is not None
+    blocked_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=False).first()
+    whitelist_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=True).first()
+    is_blocked = blocked_entry is not None
+    is_whitelisted = whitelist_entry is not None
 
     # Recent incidents (max 10, sort desc created_at)
     recent = sorted(incidents, key=lambda i: i.created_at, reverse=True)[:10]
@@ -129,5 +135,10 @@ def get_ip_history(ip_address):
         'pattern_summary': pattern_summary,
         'is_blocked': is_blocked,
         'is_whitelisted': is_whitelisted,
+        'blocked_id': blocked_entry.id if blocked_entry else None,
+        'whitelist_id': whitelist_entry.id if whitelist_entry else None,
+        'block_type': blocked_entry.block_type if blocked_entry else None,
+        'block_reason': blocked_entry.reason if blocked_entry else None,
+        'whitelist_reason': whitelist_entry.reason if whitelist_entry else None,
         'recent_incidents': recent_incidents,
     })

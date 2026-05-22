@@ -57,30 +57,55 @@ def add_blocked():
     if not ip:
         return jsonify({'error': 'ip_address required'}), 400
 
+    is_whitelist = bool(data.get('is_whitelist', False))
     existing = BlockedIP.query.filter_by(ip_address=ip).first()
-    if existing:
+
+    if existing and not is_whitelist:
+        if existing.is_whitelist:
+            return jsonify({
+                'error': 'IP is whitelisted. Remove whitelist first or use whitelist endpoint.',
+            }), 409
         return jsonify({'error': 'IP already in list'}), 409
 
     block_type = data.get('block_type', 'permanent')
     expire_time = None
-    if block_type == 'temporary':
+    if block_type == 'temporary' and not is_whitelist:
         hours = int(data.get('hours', 24))
         expire_time = datetime.utcnow() + timedelta(hours=hours)
 
-    blocked = BlockedIP(
-        ip_address=ip,
-        reason=data.get('reason', 'Manual block'),
-        block_type=block_type,
-        expire_time=expire_time,
-        is_whitelist=data.get('is_whitelist', False),
-        created_by=data.get('created_by', 'admin'),
-    )
-    db.session.add(blocked)
-    db.session.commit()
-    log_audit('blocked_ip.add', resource_type='blocked_ip', resource_id=blocked.id, details={'ip': ip})
-    from app.core.response_manager import _write_blocked_ips_json
+    if existing and is_whitelist:
+        existing.is_whitelist = True
+        existing.reason = data.get('reason', 'Whitelisted — trusted IP')
+        existing.block_type = 'permanent'
+        existing.expire_time = None
+        existing.created_by = data.get('created_by', 'admin')
+        blocked = existing
+        db.session.commit()
+        log_audit('blocked_ip.whitelist', resource_type='blocked_ip', resource_id=blocked.id, details={'ip': ip})
+    else:
+        blocked = BlockedIP(
+            ip_address=ip,
+            reason=data.get('reason', 'Whitelisted — trusted IP' if is_whitelist else 'Manual block'),
+            block_type='permanent' if is_whitelist else block_type,
+            expire_time=expire_time,
+            is_whitelist=is_whitelist,
+            created_by=data.get('created_by', 'admin'),
+        )
+        db.session.add(blocked)
+        db.session.commit()
+        log_audit(
+            'blocked_ip.whitelist' if is_whitelist else 'blocked_ip.add',
+            resource_type='blocked_ip',
+            resource_id=blocked.id,
+            details={'ip': ip},
+        )
+
+    from app.core.response_manager import _write_blocked_ips_json, clear_rate_limit_entry
+    from app.core.detection_engine import get_redis_client
     _write_blocked_ips_json()
-    return jsonify(blocked.to_dict()), 201
+    if is_whitelist:
+        clear_rate_limit_entry(ip, get_redis_client())
+    return jsonify(blocked.to_dict()), 201 if not existing else 200
 
 
 @blocked_ips_bp.route('/<int:ip_id>', methods=['DELETE'])
@@ -88,6 +113,7 @@ def add_blocked():
 def unblock_ip(ip_id):
     blocked = BlockedIP.query.get_or_404(ip_id)
     ip_address = blocked.ip_address
+    was_whitelist = blocked.is_whitelist
     db.session.delete(blocked)
     db.session.commit()
     # BUG 3 FIX: Also remove from shared JSON file
@@ -113,8 +139,16 @@ def unblock_ip(ip_id):
         import logging
         logging.getLogger(__name__).warning(f"Could not reset detection state on unblock: {e}")
 
-    log_audit('blocked_ip.unblock', resource_type='blocked_ip', resource_id=ip_id, details={'ip': ip_address})
-    return jsonify({'message': 'IP unblocked'})
+    log_audit(
+        'blocked_ip.unwhitelist' if was_whitelist else 'blocked_ip.unblock',
+        resource_type='blocked_ip',
+        resource_id=ip_id,
+        details={'ip': ip_address},
+    )
+    return jsonify({
+        'message': 'Whitelist removed' if was_whitelist else 'IP unblocked',
+        'was_whitelist': was_whitelist,
+    })
 
 
 @blocked_ips_bp.route('/<int:ip_id>', methods=['PATCH'])

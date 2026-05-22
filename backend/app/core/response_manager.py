@@ -1,3 +1,8 @@
+"""
+RESPONSE MANAGER — severity → monitor / rate_limit / temporary_block / permanent_block.
+SIDANG Ctrl+F: respond, _write_blocked_ips_json, _apply_rate_limit
+Writes: blocked_ips.json, rate_limited.json (read by vuln-web middleware.security)
+"""
 import logging
 import os
 import json
@@ -172,7 +177,7 @@ class ResponseManager:
         self.db = db
         self.redis = redis_client
         self._app = app
-        self.temp_block_duration = int(os.getenv('TEMP_BLOCK_DURATION', 86400))
+        self.temp_block_duration = int(os.getenv('TEMP_BLOCK_DURATION', 86400))  # refreshed in respond()
 
     def _notify_async(self, incident_id: int, severity: str):
         """
@@ -204,6 +209,8 @@ class ResponseManager:
                 logger.warning(f"Notification failed: {e}")
 
     def respond(self, threat: dict, incident_id: int) -> dict:
+        from app.core.settings_reader import get_temp_block_duration
+        self.temp_block_duration = get_temp_block_duration()
         severity = threat.get('severity', 'low')
         ip = threat.get('ip', '')
         action = threat.get('recommended_action', 'log_and_monitor')
@@ -226,17 +233,33 @@ class ResponseManager:
             result['details'] = f'Rate limiting applied to {ip}. Max 10 req/min enforced.'
 
         elif action == 'temporary_block':
-            self._block_ip(ip, permanent=False, reason=f"Auto-blocked: {threat.get('attack_type')}")
-            expire = datetime.utcnow() + timedelta(seconds=self.temp_block_duration)
-            _write_blocked_ips_json()  # BUG 3 FIX
-            result['details'] = f'IP {ip} temporarily blocked until {expire.strftime("%Y-%m-%d %H:%M UTC")}.'
-            self._notify_async(incident_id, 'high')
+            self.db.session.expire_all()
+            ok = self._block_ip(ip, permanent=False, reason=f"Auto-blocked: {threat.get('attack_type')}")
+            if ok:
+                expire = datetime.utcnow() + timedelta(seconds=self.temp_block_duration)
+                _write_blocked_ips_json()
+                result['details'] = (
+                    f'IP {ip} temporarily blocked until {expire.strftime("%Y-%m-%d %H:%M UTC")}. '
+                    f'Next request from this IP should receive HTTP 403.'
+                )
+                self._notify_async(incident_id, 'high')
+            else:
+                result['action_taken'] = 'block_failed'
+                result['details'] = f'Incident logged but temporary block failed for {ip}. Check server logs.'
 
         elif action == 'permanent_block':
-            self._block_ip(ip, permanent=True, reason=f"Auto-blocked (CRITICAL): {threat.get('attack_type')}")
-            _write_blocked_ips_json()  # BUG 3 FIX
-            result['details'] = f'IP {ip} permanently blocked.'
-            self._notify_async(incident_id, 'critical')
+            self.db.session.expire_all()
+            ok = self._block_ip(ip, permanent=True, reason=f"Auto-blocked (CRITICAL): {threat.get('attack_type')}")
+            if ok:
+                _write_blocked_ips_json()
+                result['details'] = (
+                    f'IP {ip} permanently blocked. '
+                    f'Next request from this IP should receive HTTP 403.'
+                )
+                self._notify_async(incident_id, 'critical')
+            else:
+                result['action_taken'] = 'block_failed'
+                result['details'] = f'Incident logged but permanent block failed for {ip}. Check server logs.'
 
         self._save_incident_log(incident_id, result)
         return result
@@ -256,43 +279,42 @@ class ResponseManager:
             except Exception:
                 pass
 
-    def _block_ip(self, ip: str, permanent: bool, reason: str):
+    def _block_ip(self, ip: str, permanent: bool, reason: str) -> bool:
         from app.models import BlockedIP
         try:
-            # BUG 7 FIX: Always calculate expire_time correctly
             expire_time = None if permanent else (
                 datetime.utcnow() + timedelta(seconds=self.temp_block_duration)
             )
             existing = BlockedIP.query.filter_by(ip_address=ip).first()
             if existing:
-                existing.incident_count += 1
-                if permanent:
-                    existing.block_type = 'permanent'
-                    existing.expire_time = None
-                else:
-                    # Refresh temp block expiry
-                    existing.expire_time = expire_time
-                self.db.session.commit()
+                existing.is_whitelist = False
+                existing.reason = reason
+                existing.incident_count = (existing.incident_count or 0) + 1
+                existing.block_type = 'permanent' if permanent else 'temporary'
+                existing.expire_time = expire_time
+                existing.block_time = datetime.utcnow()
             else:
                 blocked = BlockedIP(
                     ip_address=ip,
                     reason=reason,
                     block_type='permanent' if permanent else 'temporary',
                     expire_time=expire_time,
+                    is_whitelist=False,
                 )
                 self.db.session.add(blocked)
-                self.db.session.commit()
+            self.db.session.commit()
 
-            # Also cache in Redis for fast lookup
             if self.redis:
                 ttl = -1 if permanent else self.temp_block_duration
                 if ttl > 0:
                     self.redis.setex(f"blocked:{ip}", ttl, '1')
                 else:
                     self.redis.set(f"blocked:{ip}", '1')
+            return True
         except Exception as e:
-            logger.error(f"Error blocking IP {ip}: {e}")
+            logger.error(f"Error blocking IP {ip}: {e}", exc_info=True)
             self.db.session.rollback()
+            return False
 
     def _save_incident_log(self, incident_id: int, result: dict):
         from app.models import IncidentLog

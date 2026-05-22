@@ -273,11 +273,13 @@ export default function BlockedIPs() {
   const formatTtl = (seconds) => {
     if (!seconds || seconds <= 0) {
       return (
-        <Chip
-          label={t('ipManagement.noTtl')}
-          size="small"
-          sx={{ bgcolor: sem.chipTemporary.bg, color: sem.chipTemporary.color, fontSize: '0.7rem' }}
-        />
+        <Tooltip title={t('ipManagement.noTtlHint')}>
+          <Chip
+            label={t('ipManagement.noTtl')}
+            size="small"
+            sx={{ bgcolor: sem.chipTemporary.bg, color: sem.chipTemporary.color, fontSize: '0.7rem' }}
+          />
+        </Tooltip>
       );
     }
     const mins = Math.floor(seconds / 60);

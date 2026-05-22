@@ -1,6 +1,6 @@
 # Scripts
 
-Jalankan dari **root proyek** (venv backend aktif). Detail: [../docs/TUTORIAL.md#skrip-utilitas](../docs/TUTORIAL.md#skrip-utilitas)
+Jalankan dari **root proyek** (venv backend aktif). Detail: [../docs/GUIDE.md](../docs/GUIDE.md) (bagian skrip utilitas)
 
 | File | Fungsi |
 |------|--------|

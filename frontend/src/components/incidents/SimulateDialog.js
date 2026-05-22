@@ -16,6 +16,7 @@ const ATTACK_TYPES = [
   { value: 'COMMAND_INJECTION', label: 'Command Injection', severity: 'Critical', desc: 'Simulates OS command injection' },
   { value: 'SCANNER', label: 'Security Scanner', severity: 'Medium', desc: 'Simulates automated vulnerability scanner' },
   { value: 'LFI_RFI', label: 'LFI/RFI', severity: 'Critical', desc: 'Simulates PHP file inclusion attack' },
+  { value: 'FILE_UPLOAD', label: 'File Upload', severity: 'High', desc: 'Simulates POST /files with uploaded filename in log' },
 ];
 
 const SEVERITY_COLORS = { Critical: '#ff1744', High: '#ff6d00', Medium: '#ffd600' };
@@ -93,7 +94,7 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
                     <Chip label="Realistic" size="small" sx={{ bgcolor: 'rgba(0,212,170,0.12)', color: '#00d4aa', fontSize: '0.65rem' }} />
                   </Box>
                   <Typography variant="caption" sx={{ color: 'text.secondary', pl: 3, display: 'block' }}>
-                    Writes a real log entry to access.log. Backend detects naturally through the full pipeline (~5s).
+                    Writes to access.log and runs the full detection pipeline immediately. Change IP if you see a duplicate warning.
                   </Typography>
                 </Box>
               }

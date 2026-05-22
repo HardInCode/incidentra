@@ -61,8 +61,10 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [whitelistDialogOpen, setWhitelistDialogOpen] = useState(false);
   const [blockType, setBlockType] = useState('permanent');
   const [blockHours, setBlockHours] = useState(24);
+  const [actionLoading, setActionLoading] = useState(false);
   const navigate = useNavigate();
 
   const refreshData = () => getIPHistory(ip, language).then((res) => setData(res.data));
@@ -93,17 +95,34 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
   };
 
   const handleWhitelist = async () => {
+    setActionLoading(true);
     try {
       await api.post('/blocked-ips/', {
         ip_address: ip,
-        reason: 'Whitelisted from IP history',
-        block_type: 'permanent',
+        reason: t('ipHistory.whitelistReasonDefault'),
         is_whitelist: true,
       });
-      toast.success(`IP ${ip} whitelisted`);
+      toast.success(t('ipHistory.whitelistSuccess', { ip }));
+      setWhitelistDialogOpen(false);
       await refreshData();
     } catch (e) {
-      toast.error(e.response?.data?.error || 'Failed to whitelist IP');
+      toast.error(e.response?.data?.error || t('ipHistory.whitelistFailed'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveWhitelist = async () => {
+    if (!data?.whitelist_id) return;
+    setActionLoading(true);
+    try {
+      await api.delete(`/blocked-ips/${data.whitelist_id}`);
+      toast.success(t('ipHistory.whitelistRemoved', { ip }));
+      await refreshData();
+    } catch (e) {
+      toast.error(e.response?.data?.error || t('ipHistory.whitelistRemoveFailed'));
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -185,6 +204,26 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
           ) : (
             <>
               <RiskScoreCard score={data.risk_score} t={t} />
+
+              {(data.is_whitelisted || data.is_blocked) && (
+                <Box sx={{
+                  p: 1.5, mb: 2, borderRadius: 2,
+                  bgcolor: data.is_whitelisted ? sem.alertSuccess.bg : sem.chipBlocked.bg,
+                  border: `1px solid ${data.is_whitelisted ? sem.alertSuccess.color : sem.chipBlocked.color}33`,
+                }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {data.is_whitelisted ? t('ipHistory.enforcementWhitelisted') : t('ipHistory.enforcementBlocked')}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.5 }}>
+                    {data.is_whitelisted
+                      ? t('ipHistory.whitelistExplain', { reason: data.whitelist_reason || '—' })
+                      : t('ipHistory.blockExplain', {
+                        type: data.block_type || 'block',
+                        reason: data.block_reason || '—',
+                      })}
+                  </Typography>
+                </Box>
+              )}
 
               <Box sx={{
                 p: 2, borderRadius: 2,
@@ -325,13 +364,16 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
               variant="outlined"
               color="primary"
               startIcon={<OpenInNew sx={{ fontSize: iconSize.inline }} />}
-              onClick={() => { navigate(`/incidents?search=${ip}`); onClose(); }}
+              onClick={() => {
+                navigate(`/incidents/all?search=${encodeURIComponent(ip)}`);
+                onClose();
+              }}
               sx={{ fontSize: '0.78rem' }}
             >
               {t('ipHistory.viewAll')}
             </Button>
 
-            {isAdmin && !data.is_blocked && (
+            {isAdmin && !data.is_blocked && !data.is_whitelisted && (
               <Button
                 size="small"
                 variant="outlined"
@@ -343,13 +385,25 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
                 {t('ipHistory.blockIp')}
               </Button>
             )}
+            {isAdmin && data.is_whitelisted && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                disabled={actionLoading}
+                onClick={handleRemoveWhitelist}
+                sx={{ fontSize: '0.78rem' }}
+              >
+                {t('ipHistory.removeWhitelist')}
+              </Button>
+            )}
             {isAdmin && !data.is_whitelisted && (
               <Button
                 size="small"
                 variant="outlined"
                 color="success"
                 startIcon={<CheckCircle sx={{ fontSize: iconSize.inline }} />}
-                onClick={handleWhitelist}
+                onClick={() => setWhitelistDialogOpen(true)}
                 sx={{ fontSize: '0.78rem' }}
               >
                 {t('ipHistory.whitelist')}
@@ -358,6 +412,26 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
           </Box>
         )}
       </Drawer>
+
+      <Dialog open={whitelistDialogOpen} onClose={() => setWhitelistDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('ipHistory.whitelistTitle', { ip })}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+            {t('ipHistory.whitelistConfirm')}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWhitelistDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleWhitelist}
+            disabled={actionLoading}
+          >
+            {t('ipHistory.whitelistApply')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={blockDialogOpen} onClose={() => setBlockDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('ipHistory.blockTitle', { ip })}</DialogTitle>

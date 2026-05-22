@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel panel-wide">
+    <header class="page-head page-head--tight">
+      <h1>Search products</h1>
+      <p>Find coffee, honey, crafts, and more.</p>
+    </header>
+
+    {% set lab_text = "SQLi + XSS — try <code>&lt;script&gt;alert(document.cookie)&lt;/script&gt;</code>" %}
+    {% include "partials/lab_hint.html" %}
+
+    <form method="get" class="form-stack">
+      <div>
+        <label for="q">Keywords</label>
+        <input id="q" name="q" type="search" placeholder="coffee, honey, tote…" value="{{ q }}">
+      </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+
+    {% if results_html %}{{ results_html|safe }}{% endif %}
+  </div>
+</div>
+{% endblock %}

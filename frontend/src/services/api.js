@@ -1,3 +1,7 @@
+/**
+ * SOC REST client — JWT from localStorage.
+ * SIDANG: rules CRUD, settings, traffic, incidents, blocked IPs.
+ */
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -17,7 +21,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status;
+    const url = err.config?.url || '';
+    const isLoginAttempt = url.includes('/auth/login');
+
+    // Wrong password on login returns 401 — do not hard-redirect (that reloads the page and clears the error Alert).
+    if (status === 401 && !isLoginAttempt) {
       localStorage.removeItem('sme_token');
       window.location.href = '/login';
     }

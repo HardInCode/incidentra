@@ -1,3 +1,8 @@
+"""
+DETECTION RULES API — CRUD for detection_rules; sets Redis rules_dirty on write.
+SIDANG Ctrl+F: update_rule (is_active toggle), create_rule
+Pairs with: detection_engine._load_rules_from_db
+"""
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import DetectionRule, SeverityLevel

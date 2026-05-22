@@ -1,0 +1,19 @@
+<details class="lab-panel">
+  <summary>Incidentra SOC security lab (testing only)</summary>
+  <div class="lab-panel-body">
+    <p class="lab-intro">This app is <strong>intentionally vulnerable</strong> for capstone demos. Browsing the shop (catalog, cart, static files) is normal traffic in Live Traffic.</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>Endpoint</th><th>Weakness</th><th>Sample payload</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="{{ url_for('auth.login') }}">/login</a></td><td>SQL injection</td><td><code>admin' OR '1'='1' --</code></td></tr>
+        <tr><td><a href="{{ url_for('shop.search') }}">/search</a></td><td>XSS + SQLi</td><td><code>&lt;script&gt;alert(1)&lt;/script&gt;</code></td></tr>
+        <tr><td><a href="{{ url_for('profile.profile') }}">/profile</a></td><td>XSS + unsafe avatar upload</td><td><code>?name=...</code> or upload <code>shell.php</code> as photo</td></tr>
+        <tr><td><a href="{{ url_for('files.files') }}">/files</a></td><td>Path traversal / LFI</td><td><code>?file=../../etc/passwd</code></td></tr>
+        <tr><td><a href="{{ url_for('files.files') }}">/files</a> POST</td><td>Unrestricted upload</td><td>Upload <code>shell.php</code> → incident; <code>notes.txt</code> → log only</td></tr>
+        <tr><td><a href="{{ url_for('cmd.cmd') }}">/cmd</a></td><td>Command injection</td><td><code>?cmd=; whoami</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>

@@ -3,7 +3,7 @@
 Dokumen ini untuk **deploy nilai tambah**: sistem jalan di **server asli** (VPS/VM), diakses lewat IP/domain — bukan production penuh (HTTPS/WAF opsional).
 
 **Repo:** [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)  
-Lihat juga: [TUTORIAL.md](TUTORIAL.md), [APPLICATION.md](APPLICATION.md), [GITHUB.md](GITHUB.md).
+Lihat juga: [../GUIDE.md](../GUIDE.md), [../ARCHITECTURE.md](../ARCHITECTURE.md), [GITHUB.md](GITHUB.md).
 
 ---
 
@@ -92,7 +92,7 @@ docker compose logs backend --tail 20
 
 | URL | Isi |
 |-----|-----|
-| `http://IP_SERVER:3000` | Login SOC (`admin` / `Admin@SMEGuard2026!`) |
+| `http://IP_SERVER:3000` | Login SOC (`admin` / `Admin@Incidentra2026!`) |
 | `http://IP_SERVER:5050` | Vuln-web (target serangan) |
 | `http://IP_SERVER:5000/api/dashboard/stats` | Bukti API hidup (butuh token jika protected) |
 
@@ -127,7 +127,7 @@ Yang perlu diubah:
 Tetap valid untuk nilai tambah:
 
 1. Install PostgreSQL, Redis, Python 3.11, Node 18 di VPS  
-2. Ikuti [TUTORIAL.md](TUTORIAL.md) Opsi B, dengan `.env` backend:
+2. Ikuti [../GUIDE.md](../GUIDE.md) Opsi B, dengan `.env` backend:
 
 ```env
 DATABASE_URL=postgresql://smeguard:smeguard123@localhost:5432/smeguard_db
@@ -164,7 +164,7 @@ Jalankan dengan `screen`/`tmux` atau systemd — untuk capstone, `tmux` 3 pane s
 | `frontend/Dockerfile` | Build React → nginx |
 | Volume `vuln_logs` | `access.log` + JSON blokir dibagi backend ↔ vuln-web |
 
-**Di laptop Windows:** sama, pakai Docker Desktop — lihat [TUTORIAL.md](TUTORIAL.md) Opsi A.
+**Di laptop Windows:** sama, pakai Docker Desktop — lihat [../GUIDE.md](../GUIDE.md) Opsi A.
 
 ---
 

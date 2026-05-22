@@ -23,7 +23,8 @@ def _check_auth():
 
 
 def _window_seconds():
-    return int(os.getenv('RATE_LIMIT_WINDOW', 60))
+    from app.core.settings_reader import get_rate_limit_window
+    return get_rate_limit_window()
 
 
 def _max_requests():

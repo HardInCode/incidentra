@@ -11,6 +11,11 @@ Usage:
   python scripts/reset_smeguard.py --clear-logs → Juga kosongkan access.log
   python scripts/reset_smeguard.py --reset-all  → Reset DB + Redis + JSON + Settings DB
 
+Docker (via reset_smeguard_docker.ps1 — jangan panggil --docker-internal manual):
+  .\scripts\reset_smeguard_docker.ps1
+  .\scripts\reset_smeguard_docker.ps1 -ClearLogs
+  .\scripts\reset_smeguard_docker.ps1 -ResetAll
+
 Run dari root project.
 """
 import argparse
@@ -23,6 +28,11 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BACKEND_DIR = os.path.join(PROJECT_ROOT, "backend")
 VULN_WEB_DIR = os.path.join(PROJECT_ROOT, "vuln-web")
 
+# docker compose run: backend mounted at /app, script at /scripts
+if os.path.isfile(os.path.join("/app", "run.py")):
+    BACKEND_DIR = "/app"
+    PROJECT_ROOT = "/"
+
 # Load .env dari backend
 sys.path.insert(0, BACKEND_DIR)
 try:
@@ -30,6 +40,15 @@ try:
     load_dotenv(os.path.join(BACKEND_DIR, ".env"))
 except ImportError:
     pass
+
+DOCKER_DATABASE_URL = "postgresql://smeguard:smeguard123@postgres:5432/smeguard_db"
+DOCKER_REDIS_URL    = "redis://redis:6379/0"
+
+
+def configure_docker_urls():
+    """Override DATABASE_URL & REDIS_URL ke hostname Compose (postgres, redis)."""
+    os.environ["DATABASE_URL"] = DOCKER_DATABASE_URL
+    os.environ["REDIS_URL"]    = DOCKER_REDIS_URL
 
 
 def get_db_url():
@@ -122,30 +141,36 @@ def reset_redis():
         return False
 
 
-def reset_json_files():
+def reset_json_files(docker_internal: bool = False):
     """
     Reset blocked_ips.json dan rate_limited.json ke struktur kosong.
 
-    Canonical path (local dev): vuln-web/logs/blocked_ips.json (same as access.log).
-    Docker: lihat docker-compose (setup manual belum memakai Docker).
+    Docker:  PS1 mount vuln-web/logs ke /vuln-web/logs di dalam container.
+    Manual:  resolve dari BACKEND_DIR atau env BLOCKED_IPS_JSON_PATH.
     """
     blocked_data = {"blocked": [], "details": {}, "updated_at": ""}
     rate_data = {"rate_limited": [], "updated_at": ""}
 
-    # Backend .env: BLOCKED_IPS_JSON_PATH=../vuln-web/logs/blocked_ips.json
-    backend_blocked = os.getenv("BLOCKED_IPS_JSON_PATH", "../vuln-web/logs/blocked_ips.json")
-    backend_rate = os.getenv("RATE_LIMITED_JSON_PATH", "../vuln-web/logs/rate_limited.json")
+    if docker_internal:
+        # Path di dalam container (di-mount oleh PS1: -v .../vuln-web/logs:/vuln-web/logs)
+        paths_to_reset = [
+            ("/vuln-web/logs/blocked_ips.json", blocked_data),
+            ("/vuln-web/logs/rate_limited.json", rate_data),
+        ]
+    else:
+        backend_blocked = os.getenv("BLOCKED_IPS_JSON_PATH", "../vuln-web/logs/blocked_ips.json")
+        backend_rate = os.getenv("RATE_LIMITED_JSON_PATH", "../vuln-web/logs/rate_limited.json")
 
-    def resolve_backend_path(rel_path):
-        """Resolve path relative to backend dir (e.g. ../vuln-web/blocked_ips.json)."""
-        return os.path.normpath(os.path.join(BACKEND_DIR, rel_path))
+        def resolve_backend_path(rel_path):
+            return os.path.normpath(os.path.join(BACKEND_DIR, rel_path))
 
-    paths_to_reset = [
-        (resolve_backend_path(backend_blocked), blocked_data),
-        (resolve_backend_path(backend_rate), rate_data),
-        (os.path.join(VULN_WEB_DIR, "logs", "blocked_ips.json"), blocked_data),
-        (os.path.join(VULN_WEB_DIR, "logs", "rate_limited.json"), rate_data),
-    ]
+        paths_to_reset = [
+            (resolve_backend_path(backend_blocked), blocked_data),
+            (resolve_backend_path(backend_rate), rate_data),
+            (os.path.join(VULN_WEB_DIR, "logs", "blocked_ips.json"), blocked_data),
+            (os.path.join(VULN_WEB_DIR, "logs", "rate_limited.json"), rate_data),
+        ]
+
     # Deduplicate by path (same file may appear twice)
     seen = set()
     unique_paths = []
@@ -158,7 +183,7 @@ def reset_json_files():
 
     ok = True
     for path, data in unique_paths:
-        if path.startswith("/app/"):
+        if not docker_internal and path.startswith("/app/"):
             print(f"[SKIP] {path} adalah Docker path, skip (Docker pakai volume).")
             continue
         try:
@@ -172,31 +197,34 @@ def reset_json_files():
     return ok
 
 
-def clear_access_log():
+def clear_access_log(docker_internal: bool = False):
     """Kosongkan access.log vuln-web."""
-    # Default local dev path
-    log_path = os.path.join(VULN_WEB_DIR, "logs", "access.log")
+    if docker_internal:
+        log_path = "/vuln-web/logs/access.log"
+    else:
+        # Default local dev path
+        log_path = os.path.join(VULN_WEB_DIR, "logs", "access.log")
 
-    # Support env override
-    env_log = os.getenv("VULN_LOG_FILE", "")
-    if env_log:
-        if os.path.isabs(env_log):
-            log_path = env_log
-        else:
-            log_path = os.path.join(VULN_WEB_DIR, env_log)
+        # Support env override
+        env_log = os.getenv("VULN_LOG_FILE", "")
+        if env_log:
+            if os.path.isabs(env_log):
+                log_path = env_log
+            else:
+                log_path = os.path.join(VULN_WEB_DIR, env_log)
 
-    # Skip Docker paths
-    if log_path.startswith("/app/"):
-        print(f"[SKIP] {log_path} adalah Docker path, skip.")
-        return True
+        # Skip Docker paths saat mode manual
+        if log_path.startswith("/app/"):
+            print(f"[SKIP] {log_path} adalah Docker path, skip.")
+            return True
 
     try:
         if os.path.exists(log_path):
             with open(log_path, "w") as f:
                 f.write("")
-            print(f"[OK] access.log dikosongkan: {os.path.relpath(log_path, PROJECT_ROOT)}")
+            print(f"[OK] access.log dikosongkan: {log_path}")
         else:
-            print(f"[INFO] access.log belum ada: {os.path.relpath(log_path, PROJECT_ROOT)}")
+            print(f"[INFO] access.log belum ada: {log_path}")
         return True
     except Exception as e:
         print(f"[ERROR] access.log: {e}")
@@ -212,6 +240,11 @@ Contoh:
   python scripts/reset_smeguard.py                  # Reset incidents + Redis + JSON
   python scripts/reset_smeguard.py --clear-logs     # + kosongkan access.log
   python scripts/reset_smeguard.py --reset-all      # + hapus app_settings (API keys hilang!)
+
+Docker (gunakan PS1):
+  .\\scripts\\reset_smeguard_docker.ps1
+  .\\scripts\\reset_smeguard_docker.ps1 -ClearLogs
+  .\\scripts\\reset_smeguard_docker.ps1 -ResetAll
         """
     )
     parser.add_argument(
@@ -224,11 +257,20 @@ Contoh:
         action="store_true",
         help="Reset SEMUA termasuk app_settings (API keys, SMTP, Telegram config akan hilang!)",
     )
+    parser.add_argument(
+        "--docker-internal",
+        action="store_true",
+        help="Pakai hostname Compose (postgres, redis) — otomatis diset oleh reset_smeguard_docker.ps1",
+    )
     args = parser.parse_args()
 
     print("=" * 50)
     print("SME-Guard Reset Script")
     print("=" * 50)
+
+    if args.docker_internal:
+        configure_docker_urls()
+        print("Mode: Docker Compose (hostname postgres & redis)")
 
     if args.reset_all:
         print("⚠️  MODE --reset-all: app_settings (API keys dll) akan dihapus!")
@@ -236,12 +278,12 @@ Contoh:
 
     r1 = reset_database()
     r2 = reset_redis()
-    r3 = reset_json_files()
+    r3 = reset_json_files(docker_internal=args.docker_internal)
     r4 = True
     r5 = True
 
     if args.clear_logs:
-        r4 = clear_access_log()
+        r4 = clear_access_log(docker_internal=args.docker_internal)
 
     if args.reset_all:
         r5 = reset_app_settings()
@@ -250,6 +292,8 @@ Contoh:
     all_ok = r1 and r2 and r3 and r4 and r5
     if all_ok:
         print("✅ Reset selesai. Restart backend untuk mulai dari awal.")
+        if args.docker_internal:
+            print("   docker compose restart backend")
         if not args.reset_all:
             print("   (app_settings/konfigurasi API keys tetap tersimpan)")
     else:

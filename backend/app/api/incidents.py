@@ -1,3 +1,7 @@
+"""
+INCIDENTS API — list/detail, status, notes, AI explanation trigger, simulate/export.
+SIDANG Ctrl+F: trigger_explanation, simulate
+"""
 from flask import Blueprint, request, jsonify
 import logging
 import json
@@ -66,6 +70,12 @@ def _apply_incident_filters(query, args):
                 pass
         if enums:
             query = query.filter(Incident.status.in_(enums))
+    # Explicit export/list scope from SOC pages (ongoing vs all archive)
+    list_scope = (args.get('list_scope') or '').strip().lower()
+    if list_scope == 'ongoing' and not status and not status_in:
+        query = query.filter(
+            Incident.status.in_([IncidentStatus.NEW, IncidentStatus.INVESTIGATING])
+        )
     if attack_type:
         query = query.filter(Incident.attack_type == attack_type)
     if search:

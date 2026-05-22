@@ -1,6 +1,6 @@
 # SME-Guard — Materi belajar
 
-Konsep untuk capstone / sidang. Tutorial: [TUTORIAL.md](TUTORIAL.md) · Arsitektur: [APPLICATION.md](APPLICATION.md)
+Konsep untuk capstone / sidang. Guide: [../GUIDE.md](../GUIDE.md) · Arsitektur: [../ARCHITECTURE.md](../ARCHITECTURE.md) · Audit: [../AUDIT.md](../AUDIT.md)
 
 ---
 
@@ -43,7 +43,7 @@ Dashboard `:3000` memanggil API lewat JavaScript **dengan** token. Jika grafik t
 **PowerShell:**
 
 ```powershell
-$body = '{"username":"admin","password":"Admin@SMEGuard2026!"}'
+$body = '{"username":"admin","password":"Admin@Incidentra2026!"}'
 $r = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method POST -Body $body -ContentType "application/json"
 Invoke-RestMethod -Uri "http://localhost:5000/api/dashboard/stats" -Headers @{ Authorization = "Bearer $($r.token)" }
 ```
@@ -52,7 +52,7 @@ Invoke-RestMethod -Uri "http://localhost:5000/api/dashboard/stats" -Headers @{ A
 
 ## 4. Admin vs analyst
 
-JWT berisi `role`. Bulk resolve & audit = admin saja. Detail: [APPLICATION.md](APPLICATION.md).
+JWT berisi `role`. Bulk resolve & audit = admin saja. Detail: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ---
 
@@ -64,7 +64,7 @@ Request vuln-web → access.log → DetectionEngine → Incident (PostgreSQL)
 → vuln-web baca JSON → 403 / 429
 ```
 
-Severity → respons: [AUDIT_2026-05-19.md](AUDIT_2026-05-19.md) (tabel awal).
+Severity → respons: [AUDIT.md](../AUDIT.md) (tabel awal).
 
 ---
 
@@ -93,7 +93,7 @@ Itu **konsisten** dengan Bab 3 yang menyatakan rate limit di Redis/JSON.
 
 Normal dalam capstone. Cara mengelolanya:
 
-1. **Freeze scope sidang** — daftar “wajib demo” (lihat [AUDIT_2026-05-19.md](AUDIT_2026-05-19.md)); sisanya backlog.
+1. **Freeze scope sidang** — daftar “wajib demo” (lihat [AUDIT.md](../AUDIT.md)); sisanya backlog.
 2. **Dokumentasikan keputusan** — mis. “Rate limit tidak di DB karena …” (1 paragraf di laporan Bab 4).
 3. **Jangan chase perfection** — IP Management + Docker + audit manual/Burp sudah di atas rata-rata untuk UKM SOC lab.
 4. **Backlog eksplisit** di laporan: notification bell, korelasi insiden, migrasi Alembic — bukan “lupa”, tapi “future work”.

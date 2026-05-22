@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel">
+    <header class="page-head page-head--tight">
+      <h1>User profile</h1>
+      <p>Display name and profile photo (demo).</p>
+    </header>
+
+    {% if avatar_message %}
+    <div class="alert alert-success">{{ avatar_message }}</div>
+    {% endif %}
+
+    <p class="profile-greeting">Hello, {{ name|safe }}!</p>
+
+    <form method="get" class="form-stack form-stack--compact">
+      <div>
+        <label for="name">Display name</label>
+        <input id="name" name="name" type="text" placeholder="Your name" value="{{ name }}">
+      </div>
+      <button type="submit" class="btn btn-secondary">Update name</button>
+    </form>
+
+    <section class="profile-upload-section">
+      <h3 class="files-section-title">Profile photo</h3>
+      {% set lab_text = "Like many CTF/profile apps: <strong>no extension or size filter</strong> — try <code>shell.php</code> as “photo”. Reflected XSS: <code>?name=&lt;img src=x onerror=alert(1)&gt;</code>" %}
+      {% include "partials/lab_hint.html" %}
+      <form method="post" enctype="multipart/form-data" class="form-stack">
+        <input type="hidden" name="name" value="{{ name }}">
+        <div>
+          <label for="avatar">Upload photo</label>
+          <input id="avatar" name="avatar" type="file" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primary">Save photo</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

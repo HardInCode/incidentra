@@ -145,6 +145,8 @@
     "empty": "No incidents found — try adjusting filters",
     "exportTitle": "Export incidents (CSV)",
     "exportHint": "Uses current severity, status, attack type, and search filters. Choose a date range below.",
+    "exportHintOngoing": "Exports open incidents only (New + Investigating). Resolved tickets are excluded — use All Incidents page for full archive export.",
+    "exportHintAll": "Exports all statuses including Resolved and False positive. Uses current filters and date range below.",
     "downloadCsv": "Download CSV",
     "exporting": "Exporting…"
   },
@@ -205,7 +207,8 @@
     "extendSuccess": "Rate limit extended for {{ip}}",
     "extendFailed": "Failed to extend rate limit",
     "ttlRemaining": "{{time}} left",
-    "noTtl": "JSON only (no Redis TTL)"
+    "noTtl": "Listed in rate_limited.json only",
+    "noTtlHint": "Redis TTL is missing (worker restart or Redis unavailable). vuln-web still enforces using the JSON file and window/max settings."
   },
   "notifications": {
     "title": "Alerts",
@@ -240,6 +243,8 @@
     "colSeverity": "Severity",
     "colPattern": "Pattern (excerpt)",
     "colMatches": "Matches",
+    "labModeOn": "Lab mode ON: only active UI rules are used (OWASP baseline disabled). Save Settings if you changed the toggle.",
+    "baselineActive": "Production mode: active UI rules plus built-in OWASP baseline patterns in detection_engine.py (toggle Lab mode in Settings for capstone demos).",
     "colActive": "Active",
     "edit": "Edit",
     "delete": "Delete",
@@ -249,7 +254,11 @@
     "pattern": "Regex Pattern",
     "description": "Description",
     "update": "Update",
-    "create": "Create"
+    "create": "Create",
+    "detectionInfo": "Detection mode info"
+  },
+  "chatbot": {
+    "dragHint": "Drag to move · Click to open"
   },
   "traffic": {
     "title": "Live Traffic",
@@ -271,7 +280,9 @@
     "colStatus": "STATUS",
     "colTag": "TAG",
     "empty": "No traffic yet — try visiting http://localhost:5050 (or your vuln-web URL)",
-    "loadError": "Failed to load traffic. Check if backend is running."
+    "tagHint": "Tags are heuristic (pattern match on log lines). A row tagged Attack may still show HTTP 200 until the next request after SOC blocks the IP. Confirm enforcement under Incidents / Blocked IPs.",
+    "loadError": "Failed to load traffic. Check if backend is running.",
+    "hideStatic": "Hide static assets (CSS/JS)"
   },
   "audit": {
     "title": "Audit Log",
@@ -320,7 +331,8 @@
     "automatedActions": "Automated Actions",
     "notes": "Investigation Notes",
     "addNotePlaceholder": "Add a note...",
-    "add": "Add"
+    "add": "Add",
+    "modelTooltip": "Model that produced this explanation: {{model}}. If API fails, shows fallback-static. Settings → Model is tried first, then other Groq models automatically."
   },
   "settings": {
     "title": "Settings",
@@ -367,7 +379,12 @@
     "bruteForceHint": "Failed login attempts before blocking",
     "tempBlock": "Temp Block Duration (hours)",
     "tempBlockHint": "Hours for temporary block",
-    "rateLimit": "Rate Limit Window (seconds)"
+    "rateLimit": "Rate Limit Window (seconds)",
+    "thresholdsHint": "Saved to the database and applied on the next log analysis (within ~60s). Brute force uses failed POST /login count; temp block applies to high-severity auto-blocks.",
+    "labModeTitle": "Detection Lab Mode",
+    "labModeLabel": "Use only active rules from Detection Rules (disable OWASP baseline)",
+    "labModeHint": "Default OFF for production-style demos. When ON, attacks are detected only if they match an active rule in the UI — useful to prove custom regex (e.g. lorem ipsum SQLi). AI assistant is unchanged.",
+    "groqTestHint": "Tests your API key with the selected Model above (not every model in the list). Incident explanations try the selected model first, then fall back to other Groq models if needed."
   },
   "ipHistory": {
     "title": "IP History",
@@ -389,10 +406,23 @@
     "noIncidents": "No incidents found for this IP.",
     "viewAll": "View All Incidents",
     "blockIp": "Block IP",
-    "whitelist": "Whitelist",
+    "whitelist": "Trust IP (whitelist)",
     "blocked": "Blocked",
     "whitelisted": "Whitelisted",
     "active": "Active",
+    "whitelistTitle": "Trust {{ip}}?",
+    "whitelistConfirm": "Marks this IP as trusted: it will not be written to blocked_ips.json, rate limits are cleared, and automatic detection will skip new incidents for this IP. Use for known admin gateways or false positives.",
+    "whitelistApply": "Apply whitelist",
+    "whitelistSuccess": "{{ip}} is now whitelisted (trusted)",
+    "whitelistFailed": "Failed to whitelist IP",
+    "whitelistRemoved": "Whitelist removed for {{ip}}",
+    "whitelistRemoveFailed": "Failed to remove whitelist",
+    "removeWhitelist": "Remove whitelist",
+    "whitelistReasonDefault": "Whitelisted from IP history — trusted IP",
+    "enforcementWhitelisted": "SOC action: Whitelisted",
+    "enforcementBlocked": "SOC action: Blocked",
+    "whitelistExplain": "Trusted IP — not auto-blocked on vuln-web. Detection skipped. Reason: {{reason}}",
+    "blockExplain": "{{type}} block active on vuln-web (403). Reason: {{reason}}",
     "blockTitle": "Block {{ip}}",
     "permanent": "Permanent",
     "temporary": "Temporary",
@@ -400,12 +430,18 @@
     "block": "Block",
     "loadFailed": "Failed to load IP history"
   },
+  "brand": {
+    "name": "Incidentra",
+    "tagline": "Intelligent Web SOC Platform",
+    "full": "Incidentra SOC"
+  },
   "login": {
-    "title": "SME-Guard",
-    "subtitle": "Web SOC Platform",
+    "title": "Incidentra",
+    "subtitle": "Intelligent Web SOC Platform",
     "signIn": "Sign In",
     "username": "Username",
     "password": "Password",
-    "defaultCreds": "Default credentials:"
+    "defaultCreds": "Default credentials:",
+    "invalidCredentials": "Invalid username or password."
   }
 }

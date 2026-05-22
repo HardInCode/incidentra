@@ -125,16 +125,27 @@ def get_stats():
 @dashboard_bp.route('/log-status', methods=['GET'])
 def log_status():
     """Return when the last log entry was received — for frontend warning banner."""
-    from app.core.log_monitor import last_log_received_at
+    from app.core.log_monitor import get_last_log_received_at, get_log_file_last_activity
+    from app.core.detection_engine import get_redis_client
+
     now = datetime.utcnow()
-    if last_log_received_at is None:
+    redis_client = get_redis_client()
+
+    candidates = [
+        get_last_log_received_at(redis_client),
+        get_log_file_last_activity(),
+    ]
+    last_at = max((t for t in candidates if t is not None), default=None)
+
+    if last_at is None:
         seconds_since = None
         stale = True
     else:
-        seconds_since = int((now - last_log_received_at).total_seconds())
-        stale = seconds_since > 60  # warn if no log in 60s
+        seconds_since = int((now - last_at).total_seconds())
+        stale = seconds_since > 60
+
     return jsonify({
-        'last_received_at': last_log_received_at.isoformat() if last_log_received_at else None,
+        'last_received_at': (last_at.isoformat() + 'Z') if last_at else None,
         'seconds_since_last_log': seconds_since,
         'stale': stale,
     })

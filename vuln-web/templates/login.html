@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel">
+    <header class="page-head page-head--tight">
+      <h1>Sign in</h1>
+      <p>Manage orders and your shop profile.</p>
+    </header>
+
+    {% set lab_text = "SQL injection — try <code>admin' OR '1'='1' --</code>" %}
+    {% include "partials/lab_hint.html" %}
+
+    <form method="post" class="form-stack">
+      <div>
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="admin or john" value="{{ username }}">
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="text" placeholder="Shown for demo only">
+      </div>
+      <button type="submit" class="btn btn-primary">Sign in</button>
+    </form>
+
+    {% if result %}{{ result|safe }}{% endif %}
+  </div>
+</div>
+{% endblock %}

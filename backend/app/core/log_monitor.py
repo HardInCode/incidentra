@@ -1,3 +1,8 @@
+"""
+LOG MONITOR — tail access.log → parse → detect → incident → block.
+SIDANG Ctrl+F: ingest_log_lines, _process_log_line, start_monitor
+See: log_parser.parse_log_line, detection_engine.DetectionEngine.analyze, response_manager.respond
+"""
 import threading
 import logging
 import os
@@ -9,8 +14,47 @@ logger = logging.getLogger(__name__)
 _monitor_thread: Optional[threading.Thread] = None
 _running = False
 
-# Track last log entry time for frontend warning banner
+# Track last log entry time for frontend warning banner (in-process; Docker also uses Redis).
 last_log_received_at: Optional[datetime] = None
+LOG_HEARTBEAT_REDIS_KEY = 'log_monitor:last_received_at'
+
+
+def touch_last_log_received(redis_client=None) -> datetime:
+    """Record log activity — shared across Gunicorn workers via Redis (Docker)."""
+    global last_log_received_at
+    now = datetime.utcnow()
+    last_log_received_at = now
+    if redis_client:
+        try:
+            redis_client.set(LOG_HEARTBEAT_REDIS_KEY, now.isoformat() + 'Z', ex=86400)
+        except Exception as e:
+            logger.debug(f"log heartbeat redis: {e}")
+    return now
+
+
+def get_last_log_received_at(redis_client=None) -> Optional[datetime]:
+    """Read heartbeat: Redis first (log monitor subprocess), then in-process (manual run.py)."""
+    if redis_client:
+        try:
+            raw = redis_client.get(LOG_HEARTBEAT_REDIS_KEY)
+            if raw:
+                s = raw.decode() if isinstance(raw, bytes) else str(raw)
+                s = s.rstrip('Z')
+                return datetime.fromisoformat(s)
+        except Exception as e:
+            logger.debug(f"log heartbeat read: {e}")
+    return last_log_received_at
+
+
+def get_log_file_last_activity() -> Optional[datetime]:
+    """Fallback: mtime of access.log when monitor runs in another process."""
+    try:
+        path = resolve_web_log_path()
+        if path and os.path.isfile(path):
+            return datetime.utcfromtimestamp(os.path.getmtime(path))
+    except Exception:
+        pass
+    return None
 
 
 def resolve_web_log_path(config_path: Optional[str] = None) -> str:
@@ -24,15 +68,17 @@ def resolve_web_log_path(config_path: Optional[str] = None) -> str:
 
 def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Optional[int]:
     """Parse one line, run detection, create incident if needed. Returns incident id or None."""
-    global last_log_received_at
     from app.core.log_parser import parse_log_line
     from app.models import Incident, SeverityLevel, IncidentStatus, DetectionRule
+
+    if not line or not line.strip():
+        return None
+
+    touch_last_log_received(redis_client)
 
     entry = parse_log_line(line)
     if not entry:
         return None
-
-    last_log_received_at = datetime.utcnow()
 
     threat = engine.analyze(entry)
     if not threat:
@@ -95,11 +141,7 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
 
     responder.respond(threat, incident.id)
 
-    try:
-        from app.services.ai_service import generate_explanation_task
-        generate_explanation_task.delay(incident.id)
-    except Exception as e:
-        logger.warning(f"AI task error: {e}")
+    # AI explanation is on-demand only (POST /api/incidents/<id>/explain) — not auto-generated.
 
     from app.services.threat_intel_service import _do_reputation_check
     from app.services.notification_service import _get_setting
@@ -154,7 +196,7 @@ def start_monitor(app, db, redis_client=None):
         return
 
     _running = True
-    last_log_received_at = datetime.utcnow()
+    touch_last_log_received(redis_client)
 
     def _run():
         from app.core.log_parser import LogTailer, SimulatedLogFeeder

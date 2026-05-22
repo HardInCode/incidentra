@@ -9,7 +9,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ─── OWASP-based Detection Patterns ──────────────────────────────────────────
+# ─── OWASP BASELINE PATTERNS (hardcoded, not AI) ─────────────────────────────
+# SIDANG / Ctrl+F: search "OWASP_BASELINE_PATTERNS" or "DETECTION_PATTERNS"
+# File: backend/app/core/detection_engine.py
+# These regexes are merged after DB rules UNLESS Settings → Lab mode (UI rules only).
+# AI explanations are separate: backend/app/services/ai_service.py (Groq fallback).
+# ─────────────────────────────────────────────────────────────────────────────
 
 DETECTION_PATTERNS = {
     'SQL_INJECTION': {
@@ -56,9 +61,22 @@ DETECTION_PATTERNS = {
             r"(?i)(\/etc\/passwd|\/etc\/shadow|\/etc\/hosts|\/windows\/system32)",
             r"(?i)(boot\.ini|win\.ini|system\.ini)",
             r"(?i)(%252e%252e|%c0%ae|%c0%af)",
+            r"(?i)(blocked_ips\.json|rate_limited\.json)",
+            r"(?i)([/\\]logs[/\\])",
+            r"(?i)(\?file=|[&;]\s*file=)[a-zA-Z]:[/\\]",
         ],
         'severity': 'high',
         'mitre': 'T1083 - File and Directory Discovery',
+    },
+    'FILE_UPLOAD': {
+        # Incident only for dangerous filenames (unfiltered upload risk), not benign .txt/.pdf.
+        'patterns': [
+            # log_parser stores POST body as "file=name" or "avatar=name" (POST_DATA: prefix stripped)
+            r'(?i)(?:POST_DATA:)?(?:file|avatar)=[^&\s"]*\.(php\d*|phtml|phar|jsp|asp|aspx|exe|dll|sh|bat|cmd|ps1|htaccess|cgi)\b',
+            r'(?i)(?:POST_DATA:)?(?:file|avatar)=[^&\s"]*\.(php|jsp|asp|aspx)[^&\s"]*\.(jpg|jpeg|png|gif|txt|pdf)\b',
+        ],
+        'severity': 'high',
+        'mitre': 'T1105 - Ingress Tool Transfer',
     },
     'COMMAND_INJECTION': {
         'patterns': [
@@ -66,6 +84,9 @@ DETECTION_PATTERNS = {
             r"(?i)(\bexec\b|\bsystem\b|\bpassthru\b|\bshell_exec\b|\bpopen\b)\s*\(",
             r"(?i)(\/bin\/sh|\/bin\/bash|\/usr\/bin\/perl|\/usr\/bin\/python)",
             r"(?i)(\bchmod\s+\d+|\bchown\s+|\brm\s+-|\bmv\s+|\bcp\s+)\s+\/",
+            # vuln-web /cmd?cmd=whoami (log query is "cmd=..." — no leading semicolon)
+            r"(?i)\bcmd=\s*[^&\s\"]*\b(whoami|id|uname|ls|pwd|cat|ping|nc|netcat|wget|curl)\b",
+            r"(?i)\bcmd=[^&\s\"]*[;&|`]",
         ],
         'severity': 'critical',
         'mitre': 'T1059 - Command and Scripting Interpreter',
@@ -83,7 +104,9 @@ DETECTION_PATTERNS = {
         'patterns': [
             r"(?i)(php://input|php://filter|php://data|expect://|data://)",
             r"(?i)(file=https?://|page=https?://|url=https?://|path=https?://)",
-            r"(?i)(\?file=|\?page=|\?path=|\?template=|\?include=).*\.\.",
+            # Query is parsed without "?" — match file= / ?file= / &file= (vuln-web /files?file=../../)
+            r"(?i)(?:\?file=|[&;\s]file=|file=)[^&\s\"]*\.\.",
+            r"(?i)(?:\?page=|\?path=|\?template=|\?include=)[^&\s\"]*\.\.",
         ],
         'severity': 'critical',
         'mitre': 'T1190 - Exploit Public-Facing Application',
@@ -180,15 +203,17 @@ def clear_brute_force_state(ip: str):
 
 class DetectionEngine:
     def __init__(self, redis_client=None):
+        from app.core.settings_reader import get_rate_limit_window, get_brute_force_threshold
         self.redis = redis_client
         self.bf_tracker = BruteForceTracker(
             redis_client=redis_client,
-            window_seconds=int(os.getenv('RATE_LIMIT_WINDOW', 60)),
-            threshold=int(os.getenv('BRUTE_FORCE_THRESHOLD', 10))
+            window_seconds=get_rate_limit_window(),
+            threshold=get_brute_force_threshold(),
         )
         self._compiled = self._compile_patterns()
         self._last_rules_reload = time.time()
         self._rules_reload_interval = 60  # seconds
+        self._lab_mode_cached = None
 
     def _compile_patterns(self):
         compiled = {}
@@ -197,13 +222,29 @@ class DetectionEngine:
                 compiled[attack_type] = [re.compile(p) for p in info['patterns']]
         return compiled
 
+    def _refresh_runtime_settings(self):
+        """Apply detection thresholds from Settings (DB or .env)."""
+        from app.core.settings_reader import (
+            get_rate_limit_window,
+            get_brute_force_threshold,
+            is_lab_mode_ui_only,
+        )
+        self.bf_tracker.window = get_rate_limit_window()
+        self.bf_tracker.threshold = get_brute_force_threshold()
+        self._lab_mode_cached = is_lab_mode_ui_only()
+
     def _load_rules_from_db(self):
-        """BUG 9 FIX: Load active rules from DB and rebuild compiled patterns.
-        BUG 3d: BRUTE_FORCE is always threshold-based — skip regex compilation.
+        """Load active rules from DB and rebuild compiled patterns.
+        BRUTE_FORCE is threshold-based — skip regex compilation.
+        OWASP baseline: appended unless Lab mode (UI rules only) is enabled in Settings.
         """
         try:
+            from app.core.settings_reader import is_lab_mode_ui_only
             from app.models import DetectionRule
+            lab_only = is_lab_mode_ui_only()
+            self._lab_mode_cached = lab_only
             rules = DetectionRule.query.filter_by(is_active=True).all()
+            active_bf_rule = any(r.attack_type == 'BRUTE_FORCE' for r in rules)
             compiled = {}
             for rule in rules:
                 attack_type = rule.attack_type
@@ -227,32 +268,39 @@ class DetectionEngine:
                 if info.get('threshold_based') and attack_type not in compiled:
                     compiled[attack_type] = []
 
-            # Always append built-in OWASP patterns as fallback (DB rules can be
-            # edited incorrectly in the UI, e.g. missing \s* in Command Injection).
-            for attack_type, info in DETECTION_PATTERNS.items():
-                if info.get('threshold_based'):
-                    continue
-                if attack_type not in compiled:
-                    compiled[attack_type] = []
-                for raw in info['patterns']:
-                    compiled[attack_type].append({
-                        'pattern': re.compile(raw, re.IGNORECASE),
-                        'severity': info['severity'],
-                        'rule_id': None,
-                    })
+            # OWASP baseline (production default). Skipped in Lab mode — see Settings.
+            if not lab_only:
+                for attack_type, info in DETECTION_PATTERNS.items():
+                    if info.get('threshold_based'):
+                        continue
+                    if attack_type not in compiled:
+                        compiled[attack_type] = []
+                    for raw in info['patterns']:
+                        compiled[attack_type].append({
+                            'pattern': re.compile(raw, re.IGNORECASE),
+                            'severity': info['severity'],
+                            'rule_id': None,
+                        })
+            else:
+                logger.info("Detection lab mode: UI rules only (OWASP baseline disabled)")
 
-            self._compiled_db = compiled
-            logger.debug(f"Loaded {sum(len(v) for v in compiled.values())} patterns from DB")
+            self._compiled_db = {
+                'patterns': compiled,
+                'lab_only': lab_only,
+                'brute_force_enabled': (not lab_only) or active_bf_rule,
+            }
+            n_patterns = sum(len(v) for v in compiled.values())
+            logger.debug(
+                "Loaded %s patterns from DB (lab_only=%s, brute_force=%s)",
+                n_patterns, lab_only, (not lab_only) or active_bf_rule,
+            )
         except Exception as e:
             logger.warning(f"Could not load rules from DB (using defaults): {e}")
             self._compiled_db = None
 
     def _maybe_reload_rules(self):
-        """Check Redis 'rules_dirty' flag and reload if needed."""
+        """Reload rules when Redis rules_dirty is set or every _rules_reload_interval seconds."""
         now = time.time()
-        if now - self._last_rules_reload < self._rules_reload_interval:
-            return
-        self._last_rules_reload = now
         dirty = False
         if self.redis:
             try:
@@ -261,32 +309,46 @@ class DetectionEngine:
                     self.redis.delete('rules_dirty')
             except Exception:
                 pass
-        # Always try to reload from DB on interval
+        if not dirty and (now - self._last_rules_reload < self._rules_reload_interval):
+            return
+        self._last_rules_reload = now
         self._load_rules_from_db()
 
     def _get_compiled(self):
         """Get compiled patterns — prefer DB rules if available."""
         if hasattr(self, '_compiled_db') and self._compiled_db is not None:
-            return self._compiled_db
+            return self._compiled_db['patterns']
         return self._compiled
+
+    def _brute_force_enabled(self) -> bool:
+        if hasattr(self, '_compiled_db') and self._compiled_db is not None:
+            return self._compiled_db.get('brute_force_enabled', True)
+        return True
 
     def analyze(self, log_entry: dict) -> Optional[dict]:
         """
         Analyze a parsed log entry and return a threat dict or None.
         log_entry keys: ip, method, path, query, user_agent, status_code, raw
         """
-        # BUG 9 FIX: Periodically reload rules from DB
+        self._refresh_runtime_settings()
         self._maybe_reload_rules()
 
         ip = log_entry.get('ip', '')
+        if ip:
+            try:
+                from app.models import BlockedIP
+                if BlockedIP.query.filter_by(ip_address=ip, is_whitelist=True).first():
+                    return None
+            except Exception as e:
+                logger.debug(f"whitelist check skipped: {e}")
         path = log_entry.get('path', '')
         query = log_entry.get('query', '')
         user_agent = log_entry.get('user_agent', '')
         method = log_entry.get('method', '')
         status_code = log_entry.get('status_code', 200)
 
-        # Combine searchable text
-        searchable = f"{path} {query} {user_agent}"
+        # Include HTTP method so POST /files + POST_DATA:file=... is matchable
+        searchable = f"{method} {path} {query} {user_agent}"
 
         threats = []
         compiled = self._get_compiled()
@@ -319,7 +381,7 @@ class DetectionEngine:
         login_paths = ['/login', '/admin', '/wp-login', '/signin', '/auth', '/api/auth/login']
         is_login_path = any(lp in path.lower() for lp in login_paths)
         is_post = method.upper() == 'POST'
-        if is_login_path and is_post and status_code in [200, 401, 403]:
+        if is_login_path and is_post and status_code in [200, 401, 403] and self._brute_force_enabled():
             if self.bf_tracker.is_brute_force(ip, path):
                 info = DETECTION_PATTERNS['BRUTE_FORCE']
                 threats.append({

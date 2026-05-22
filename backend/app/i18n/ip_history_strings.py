@@ -10,6 +10,10 @@ def resolve_lang(lang_param):
 
 
 def _last_active(diff_seconds, lang):
+    if diff_seconds < 60:
+        if lang == 'id':
+            return 'baru saja'
+        return 'just now'
     if diff_seconds < 3600:
         n = int(diff_seconds / 60)
         if lang == 'id':

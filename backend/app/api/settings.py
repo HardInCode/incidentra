@@ -19,6 +19,7 @@ SETTING_KEYS = [
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL',
     'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
     'BRUTE_FORCE_THRESHOLD', 'TEMP_BLOCK_DURATION', 'RATE_LIMIT_WINDOW',
+    'DETECTION_LAB_MODE_UI_ONLY',
 ]
 SENSITIVE = ['API_KEY', 'PASSWORD', 'TOKEN', 'SECRET']
 
@@ -65,6 +66,16 @@ def update_settings():
             else:
                 db.session.add(AppSetting(key=key, value=value))
     db.session.commit()
+    if 'DETECTION_LAB_MODE_UI_ONLY' in data or any(
+        k in data for k in ('BRUTE_FORCE_THRESHOLD', 'RATE_LIMIT_WINDOW', 'TEMP_BLOCK_DURATION')
+    ):
+        try:
+            from app.core.detection_engine import get_redis_client
+            r = get_redis_client()
+            if r:
+                r.set('rules_dirty', '1')
+        except Exception:
+            pass
     log_audit('settings.update', resource_type='settings', details={'keys': list(data.keys())})
     return jsonify({'message': 'Settings updated'})
 
@@ -76,13 +87,13 @@ def test_notification():
     errors = []
     if channel in ('email', 'both'):
         try:
-            _send_email('[SME-Guard] Test Notification',
-                        'This is a test from SME-Guard. Email alerts are working.')
+            _send_email('[Incidentra SOC] Test Notification',
+                        'This is a test from Incidentra SOC. Email alerts are working.')
         except Exception as e:
             errors.append(f'Email: {e}')
     if channel in ('telegram', 'both'):
         try:
-            _send_telegram('🔔 *SME-Guard Test*\nTelegram alerts are working!')
+            _send_telegram('🔔 *Incidentra SOC Test*\nTelegram alerts are working!')
         except Exception as e:
             errors.append(f'Telegram: {e}')
     if errors:
@@ -111,13 +122,18 @@ def test_groq():
     key = _get_raw('GROQ_API_KEY')
     if not key:
         return jsonify({'success': False, 'error': 'GROQ_API_KEY not configured'}), 400
+    model = _get_raw('GROQ_MODEL') or 'llama-3.3-70b-versatile'
     try:
         r = req.post('https://api.groq.com/openai/v1/chat/completions',
                      headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                     json={'model': 'llama-3.1-8b-instant',
+                     json={'model': model,
                            'messages': [{'role': 'user', 'content': 'Say ok'}],
                            'max_tokens': 5}, timeout=15)
         r.raise_for_status()
-        return jsonify({'success': True, 'message': 'Groq API key is valid'})
+        return jsonify({
+            'success': True,
+            'message': f'Groq API key valid. Tested model: {model}',
+            'model': model,
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400

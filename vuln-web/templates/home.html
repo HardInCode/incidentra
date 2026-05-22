@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container">
+  <section class="hero">
+    <div class="hero-copy">
+      <h1>Shop local, <em>support small business</em></h1>
+      <p>Curated food, crafts, and home goods from independent producers — demo store for Incidentra SOC.</p>
+      <div class="hero-cta">
+        <a href="{{ url_for('main.catalog') }}" class="btn btn-primary">Browse catalog</a>
+        <a href="{{ url_for('cart.view_cart') }}" class="btn btn-secondary">View cart</a>
+      </div>
+      <p class="hero-note">Demo storefront — simulated checkout only.</p>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-visual-bg"></div>
+      <div class="hero-visual-grid">
+        <div class="hero-mini-card"><strong>Coffee</strong><span>from IDR 89k</span></div>
+        <div class="hero-mini-card"><strong>Honey</strong><span>Best seller</span></div>
+        <div class="hero-mini-card"><strong>Tote bag</strong><span>Handmade</span></div>
+        <div class="hero-mini-card"><strong>Organic tea</strong><span>Fresh stock</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="trust-strip">
+    <div class="trust-item">
+      <strong>Small business</strong>
+      <span>Independent suppliers</span>
+    </div>
+    <div class="trust-item">
+      <strong>Secure checkout*</strong>
+      <span>Simulated payment</span>
+    </div>
+    <div class="trust-item">
+      <strong>Fast delivery*</strong>
+      <span>Demo logistics</span>
+    </div>
+  </div>
+
+  <section class="section-block">
+    <h2 class="section-title">
+      Featured products
+      <a href="{{ url_for('main.catalog') }}">View all</a>
+    </h2>
+    <div class="product-grid">
+      {% for product in featured %}
+        {% include "partials/product_card.html" %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {% include "partials/lab_panel.html" %}
+</div>
+{% endblock %}

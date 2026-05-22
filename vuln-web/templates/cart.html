@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Cart{% endblock %}
+
+{% block content %}
+<div class="container">
+  <header class="page-head">
+    <h1>Your cart</h1>
+    <p>Demo checkout — no real payment is processed.</p>
+  </header>
+
+  <div class="panel panel-wide">
+    {% if items %}
+    <table class="data-table cart-table">
+      <thead>
+        <tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.qty }}</td>
+          <td>{{ item.price|idr }}</td>
+          <td>{{ (item.price * item.qty)|idr }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="cart-total">Total: <strong>{{ total|idr }}</strong></p>
+    <div class="cart-actions">
+      <a href="{{ url_for('main.catalog') }}" class="btn btn-secondary">Continue shopping</a>
+      <form method="post" action="{{ url_for('cart.clear') }}">
+        <button type="submit" class="btn btn-secondary">Clear cart</button>
+      </form>
+      <button type="button" class="btn btn-primary" disabled title="Demo only">Checkout (demo)</button>
+    </div>
+    {% else %}
+    <p class="cart-empty">Your cart is empty.</p>
+    <a href="{{ url_for('main.catalog') }}" class="btn btn-primary">Browse catalog</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

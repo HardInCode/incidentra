@@ -2,17 +2,22 @@
 """
 Seed demo incidents across the last 7 days so Dashboard charts show a full timeline.
 
-Charts read Incident.created_at from PostgreSQL — NOT the timestamp inside access.log.
-For chart testing, use this script instead of only editing access.log.
+Purpose: fill PostgreSQL with Incident rows whose created_at is spread over 7 days
+(timeline + severity donut). This is NOT Mode B "Inject log" in the SOC UI.
 
-Usage (from project root, backend venv active):
-  cd backend
-  ..\\venv\\Scripts\\activate
-  python ..\\scripts\\seed_chart_demo.py
-  python ..\\scripts\\seed_chart_demo.py --dry-run
+Charts use Incident.created_at from the DB — NOT timestamps inside access.log.
 
-Optional: append sample lines to access.log (Live Traffic only):
-  python ..\\scripts\\seed_chart_demo.py --append-logs
+Docker (Postgres container exposed on localhost:5432):
+  cd E:\\Capstone\\May\\sme-guard-May
+  $env:DATABASE_URL = "postgresql://smeguard:smeguard123@localhost:5432/smeguard_db"
+  $env:REDIS_URL = "redis://localhost:6379/0"
+  python scripts/seed_chart_demo.py
+
+Manual (backend/.env already has DATABASE_URL — optional override in shell):
+  python scripts/seed_chart_demo.py
+
+Optional --append-logs: writes dated lines to access.log for Live Traffic only;
+may also create extra incidents with TODAY's created_at if log monitor is running.
 """
 import argparse
 import os
@@ -20,15 +25,68 @@ import random
 import sys
 from datetime import datetime, timedelta
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 BACKEND_DIR = os.path.join(PROJECT_ROOT, "backend")
+# docker compose run: backend mounted at /app, script at /scripts
+if os.path.isfile(os.path.join("/app", "run.py")):
+    BACKEND_DIR = "/app"
+    PROJECT_ROOT = "/"
 sys.path.insert(0, BACKEND_DIR)
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(BACKEND_DIR, ".env"))
-except ImportError:
-    pass
+# Host localhost:5432 is often Windows PostgreSQL — not the Docker container (see TUTORIAL).
+DOCKER_DATABASE_URL_HOST = "postgresql://smeguard:smeguard123@127.0.0.1:5432/smeguard_db"
+DOCKER_DATABASE_URL_INTERNAL = "postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db"
+
+
+def _mask_db_url(url: str) -> str:
+    """Hide password in logs."""
+    if "@" not in url:
+        return url
+    pre, rest = url.split("@", 1)
+    if ":" in pre:
+        scheme, _, _user = pre.rpartition("://")
+        user = pre.split("://", 1)[-1].split(":")[0]
+        return f"{scheme}://{user}:***@{rest}"
+    return url
+
+
+def configure_database_url(use_docker_host: bool, use_docker_internal: bool) -> str:
+    """
+    backend/.env often has MANUAL Postgres (postgres/..., sme_guard_db).
+    Docker Compose DB is smeguard/smeguard123/smeguard_db — usually NOT on host :5432
+    if Windows PostgreSQL already uses that port.
+    """
+    env_path = os.path.join(BACKEND_DIR, ".env")
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(env_path, override=False)
+    except ImportError:
+        pass
+
+    if use_docker_internal:
+        os.environ["DATABASE_URL"] = DOCKER_DATABASE_URL_INTERNAL
+    elif use_docker_host:
+        os.environ["DATABASE_URL"] = DOCKER_DATABASE_URL_HOST
+    elif not os.getenv("DATABASE_URL"):
+        os.environ["DATABASE_URL"] = DOCKER_DATABASE_URL_HOST
+
+    url = os.environ["DATABASE_URL"]
+    print(f"[DB] Using {_mask_db_url(url)}")
+    if use_docker_internal:
+        print("     (--docker-internal: Compose network, hostname postgres)")
+    elif use_docker_host:
+        print(
+            "     (--docker: host -> 127.0.0.1:5432)\n"
+            "     If auth fails, Windows PostgreSQL may own port 5432.\n"
+            "     Use:  .\\scripts\\seed_chart_docker.ps1"
+        )
+    elif os.path.isfile(env_path) and "smeguard_db" not in url:
+        print(
+            "     [hint] Using backend/.env (manual DB). Dashboard Docker reads smeguard_db.\n"
+            "     For Docker charts:  .\\scripts\\seed_chart_docker.ps1"
+        )
+    return url
 
 # Varied demo rows: (attack_type, severity enum name, path snippet)
 DEMO_ROWS = [
@@ -41,12 +99,13 @@ DEMO_ROWS = [
     ("LFI_RFI", "CRITICAL", "/index.php", "GET", "page=php://filter"),
 ]
 
+# Demo-only IPs (RFC 5737 TEST-NET-3) — avoid 10.0.0.x so they are not confused with live simulates.
 IPS = [
-    "10.0.0.15",
-    "172.16.0.88",
-    "203.45.12.9",
-    "185.192.16.47",
-    "192.168.1.200",
+    "203.0.113.10",
+    "203.0.113.20",
+    "203.0.113.30",
+    "198.51.100.40",
+    "192.0.2.50",
 ]
 
 
@@ -78,11 +137,18 @@ def append_demo_logs():
     now = datetime.utcnow()
     lines = []
     for day_offset in range(6, -1, -1):
-        day = now - timedelta(days=day_offset)
+        day_start = (now - timedelta(days=day_offset)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        day_end = day_start + timedelta(days=1)
+        if day_offset == 0:
+            day_end = now
         for hour in (9, 14, 20):
             row = random.choice(DEMO_ROWS)
             attack, _, path, method, payload = row
-            dt = day.replace(hour=hour, minute=random.randint(0, 59), second=0, microsecond=0)
+            dt = day_start.replace(hour=hour, minute=random.randint(0, 59), second=0, microsecond=0)
+            if dt > day_end:
+                dt = day_end - timedelta(minutes=random.randint(1, 30))
             ip = random.choice(IPS)
             lines.append(nginx_line(ip, dt, method, path, 200 if attack != "BRUTE_FORCE" else 401, payload))
     with open(log_path, "a", encoding="utf-8") as f:
@@ -111,16 +177,19 @@ def seed_incidents(dry_run=False):
         to_add = []
 
         for day_offset in range(6, -1, -1):
-            day_base = (now - timedelta(days=day_offset)).replace(
-                hour=12, minute=0, second=0, microsecond=0
+            day_start = (now - timedelta(days=day_offset)).replace(
+                hour=0, minute=0, second=0, microsecond=0
             )
-            # More incidents on recent days, fewer on older days
+            day_end = day_start + timedelta(days=1)
+            if day_offset == 0:
+                day_end = now  # never seed "future" times on today (UTC)
+
+            span_seconds = max(60, int((day_end - day_start).total_seconds()))
             count = random.randint(1, 3) if day_offset > 0 else random.randint(2, 5)
             for i in range(count):
                 attack, sev_name, path, method, payload = random.choice(DEMO_ROWS)
-                created = day_base + timedelta(
-                    hours=random.randint(-6, 6),
-                    minutes=random.randint(0, 59),
+                created = day_start + timedelta(
+                    seconds=random.randint(0, span_seconds - 1),
                 )
                 ip = random.choice(IPS)
                 status = random.choice(
@@ -166,8 +235,18 @@ def seed_incidents(dry_run=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Seed SME-Guard dashboard chart demo data")
+    parser = argparse.ArgumentParser(description="Seed Incidentra dashboard chart demo data")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without writing DB")
+    parser.add_argument(
+        "--docker",
+        action="store_true",
+        help="Host: force smeguard@127.0.0.1:5432 (fails if Windows PG owns port 5432)",
+    )
+    parser.add_argument(
+        "--docker-internal",
+        action="store_true",
+        help="Inside Compose network (used by seed_chart_docker.ps1)",
+    )
     parser.add_argument(
         "--append-logs",
         action="store_true",
@@ -175,8 +254,25 @@ def main():
     )
     args = parser.parse_args()
 
-    if not seed_incidents(dry_run=args.dry_run):
-        sys.exit(1)
+    configure_database_url(
+        use_docker_host=args.docker,
+        use_docker_internal=args.docker_internal,
+    )
+
+    try:
+        if not seed_incidents(dry_run=args.dry_run):
+            sys.exit(1)
+    except Exception as e:
+        err = str(e).lower()
+        if "password authentication failed" in err or "operationalerror" in err:
+            print(
+                "\n[ERROR] Cannot connect to PostgreSQL.\n"
+                "  Docker running?  docker compose up -d\n"
+                "  Docker + Windows both on :5432?  Run:  .\\scripts\\seed_chart_docker.ps1\n"
+                "  Manual only?  python scripts/seed_chart_demo.py  (uses backend/.env)"
+            )
+        raise
+
     if args.append_logs and not args.dry_run:
         append_demo_logs()
 

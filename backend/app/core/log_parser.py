@@ -1,3 +1,7 @@
+"""
+LOG PARSER — NCSA Combined Log + vuln-web POST_DATA suffix.
+SIDANG Ctrl+F: parse_log_line, LogTailer, POST_DATA_PATTERN
+"""
 import re
 import time
 import os
@@ -10,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Combined Log Format: IP - user [time] "METHOD /path HTTP/1.1" status size "referer" "ua"
 # Optional suffix: POST_DATA:key=val&... (vuln-web logs POST body for detection engine)
 NGINX_PATTERN = re.compile(
-    r'(?P<ip>[\d\.]+)\s+-\s+\S+\s+\[(?P<time>[^\]]+)\]\s+'
+    r'(?P<ip>[\d\.a-fA-F:]+)\s+-\s+-\s+\[(?P<time>[^\]]+)\]\s+'
     r'"(?P<method>\w+)\s+(?P<path>[^\s"]*)\s+HTTP/[\d\.]+"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+)\s+"[^"]*"\s+"(?P<ua>[^"]*)"'
 )

@@ -9,7 +9,7 @@ import {
   Refresh, OpenInNew, Download, PlayArrow,
   Lock, AccessTime, Visibility, CheckCircle, Cancel, Checklist,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   getIncidents, exportIncidentsCsv, simulateAttack, updateIncidentStatus, bulkUpdateIncidentStatus,
@@ -25,7 +25,7 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { getFlagEmoji } from '../utils/country';
 import { iconSize } from '../theme';
 
-const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI'];
+const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI', 'FILE_UPLOAD'];
 
 const STATUS_OPTIONS_ALL = ['new', 'investigating', 'resolved', 'false_positive'];
 
@@ -49,7 +49,8 @@ export default function Incidents({ mode = 'ongoing' }) {
   const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(20);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('search') || '');
   const [severity, setSeverity] = useState('');
   const [status, setStatus] = useState('');
   const [attackType, setAttackType] = useState('');
@@ -70,6 +71,20 @@ export default function Incidents({ mode = 'ongoing' }) {
   const [selectionMode, setSelectionMode] = useState(false);
 
   const navigate = useNavigate();
+  const syncSearchParam = useCallback((value) => {
+    const next = new URLSearchParams(searchParams);
+    const trimmed = (value || '').trim();
+    if (trimmed) next.set('search', trimmed);
+    else next.delete('search');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const applySearch = useCallback((value) => {
+    setSearch(value);
+    setPage(0);
+    syncSearchParam(value);
+  }, [syncSearchParam]);
+
   const currentUser = useCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
   const canExport = ['admin', 'analyst'].includes(currentUser?.role);
@@ -119,6 +134,17 @@ export default function Incidents({ mode = 'ongoing' }) {
   useEffect(() => { fetchIncidents(); }, [fetchIncidents]);
 
   useEffect(() => {
+    const q = searchParams.get('search') || '';
+    setSearch((prev) => {
+      if (prev !== q) {
+        setPage(0);
+        return q;
+      }
+      return prev;
+    });
+  }, [searchParams]);
+
+  useEffect(() => {
     setStatus('');
     setPage(0);
     exitSelectionMode();
@@ -126,7 +152,8 @@ export default function Incidents({ mode = 'ongoing' }) {
 
   const handleClearFilters = () => {
     setSeverity(''); setStatus(''); setAttackType('');
-    setSearch(''); setDatePreset('all');
+    applySearch('');
+    setDatePreset('all');
     setSortBy('created_at'); setSortDir('desc');
     setPage(0);
     exitSelectionMode();
@@ -141,7 +168,7 @@ export default function Incidents({ mode = 'ongoing' }) {
 
   const activeChips = useMemo(() => {
     const chips = [];
-    if (search) chips.push({ key: 'search', label: `Search: ${search}`, onDelete: () => { setSearch(''); setPage(0); } });
+    if (search) chips.push({ key: 'search', label: `Search: ${search}`, onDelete: () => applySearch('') });
     if (severity) chips.push({ key: 'severity', label: `Severity: ${severity}`, onDelete: () => { setSeverity(''); setPage(0); } });
     if (status) {
       chips.push({
@@ -248,7 +275,7 @@ export default function Incidents({ mode = 'ongoing' }) {
   const handleExportCsv = async () => {
     setExporting(true);
     try {
-      const params = {};
+      const params = { list_scope: isAllMode ? 'all' : 'ongoing' };
       if (severity) params.severity = severity;
       if (attackType) params.attack_type = attackType;
       Object.assign(params, buildStatusQuery(mode, status));
@@ -259,7 +286,7 @@ export default function Incidents({ mode = 'ongoing' }) {
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'incidents.csv';
+      a.download = isAllMode ? 'incidents-all.csv' : 'incidents-ongoing.csv';
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success('CSV exported');
@@ -370,7 +397,7 @@ export default function Incidents({ mode = 'ongoing' }) {
         onSortDir={(val) => { setSortDir(val); setPage(0); }}
         searchValue={search}
         searchPlaceholder={t('incidents.searchPlaceholder')}
-        onSearch={(val) => { setSearch(val); setPage(0); }}
+        onSearch={applySearch}
         hasActiveFilters={hasActiveFilters}
         onClear={handleClearFilters}
         activeChips={activeChips}
@@ -584,7 +611,7 @@ export default function Incidents({ mode = 'ongoing' }) {
         <DialogTitle>{t('incidents.exportTitle')}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-            {t('incidents.exportHint')}
+            {isAllMode ? t('incidents.exportHintAll') : t('incidents.exportHintOngoing')}
           </Typography>
           <DateRangeFilter
             preset={exportPreset}

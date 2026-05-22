@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Catalog{% endblock %}
+
+{% block content %}
+<div class="container">
+  <header class="page-head">
+    <h1>Product catalog</h1>
+    <p>{{ products|length }} items from local suppliers. Use <a href="{{ url_for('shop.search') }}">Search</a> to filter.</p>
+  </header>
+
+  <div class="product-grid">
+    {% for product in products %}
+      {% include "partials/product_card.html" %}
+    {% endfor %}
+  </div>
+
+  {% include "partials/lab_panel.html" %}
+</div>
+{% endblock %}

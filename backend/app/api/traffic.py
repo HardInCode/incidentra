@@ -1,4 +1,8 @@
-"""Live Traffic API - Real-time HTTP request monitoring from vuln-web access log."""
+"""
+LIVE TRAFFIC API — display-only tags (Attack/Normal/Blocked); NOT the detection engine.
+SIDANG Ctrl+F: ATTACK_KEYWORDS, TRAFFIC_ATTACK_PATTERNS, _parse_line, get_recent_traffic
+Incidents: detection_engine.analyze (separate pipeline)
+"""
 import re
 import os
 from flask import Blueprint, request, jsonify
@@ -23,11 +27,33 @@ COMBINED_LOG_PATTERN = re.compile(
 # Extended format (vuln-web with POST data): ... "UA" POST_DATA:key=val&...
 POST_DATA_PATTERN = re.compile(r'\s+POST_DATA:(.+)$')
 
-# Attack patterns for tag classification (lightweight)
+# Lightweight keywords (fallback after regex pass)
 ATTACK_KEYWORDS = [
-    'union select', 'or 1=1', 'sleep(', '<script', 'onerror=', 'javascript:',
-    '../', 'php://', 'cmd=', '; whoami', '; cat', 'sqlmap', 'nikto', 'nmap',
+    'union select', 'select ', ' from ', 'insert into', 'drop table',
+    'or 1=1', "' or '", "' or \"", 'sleep(', 'benchmark(',
+    '<script', 'onerror=', 'javascript:', 'onload=',
+    '../', '..\\', '%2e%2e', 'php://', 'cmd=', '; whoami', '; cat',
+    'sqlmap', 'nikto', 'nmap',
+    'blocked_ips.json', 'rate_limited.json',
 ]
+
+# Subset aligned with detection_engine (display-only; does not create incidents)
+TRAFFIC_ATTACK_PATTERNS = [
+    re.compile(r"(?i)(union\s+select|select\s+(\*|[\w]+\s*,\s*[\w\s,`]*|count\s*\([\w\s,*)]*\))\s+from\s+\w)"),
+    re.compile(r"(?i)(\bor\b\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+[\'\"]?)"),
+    re.compile(r"(?i)(\'|\")(\s*;\s*|\s+or\s+|\s+and\s+).*?(--|#|/\*)"),
+    re.compile(r"(?i)(\'\s+or\s+[\'\"][^\'\"]+[\'\"]\s*=\s*[\'\"][^\'\"]+)"),
+    re.compile(r"(?i)(<script[\s>]|</script>|javascript\s*:|onerror\s*=|onload\s*=)"),
+    re.compile(r"(?i)(\.\.\/|\.\.\\|%2e%2e%2f|%2e%2e\/|\.\.%2f)"),
+    re.compile(r"(?i)(?:\?file=|[&;\s]file=|file=)[^&\s\"]*\.\."),
+    re.compile(r"(?i)(php://input|php://filter|expect://|data://)"),
+    re.compile(r"(?i)\bcmd=\s*[^&\s\"]*\b(whoami|id|uname|ls|pwd|cat|ping)\b"),
+    re.compile(r"(?i)(nikto|sqlmap|nmap|acunetix|nessus|burpsuite|zaproxy|dirbuster|gobuster)"),
+]
+
+DANGEROUS_UPLOAD_EXT = re.compile(
+    r'(?i)(?:post_data:)?(?:file|avatar)=[^&\s"]*\.(php\d*|phtml|phar|jsp|asp|aspx|exe|dll|sh|bat|cmd|ps1|htaccess|cgi)\b',
+)
 
 
 def _resolve_log_path():
@@ -48,6 +74,24 @@ def _resolve_log_path():
         if os.path.isfile(candidate):
             return os.path.abspath(candidate)
     return None
+
+
+def _classify_traffic_tag(searchable: str, path: str, status: int) -> str:
+    """Heuristic tag for Live Traffic (aligned with detection patterns where practical)."""
+    if status in (403, 429):
+        return 'blocked'
+    if path.startswith('/static/') or path in ('/favicon.ico',):
+        return 'normal'
+    if DANGEROUS_UPLOAD_EXT.search(searchable):
+        return 'attack'
+    for pattern in TRAFFIC_ATTACK_PATTERNS:
+        if pattern.search(searchable):
+            return 'attack'
+    if any(kw in searchable for kw in ATTACK_KEYWORDS):
+        return 'attack'
+    if status >= 400:
+        return 'suspicious'
+    return 'normal'
 
 
 def _parse_line(line: str) -> dict | None:
@@ -81,22 +125,15 @@ def _parse_line(line: str) -> dict | None:
     status = int(match.group('status'))
     size = int(match.group('size') or 0)
     ua = (match.group('ua') or '')[:120]
+    method = match.group('method')
 
-    searchable = f"{path} {query} {ua}".lower()
-
-    if status in (403, 429):
-        tag = 'blocked'
-    elif any(kw in searchable for kw in ATTACK_KEYWORDS):
-        tag = 'attack'
-    elif status >= 400:
-        tag = 'suspicious'
-    else:
-        tag = 'normal'
+    searchable = f"{method} {path} {query} {ua}".lower()
+    tag = _classify_traffic_tag(searchable, path, status)
 
     return {
         'ip': match.group('ip'),
         'time': match.group('time'),
-        'method': match.group('method'),
+        'method': method,
         'path': path,
         'query': query[:500] if query else '',
         'status': status,
@@ -136,7 +173,6 @@ def get_recent_traffic():
                 summary[entry['tag']] = summary.get(entry['tag'], 0) + 1
                 entries.append(entry)
 
-        # Already newest first from reversed()
         return jsonify({
             'entries': entries,
             'total_lines': total_lines,

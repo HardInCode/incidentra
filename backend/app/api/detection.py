@@ -81,6 +81,7 @@ def inject_log():
         'COMMAND_INJECTION': f"{ip} - - [{ts}] \"GET /cmd?cmd=;+cat+/etc/passwd HTTP/1.1\" 200 512 \"-\" \"Mozilla/5.0\"",
         'SCANNER': f"{ip} - - [{ts}] \"GET / HTTP/1.1\" 200 4096 \"-\" \"Nikto/2.1.6 (Evasions:None)\"",
         'LFI_RFI': f"{ip} - - [{ts}] \"GET /index.php?page=php://filter/convert.base64-encode/resource=config HTTP/1.1\" 200 2048 \"-\" \"curl/7.68.0\"",
+        'FILE_UPLOAD': f'{ip} - - [{ts}] "POST /files HTTP/1.1" 302 0 "-" "Mozilla/5.0" POST_DATA:file=shell.php',
     }
 
     log_block = ATTACK_LOG_LINES.get(attack_type, ATTACK_LOG_LINES['SCANNER'])
@@ -130,6 +131,7 @@ def simulate_attack():
         'PATH_TRAVERSAL': '../../../etc/passwd',
         'COMMAND_INJECTION': '; cat /etc/passwd',
         'SCANNER': 'sqlmap/1.7 (https://sqlmap.org)',
+        'FILE_UPLOAD': 'POST_DATA:file=webshell.php',
     }
 
     payload = ATTACK_PAYLOADS.get(attack_type, data.get('payload', 'test'))
@@ -137,6 +139,8 @@ def simulate_attack():
         'SQL_INJECTION': 'critical', 'XSS': 'high',
         'BRUTE_FORCE': 'high', 'PATH_TRAVERSAL': 'high',
         'COMMAND_INJECTION': 'critical', 'SCANNER': 'medium',
+        'FILE_UPLOAD': 'high',
+        'LFI_RFI': 'critical',
     }
     sev = severity_map.get(attack_type, 'medium')
     sev_enum = {'low': SeverityLevel.LOW, 'medium': SeverityLevel.MEDIUM,
@@ -163,12 +167,5 @@ def simulate_attack():
     recommended_action = RESPONSE_ACTIONS.get(sev, 'log_and_monitor')
     responder.respond({'ip': ip, 'attack_type': attack_type, 'severity': sev,
                        'recommended_action': recommended_action}, incident.id)
-
-    try:
-        from app.services.ai_service import generate_explanation_task
-        generate_explanation_task.delay(incident.id)
-    except Exception:
-        from app.services.ai_service import _save_fallback_explanation
-        _save_fallback_explanation(incident.id)
 
     return jsonify({'message': 'Simulated attack created', 'incident_id': incident.id})

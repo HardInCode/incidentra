@@ -1,3 +1,8 @@
+"""
+AI ANALYST ONLY — Groq explanations for incidents (does NOT detect attacks).
+SIDANG Ctrl+F: _call_groq_with_fallback, generate_explanation_task, _save_fallback_explanation
+Detection regex: detection_engine.DETECTION_PATTERNS (separate)
+"""
 import os
 import logging
 import json
@@ -30,7 +35,7 @@ def _call_groq_with_fallback(prompt: str, max_tokens: int = 600):
     if not api_key:
         raise ValueError("GROQ_API_KEY not configured")
 
-    primary = os.getenv('GROQ_MODEL', GROQ_FALLBACK_MODELS[0])
+    primary = _get_setting('GROQ_MODEL') or os.getenv('GROQ_MODEL', GROQ_FALLBACK_MODELS[0])
     models_to_try = [primary] + [m for m in GROQ_FALLBACK_MODELS if m != primary]
 
     headers = {
@@ -220,7 +225,7 @@ def _save_fallback_explanation(incident_id: int):
 
         attack_type = incident.attack_type
         info = attack_summaries.get(attack_type, {
-            'summary': f'A {attack_type.replace("_", " ").title()} attack was detected and blocked by SME-Guard.',
+            'summary': f'A {attack_type.replace("_", " ").title()} attack was detected and blocked by Incidentra SOC.',
             'explanation': 'This type of attack targets web application vulnerabilities to gain unauthorized access or steal data.',
             'actions': '1. Review the incident details.\n2. Check server logs for related activity.\n3. Update all software and apply security patches.\n4. Contact your security team if you need assistance.',
             'mitre': 'T1190 - Exploit Public-Facing Application',

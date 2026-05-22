@@ -1,12 +1,109 @@
-"""Seed the database with default detection rules and admin user."""
+"""Seed the database with default detection rules and demo users."""
 import os
 from werkzeug.security import generate_password_hash
 from app import db
 from app.models import DetectionRule, User, SeverityLevel, AppSetting
 
+# Demo credentials (PostgreSQL users table — hashed, not stored in JSON).
+# Override via env for production; SYNC_DEMO_CREDENTIALS=0 skips password refresh on existing users.
+DEMO_ADMIN_USER = os.getenv('DEMO_ADMIN_USER', 'admin')
+DEMO_ADMIN_EMAIL = os.getenv('DEMO_ADMIN_EMAIL', 'admin@incidentra.local')
+DEMO_ADMIN_PASSWORD = os.getenv('DEMO_ADMIN_PASSWORD', 'Admin@Incidentra2026!')
+DEMO_ANALYST_USER = os.getenv('DEMO_ANALYST_USER', 'analyst')
+DEMO_ANALYST_EMAIL = os.getenv('DEMO_ANALYST_EMAIL', 'analyst@incidentra.local')
+DEMO_ANALYST_PASSWORD = os.getenv('DEMO_ANALYST_PASSWORD', 'Analyst@Incidentra2026!')
+SYNC_DEMO_CREDENTIALS = os.getenv('SYNC_DEMO_CREDENTIALS', '1').lower() in ('1', 'true', 'yes')
+
+
+EXTRA_RULES = [
+    {
+        'rule_name': 'File Upload - dangerous extension',
+        'attack_type': 'FILE_UPLOAD',
+        'pattern': r'(?i)(?:POST_DATA:)?file=[^&\s"]*\.(php\d*|phtml|phar|jsp|asp|aspx|exe|dll|sh|bat|cmd|ps1|htaccess|cgi)\b',
+        'severity_level': SeverityLevel.HIGH,
+        'description': 'Upload with executable/script extension in POST_DATA (vuln-web has no filter)',
+    },
+    {
+        'rule_name': 'File Upload - double extension',
+        'attack_type': 'FILE_UPLOAD',
+        'pattern': r'(?i)(?:POST_DATA:)?file=[^&\s"]*\.(php|jsp|asp|aspx)[^&\s"]*\.(jpg|jpeg|png|gif|txt|pdf)\b',
+        'severity_level': SeverityLevel.HIGH,
+        'description': 'Upload disguised as image (e.g. shell.php.jpg)',
+    },
+    {
+        'rule_name': 'Path Traversal - SME-Guard JSON',
+        'attack_type': 'PATH_TRAVERSAL',
+        'pattern': r'(?i)(blocked_ips\.json|rate_limited\.json)',
+        'severity_level': SeverityLevel.HIGH,
+        'description': 'Detects reads of SME-Guard enforcement JSON via LFI/path abuse',
+    },
+    {
+        'rule_name': 'Path Traversal - logs folder',
+        'attack_type': 'PATH_TRAVERSAL',
+        'pattern': r'(?i)([/\\]logs[/\\])',
+        'severity_level': SeverityLevel.MEDIUM,
+        'description': 'Detects access to logs directory in request path or query',
+    },
+    {
+        'rule_name': 'Path Traversal - Windows absolute file',
+        'attack_type': 'PATH_TRAVERSAL',
+        'pattern': r'(?i)(?:\?file=|[&;\s]file=|file=)[a-zA-Z]:[/\\]',
+        'severity_level': SeverityLevel.HIGH,
+        'description': 'Detects Windows drive-letter paths in file= parameter (lab gap)',
+    },
+    {
+        'rule_name': 'Path Traversal - file param parent dirs',
+        'attack_type': 'PATH_TRAVERSAL',
+        'pattern': r'(?i)(?:\?file=|[&;\s]file=|file=)[^&\s"]*\.\.',
+        'severity_level': SeverityLevel.HIGH,
+        'description': 'Detects ../ in file= query (e.g. GET /files?file=../../etc/passwd)',
+    },
+    {
+        'rule_name': 'Command Injection - vuln-web cmd param',
+        'attack_type': 'COMMAND_INJECTION',
+        'pattern': r'(?i)\bcmd=\s*[^&\s"]*\b(whoami|id|uname|ls|pwd|cat|ping)\b',
+        'severity_level': SeverityLevel.CRITICAL,
+        'description': 'Detects shell commands in GET /cmd?cmd=... (vuln-web lab)',
+    },
+]
+
+
+def _deactivate_legacy_upload_rules():
+    """Turn off broad lab rules that flagged every upload as FILE_UPLOAD."""
+    legacy_names = [
+        'File Upload - vuln-web POST_DATA',
+        'File Upload - POST /files',
+    ]
+    changed = 0
+    for name in legacy_names:
+        rule = DetectionRule.query.filter_by(rule_name=name).first()
+        if rule and rule.is_active:
+            rule.is_active = False
+            changed += 1
+    if changed:
+        db.session.commit()
+        print(f"Deactivated {changed} legacy FILE_UPLOAD rule(s).")
+
+
+def seed_missing_rules():
+    """Insert new rules on existing DBs without wiping custom rules."""
+    _deactivate_legacy_upload_rules()
+    added = 0
+    for r in EXTRA_RULES:
+        exists = DetectionRule.query.filter_by(rule_name=r['rule_name']).first()
+        if exists:
+            continue
+        db.session.add(DetectionRule(**r))
+        added += 1
+    if added:
+        db.session.commit()
+        print(f"Added {added} new detection rule(s).")
+    return added
+
 
 def seed_rules():
     if DetectionRule.query.count() > 0:
+        seed_missing_rules()
         print("Rules already seeded.")
         return
 
@@ -88,6 +185,7 @@ def seed_rules():
             'severity_level': SeverityLevel.HIGH,
             'description': 'Detects brute force login attempts (threshold-based)',
         },
+        *EXTRA_RULES,
     ]
 
     for r in rules:
@@ -98,37 +196,38 @@ def seed_rules():
     print(f"Seeded {len(rules)} detection rules.")
 
 
-def seed_admin():
-    if User.query.filter_by(username='admin').first():
-        print("Admin user already exists.")
+def _ensure_demo_user(username, email, password, role):
+    """Create or optionally refresh demo user in PostgreSQL (password stored as hash)."""
+    user = User.query.filter_by(username=username).first()
+    if user:
+        if SYNC_DEMO_CREDENTIALS:
+            user.email = email
+            user.password_hash = generate_password_hash(password)
+            user.role = role
+            user.is_active = True
+            db.session.commit()
+            print(f"Demo user synced: {username} / {password}")
+        else:
+            print(f"Demo user exists (sync skipped): {username}")
         return
 
-    admin = User(
-        username='admin',
-        email='admin@smeguard.local',
-        password_hash=generate_password_hash('Admin@SMEGuard2026!'),
-        role='admin',
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        role=role,
     )
-    db.session.add(admin)
+    db.session.add(user)
     db.session.commit()
-    print("Admin user created: admin / Admin@SMEGuard2026!")
+    print(f"Demo user created: {username} / {password}")
+
+
+def seed_admin():
+    _ensure_demo_user(DEMO_ADMIN_USER, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, 'admin')
 
 
 def seed_analyst():
-    # Demo analyst: analyst / Analyst@SMEGuard2026! (read-mostly; admin-only actions hidden in UI)
-    if User.query.filter_by(username='analyst').first():
-        print("Analyst user already exists.")
-        return
-
-    analyst = User(
-        username='analyst',
-        email='analyst@smeguard.local',
-        password_hash=generate_password_hash('Analyst@SMEGuard2026!'),
-        role='analyst',
-    )
-    db.session.add(analyst)
-    db.session.commit()
-    print("Analyst user created: analyst / Analyst@SMEGuard2026!")
+    _ensure_demo_user(DEMO_ANALYST_USER, DEMO_ANALYST_EMAIL, DEMO_ANALYST_PASSWORD, 'analyst')
 
 
 def seed_settings_from_env():

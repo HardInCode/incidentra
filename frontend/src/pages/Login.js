@@ -13,15 +13,19 @@ export default function Login({ onLogin }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     try {
       const res = await login(username, password);
+      setError('');
       onLogin(res.data.token);
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Check credentials.');
+      setError(err.response?.data?.error || t('login.invalidCredentials'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearError = () => {
+    if (error) setError('');
   };
 
   return (
@@ -38,7 +42,7 @@ export default function Login({ onLogin }) {
             <Box
               component="img"
               src="/icons/smeguard.png"
-              alt="SME-Guard"
+              alt={t('brand.full')}
               sx={{ width: 64, height: 64, borderRadius: 3, mb: 2, objectFit: 'contain' }}
             />
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>{t('login.title')}</Typography>
@@ -47,21 +51,25 @@ export default function Login({ onLogin }) {
             </Typography>
           </Box>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
 
           <form onSubmit={handleLogin}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 fullWidth label={t('login.username')}
                 value={username}
-                onChange={e => setUsername(e.target.value)}
+                onChange={e => { setUsername(e.target.value); clearError(); }}
                 autoComplete="username"
               />
               <TextField
                 fullWidth label={t('login.password')}
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => { setPassword(e.target.value); clearError(); }}
                 autoComplete="current-password"
               />
               <Button
@@ -83,8 +91,8 @@ export default function Login({ onLogin }) {
               {t('login.defaultCreds')}
             </Typography>
             <Typography variant="caption" sx={{ color: 'primary.main', fontFamily: 'monospace' }}>
-              admin / Admin@SMEGuard2026!<br />
-              analyst / Analyst@SMEGuard2026!
+              admin / Admin@Incidentra2026!<br />
+              analyst / Analyst@Incidentra2026!
             </Typography>
           </Box>
         </CardContent>

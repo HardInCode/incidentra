@@ -1,0 +1,8 @@
+{% if vuln_unsafe_cmd or vuln_unsafe_upload %}
+<div class="unsafe-banner" role="alert">
+  <strong>Phase 3 lab mode active.</strong>
+  {% if vuln_unsafe_cmd %} Real shell on <code>/cmd</code>.{% endif %}
+  {% if vuln_unsafe_upload %} Unrestricted upload paths on <code>/files</code>.{% endif %}
+  Local isolated machine only — never expose to the internet.
+</div>
+{% endif %}

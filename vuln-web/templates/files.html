@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Files{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel panel-wide">
+    <header class="page-head page-head--tight">
+      <h1>File browser</h1>
+      <p>Read demo documents or test path traversal / upload (lab).</p>
+    </header>
+
+    {% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+
+    <section class="files-section">
+      <h3 class="files-section-title">Document upload</h3>
+      {% if vuln_unsafe_upload %}
+      <p class="hint">VULN_UNSAFE_UPLOAD=1: client filename may escape <code>safe_files/uploads/</code>.</p>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" class="form-stack">
+        <div>
+          <label for="upload">Choose file</label>
+          <input id="upload" name="file" type="file">
+        </div>
+        <button type="submit" class="btn btn-primary">Upload to safe_files/uploads/</button>
+      </form>
+    </section>
+
+    <section class="files-section">
+      <h3 class="files-section-title">Read file</h3>
+      {% set lab_text = "Path traversal — <code>?file=../../etc/passwd</code> or Windows absolute path (see docs/DETECTION.md)" %}
+      {% include "partials/lab_hint.html" %}
+
+      {% if safe_files %}
+      <p class="file-list-label">In <code>safe_files/</code>:</p>
+      <div class="safe-file-list">
+        {% for f in safe_files %}
+          <a href="{{ url_for('files.files', file=f) }}">{{ f }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if uploads %}
+      <p class="file-list-label">Uploaded:</p>
+      <div class="safe-file-list">
+        {% for f in uploads %}
+          <a href="{{ url_for('files.files', file='uploads/' + f) }}">uploads/{{ f }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="get" class="form-stack">
+        <div>
+          <label for="file">Path or filename</label>
+          <input id="file" name="file" type="text" placeholder="readme.txt" value="{{ filename }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Read file</button>
+      </form>
+
+      {% if content %}
+      <div class="file-output"><pre>{{ content }}</pre></div>
+      {% endif %}
+    </section>
+  </div>
+
+  {% include "partials/lab_panel.html" %}
+</div>
+{% endblock %}

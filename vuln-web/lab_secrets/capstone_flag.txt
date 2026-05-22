@@ -1,0 +1,13 @@
+========================================
+  SME-Guard Capstone — LAB SECRET FILE
+  (fictional data for security demo only)
+========================================
+
+Project codename : Incidentra-SOC-2026
+Fake admin token : sme-demo-do-not-use-in-prod
+Fake DB password : UkM-D3m0-P@ss-2026
+
+If you can read this file via /cmd, command injection
+in Phase 3 lab mode is confirmed.
+
+========================================

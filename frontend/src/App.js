@@ -37,8 +37,8 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
                   <Layout onLogout={onLogout}>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
-                      <Route path="/incidents/all" element={<Incidents mode="all" />} />
-                      <Route path="/incidents" element={<Incidents mode="ongoing" />} />
+                      <Route path="/incidents/all" element={<Incidents key="incidents-all" mode="all" />} />
+                      <Route path="/incidents" element={<Incidents key="incidents-ongoing" mode="ongoing" />} />
                       <Route path="/incidents/:id" element={<IncidentDetail />} />
                       <Route path="/blocked-ips" element={<BlockedIPs />} />
                       <Route path="/rules" element={<DetectionRules />} />
@@ -55,7 +55,7 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
           } />
         </Routes>
       </Router>
-      <ToastContainer position="bottom-right" theme={mode === 'dark' ? 'dark' : 'light'} autoClose={4000} />
+      <ToastContainer position="top-right" theme={mode === 'dark' ? 'dark' : 'light'} autoClose={3000} limit={3} />
     </>
   );
 }

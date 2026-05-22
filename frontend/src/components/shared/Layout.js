@@ -1,3 +1,4 @@
+/** SOC shell — sidebar nav, NotificationBell, main content. SIDANG: Layout, nav.ipManagement */
 import React, { useState } from 'react';
 import {
   Box, Drawer, List, ListItem, ListItemIcon,
@@ -13,7 +14,7 @@ import useCurrentUser from '../../hooks/useCurrentUser';
 import { useLanguage } from '../../context/LanguageContext';
 import NotificationBell from './NotificationBell';
 
-const DRAWER_WIDTH = 240;
+const DRAWER_WIDTH = 256;
 const DRAWER_MINI = 72;
 
 function isNavActive(itemPath, pathname) {
@@ -74,47 +75,63 @@ export default function Layout({ children, onLogout }) {
       >
         <Box sx={{
           p: expanded ? 2 : 1.25,
-          display: 'flex',
-          flexDirection: expanded ? 'row' : 'column',
+          display: 'grid',
           alignItems: 'center',
-          justifyContent: expanded ? 'space-between' : 'center',
-          gap: expanded ? 1 : 0.75,
-          minHeight: expanded ? 64 : 'auto',
+          columnGap: 1.25,
+          rowGap: 0.75,
+          minHeight: expanded ? 72 : 'auto',
+          ...(expanded
+            ? {
+                gridTemplateColumns: '36px minmax(0, 1fr) auto',
+                gridTemplateAreas: '"logo text bell"',
+              }
+            : {
+                gridTemplateColumns: '1fr',
+                gridTemplateAreas: '"logo" "bell"',
+                justifyItems: 'center',
+              }),
         }}
         >
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            minWidth: 0,
-            flex: expanded ? 1 : 'none',
-            justifyContent: 'center',
-          }}
-          >
-            <Box
-              component="img"
-              src="/icons/smeguard.png"
-              alt="SME-Guard"
-              sx={{
-                width: expanded ? 36 : 32,
-                height: expanded ? 36 : 32,
-                borderRadius: 2,
-                flexShrink: 0,
-                objectFit: 'contain',
-              }}
-            />
-            {expanded && (
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.main', lineHeight: 1 }}>
-                  SME-Guard
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  Web SOC Platform
-                </Typography>
-              </Box>
-            )}
+          <Box
+            component="img"
+            src="/icons/smeguard.png"
+            alt={t('brand.full')}
+            sx={{
+              gridArea: 'logo',
+              width: expanded ? 36 : 32,
+              height: expanded ? 36 : 32,
+              borderRadius: 2,
+              objectFit: 'contain',
+            }}
+          />
+          {expanded && (
+            <Box sx={{ gridArea: 'text', minWidth: 0, overflow: 'hidden', pr: 0.5 }}>
+              <Typography
+                variant="subtitle1"
+                noWrap
+                sx={{ fontWeight: 800, color: 'primary.main', lineHeight: 1.2 }}
+              >
+                {t('brand.name')}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  lineHeight: 1.2,
+                  fontSize: '0.65rem',
+                }}
+              >
+                {t('brand.tagline')}
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ gridArea: 'bell', justifySelf: expanded ? 'end' : 'center', flexShrink: 0 }}>
+            <NotificationBell compact={!expanded} />
           </Box>
-          <NotificationBell compact={!expanded} />
         </Box>
 
         <Divider />

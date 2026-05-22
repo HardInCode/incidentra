@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SME Shop{% endblock %} — Local marketplace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a href="{{ url_for('main.index') }}" class="brand">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        SME Shop
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}class="active"{% endif %}>Home</a>
+        <a href="{{ url_for('main.catalog') }}" {% if request.endpoint == 'main.catalog' %}class="active"{% endif %}>Catalog</a>
+        <a href="{{ url_for('shop.search') }}" {% if request.endpoint == 'shop.search' %}class="active"{% endif %}>Search</a>
+        <a href="{{ url_for('auth.login') }}" {% if request.endpoint == 'auth.login' %}class="active"{% endif %}>Sign in</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="{{ url_for('cart.view_cart') }}" class="cart-pill" title="Shopping cart">
+          Cart <span>{{ cart_count }}</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    {% include "partials/unsafe_banner.html" %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-col footer-col--brand">
+        <strong>SME Shop</strong>
+        <span>Demo storefront for Incidentra SOC security testing.</span>
+      </div>
+      <div class="footer-col footer-col--lab">
+        <span class="footer-label">Security lab</span>
+        <nav class="footer-links">
+          <a href="{{ url_for('profile.profile') }}">Profile</a>
+          <a href="{{ url_for('files.files') }}">Files</a>
+          <a href="{{ url_for('cmd.cmd') }}">Command</a>
+        </nav>
+      </div>
+      <div class="footer-col footer-col--copy">
+        <span>© 2026</span>
+        <span class="muted">Not for production</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

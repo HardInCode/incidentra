@@ -145,6 +145,8 @@
     "empty": "Tidak ada insiden — coba ubah filter",
     "exportTitle": "Ekspor insiden (CSV)",
     "exportHint": "Menggunakan filter tingkat, status, tipe serangan, dan pencarian saat ini. Pilih rentang tanggal di bawah.",
+    "exportHintOngoing": "Hanya insiden terbuka (Baru + Diselidiki). Insiden Selesai tidak ikut — gunakan halaman Semua Insiden untuk ekspor arsip lengkap.",
+    "exportHintAll": "Semua status termasuk Selesai dan Positif palsu. Mengikuti filter dan rentang tanggal di bawah.",
     "downloadCsv": "Unduh CSV",
     "exporting": "Mengekspor…"
   },
@@ -205,7 +207,8 @@
     "extendSuccess": "Rate limit diperpanjang untuk {{ip}}",
     "extendFailed": "Gagal memperpanjang rate limit",
     "ttlRemaining": "Sisa {{time}}",
-    "noTtl": "Hanya JSON (tanpa TTL Redis)"
+    "noTtl": "Hanya di rate_limited.json",
+    "noTtlHint": "TTL Redis tidak ada (restart worker atau Redis mati). vuln-web tetap menegakkan lewat file JSON dan pengaturan window/max."
   },
   "notifications": {
     "title": "Peringatan",
@@ -240,6 +243,8 @@
     "colSeverity": "Tingkat",
     "colPattern": "Pola (cuplikan)",
     "colMatches": "Cocok",
+    "labModeOn": "Mode lab ON: hanya aturan aktif di UI yang dipakai (baseline OWASP dimatikan).",
+    "baselineActive": "Mode produksi: aturan UI aktif + pola OWASP bawaan di detection_engine.py (aktifkan Lab mode di Settings untuk demo sidang).",
     "colActive": "Aktif",
     "edit": "Ubah",
     "delete": "Hapus",
@@ -249,7 +254,11 @@
     "pattern": "Pola Regex",
     "description": "Deskripsi",
     "update": "Perbarui",
-    "create": "Buat"
+    "create": "Buat",
+    "detectionInfo": "Info mode deteksi"
+  },
+  "chatbot": {
+    "dragHint": "Seret untuk pindah · Klik untuk buka"
   },
   "traffic": {
     "title": "Lalu Lintas Langsung",
@@ -271,6 +280,7 @@
     "colStatus": "STATUS",
     "colTag": "TAG",
     "empty": "Belum ada lalu lintas — coba kunjungi http://localhost:5050 (atau URL vuln-web Anda)",
+    "tagHint": "Tag bersifat heuristik (cocokkan pola di log). Baris Attack bisa tetap HTTP 200 sampai request berikutnya setelah IP diblokir SOC. Pastikan di Insiden / Kelola IP.",
     "loadError": "Gagal memuat lalu lintas. Periksa apakah backend berjalan."
   },
   "audit": {
@@ -320,7 +330,8 @@
     "automatedActions": "Aksi Otomatis",
     "notes": "Catatan Investigasi",
     "addNotePlaceholder": "Tambah catatan...",
-    "add": "Tambah"
+    "add": "Tambah",
+    "modelTooltip": "Model yang menghasilkan penjelasan: {{model}}. Jika API gagal: fallback-static. Settings → Model dicoba dulu, lalu model Groq lain otomatis."
   },
   "settings": {
     "title": "Pengaturan",
@@ -367,7 +378,12 @@
     "bruteForceHint": "Percobaan login gagal sebelum diblokir",
     "tempBlock": "Durasi Blokir Sementara (jam)",
     "tempBlockHint": "Jam untuk blokir sementara",
-    "rateLimit": "Jendela Rate Limit (detik)"
+    "rateLimit": "Jendela Rate Limit (detik)",
+    "thresholdsHint": "Disimpan ke database dan diterapkan pada analisis log berikutnya (±60 detik). Brute force = jumlah POST /login gagal; durasi blok sementara untuk severity high.",
+    "labModeTitle": "Mode Lab Deteksi",
+    "labModeLabel": "Hanya aturan aktif dari Detection Rules (nonaktifkan baseline OWASP)",
+    "labModeHint": "Default OFF untuk demo produksi. Jika ON, deteksi hanya dari regex di UI — berguna membuktikan aturan kustom (mis. lorem ipsum SQLi). AI analyst tidak berubah.",
+    "groqTestHint": "Menguji API key dengan Model yang dipilih di atas (bukan semua model). Penjelasan insiden mencoba model pilihan dulu, lalu fallback model Groq lain jika gagal."
   },
   "ipHistory": {
     "title": "Riwayat IP",
@@ -389,10 +405,23 @@
     "noIncidents": "Tidak ada insiden untuk IP ini.",
     "viewAll": "Lihat Semua Insiden",
     "blockIp": "Blokir IP",
-    "whitelist": "Whitelist",
+    "whitelist": "Percayai IP (whitelist)",
     "blocked": "Diblokir",
     "whitelisted": "Di-whitelist",
     "active": "Aktif",
+    "whitelistTitle": "Percayai {{ip}}?",
+    "whitelistConfirm": "Menandai IP ini terpercaya: tidak masuk blocked_ips.json, rate limit dihapus, dan deteksi otomatis tidak membuat insiden baru. Untuk gateway admin atau false positive.",
+    "whitelistApply": "Terapkan whitelist",
+    "whitelistSuccess": "{{ip}} sekarang di-whitelist (terpercaya)",
+    "whitelistFailed": "Gagal whitelist IP",
+    "whitelistRemoved": "Whitelist dihapus untuk {{ip}}",
+    "whitelistRemoveFailed": "Gagal hapus whitelist",
+    "removeWhitelist": "Hapus whitelist",
+    "whitelistReasonDefault": "Di-whitelist dari riwayat IP — IP terpercaya",
+    "enforcementWhitelisted": "Aksi SOC: Di-whitelist",
+    "enforcementBlocked": "Aksi SOC: Diblokir",
+    "whitelistExplain": "IP terpercaya — tidak diblokir otomatis di vuln-web. Deteksi dilewati. Alasan: {{reason}}",
+    "blockExplain": "Blokir {{type}} aktif di vuln-web (403). Alasan: {{reason}}",
     "blockTitle": "Blokir {{ip}}",
     "permanent": "Permanen",
     "temporary": "Sementara",
@@ -400,12 +429,18 @@
     "block": "Blokir",
     "loadFailed": "Gagal memuat riwayat IP"
   },
+  "brand": {
+    "name": "Incidentra",
+    "tagline": "Platform Web SOC Cerdas",
+    "full": "Incidentra SOC"
+  },
   "login": {
-    "title": "SME-Guard",
-    "subtitle": "Platform Web SOC",
+    "title": "Incidentra",
+    "subtitle": "Platform Web SOC Cerdas",
     "signIn": "Masuk",
     "username": "Nama Pengguna",
     "password": "Kata Sandi",
-    "defaultCreds": "Kredensial default:"
+    "defaultCreds": "Kredensial default:",
+    "invalidCredentials": "Username atau password salah."
   }
 }
