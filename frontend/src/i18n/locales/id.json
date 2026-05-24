@@ -434,6 +434,15 @@
     "tagline": "Platform Web SOC Cerdas",
     "full": "Incidentra SOC"
   },
+  "session": {
+    "tokenTitle": "Sesi Akan Berakhir",
+    "tokenBody": "Sesi Anda akan berakhir dalam {{time}}. Silakan login kembali untuk memperpanjang.",
+    "idleTitle": "Peringatan Sesi Idle",
+    "idleBody": "Anda terdeteksi tidak aktif. Anda akan otomatis log out dalam {{time}} karena tidak ada aktivitas. Klik tombol di bawah untuk tetap aktif.",
+    "logout": "Log out",
+    "signInAgain": "Sign in Lagi",
+    "stayActive": "Tetap Aktif"
+  },
   "login": {
     "title": "Incidentra",
     "subtitle": "Platform Web SOC Cerdas",

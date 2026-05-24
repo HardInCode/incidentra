@@ -435,6 +435,15 @@
     "tagline": "Intelligent Web SOC Platform",
     "full": "Incidentra SOC"
   },
+  "session": {
+    "tokenTitle": "Session Expiring Soon",
+    "tokenBody": "Your session will expire in {{time}}. Sign in again to stay logged in.",
+    "idleTitle": "Idle Session Warning",
+    "idleBody": "You have been inactive. You will be logged out in {{time}} due to inactivity. Click the button below to stay active.",
+    "logout": "Log out",
+    "signInAgain": "Sign in again",
+    "stayActive": "Stay Active"
+  },
   "login": {
     "title": "Incidentra",
     "subtitle": "Intelligent Web SOC Platform",
