@@ -208,7 +208,7 @@ cd E:\Capstone\May\sme-guard-May
 Script reset
 cd E:\Capstone\May\sme-guard-May
 docker compose up -d
-.\scripts\reset_smeguard_docker.ps1
+.\scripts\reset_smeguard_docker.ps1 -ClearLogs
 
 # 2) access.log + JSON di volume (wajib lewat container)
 docker compose exec vuln_web sh -c ":> /app/logs/access.log"

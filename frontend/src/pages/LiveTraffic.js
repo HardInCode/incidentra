@@ -2,10 +2,10 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Table, TableBody, TableCell, TableHead, TableRow,
   Chip, IconButton, ToggleButton, ToggleButtonGroup, Select, MenuItem, FormControl, InputLabel, Alert,
-  FormControlLabel, Checkbox,
+  FormControlLabel, Checkbox, Tooltip,
 } from '@mui/material';
 import {
-  Wifi, Pause, PlayArrow, Refresh, BugReport, Warning, Block, CheckCircle,
+  Wifi, Pause, PlayArrow, Refresh, BugReport, Warning, Block, CheckCircle, InfoOutlined,
 } from '@mui/icons-material';
 import { getRecentTraffic } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -139,11 +139,17 @@ export default function LiveTraffic() {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {paused ? t('traffic.paused') : t('traffic.live', { count: data.entries?.length ?? 0 })}
         </Typography>
+        <Tooltip
+          title={t('traffic.tagHint')}
+          placement="bottom"
+          arrow
+          slotProps={{ tooltip: { sx: { maxWidth: 360, fontSize: '0.8rem' } } }}
+        >
+          <IconButton size="small" aria-label="Tag info" sx={{ color: 'text.secondary' }}>
+            <InfoOutlined fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
-
-      <Alert severity="info" sx={{ mb: 2 }}>
-        {t('traffic.tagHint')}
-      </Alert>
 
       {/* Error alert */}
       {data.error && (

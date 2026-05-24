@@ -27,7 +27,7 @@ try {
         "-e", "PYTHONPATH=/app",
         "-v", "${Root}/backend:/app",
         "-v", "${Root}/scripts:/scripts",
-        "-v", "${Root}/vuln-web/logs:/vuln-web/logs",
+        "-v", "vuln_logs:/vuln-web/logs",
         "backend",
         "python", "/scripts/reset_smeguard.py", "--docker-internal"
     )
