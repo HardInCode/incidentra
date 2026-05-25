@@ -92,6 +92,15 @@ class LogTailer:
                 # Log rotation
                 self._pos = 0
                 self._inode = current_inode
+            else:
+                # Cek jika file terpotong (truncated)
+                try:
+                    size = os.stat(self.filepath).st_size
+                    if size < self._pos:
+                        logger.info(f"Log file truncated (size {size} < pos {self._pos}). Resetting position.")
+                        self._pos = 0
+                except Exception:
+                    pass
 
             try:
                 with open(self.filepath, 'r', encoding='utf-8', errors='replace') as f:

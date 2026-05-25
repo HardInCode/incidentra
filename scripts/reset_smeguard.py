@@ -71,6 +71,22 @@ def reset_database():
     try:
         with psycopg.connect(url) as conn:
             with conn.cursor() as cur:
+                # Set lock timeout to 5 seconds to prevent hanging indefinitely
+                cur.execute("SET lock_timeout = '5s'")
+                
+                # Terminate other connections to release locks on tables
+                try:
+                    cur.execute("""
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE datname = current_database()
+                          AND pid <> pg_backend_pid()
+                    """)
+                    conn.commit()
+                except Exception as ex:
+                    # Rollback transaction in case of lack of permissions
+                    conn.rollback()
+
                 # Truncate child tables first (FK order), then parent
                 tables = [
                     "incident_notes",
@@ -102,6 +118,9 @@ def reset_app_settings():
     try:
         with psycopg.connect(url) as conn:
             with conn.cursor() as cur:
+                # Set lock timeout to 5 seconds to prevent hanging indefinitely
+                cur.execute("SET lock_timeout = '5s'")
+                
                 # Check if table exists first
                 cur.execute("""
                     SELECT EXISTS (
