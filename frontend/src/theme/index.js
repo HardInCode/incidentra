@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material';
 
-export const THEME_STORAGE_KEY = 'sme-guard-theme';
+export const THEME_STORAGE_KEY = 'incidentra-theme';
 
 export const severityColors = {
   critical: '#ff1744',

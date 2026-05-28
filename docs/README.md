@@ -1,4 +1,4 @@
-# SME-Guard Documentation (Incidentra)
+# Incidentra Documentation (Incidentra)
 
 **Docs map — May 2026** · Compact structure (~15 files).
 
@@ -25,4 +25,4 @@
 
 ---
 
-*SME-Guard — President University Capstone 2026*
+*Incidentra — President University Capstone 2026*

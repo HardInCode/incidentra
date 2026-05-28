@@ -27,10 +27,10 @@ export default function NotificationBell({ compact = false }) {
   const [summary, setSummary] = useState({ unread_count: 0, max_new_id: 0, recent: [] });
   const [lastSeenId, setLastSeenId] = useState(readLastSeenId);
   const prevUnread = useRef(null);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sme_token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('incidentra_token') : null;
 
   const fetchSummary = useCallback(async () => {
-    if (!localStorage.getItem('sme_token')) return;
+    if (!localStorage.getItem('incidentra_token')) return;
     try {
       const sinceId = readLastSeenId();
       const res = await getNotificationsSummary(sinceId);

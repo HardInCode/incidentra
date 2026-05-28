@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import en from '../i18n/locales/en.json';
 import id from '../i18n/locales/id.json';
 
-export const LANG_STORAGE_KEY = 'sme-guard-lang';
+export const LANG_STORAGE_KEY = 'incidentra-lang';
 
 const LOCALES = { en, id };
 

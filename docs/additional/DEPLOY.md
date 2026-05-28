@@ -2,7 +2,7 @@
 
 Dokumen ini untuk **deploy nilai tambah**: sistem jalan di **server asli** (VPS/VM), diakses lewat IP/domain — bukan production penuh (HTTPS/WAF opsional).
 
-**Repo:** [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)  
+**Repo:** [github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)  
 Lihat juga: [../GUIDE.md](../GUIDE.md), [../ARCHITECTURE.md](../ARCHITECTURE.md), [GITHUB.md](GITHUB.md).
 
 ---
@@ -17,7 +17,7 @@ Lihat juga: [../GUIDE.md](../GUIDE.md), [../ARCHITECTURE.md](../ARCHITECTURE.md)
 | Demo serangan + SOC tetap jalan (termasuk vuln-web lab) | Ganti vuln-web dengan website klien nyata |
 | Docker Compose **atau** manual di Linux | Audit SOC2, backup terjadwal, dll. |
 
-**Intinya:** bukti sistem tidak cuma di laptop — stack SME-Guard (dashboard, API, DB, target lab) hidup di satu (atau beberapa) mesin yang bisa dibuka dari jaringan.
+**Intinya:** bukti sistem tidak cuma di laptop — stack Incidentra (dashboard, API, DB, target lab) hidup di satu (atau beberapa) mesin yang bisa dibuka dari jaringan.
 
 ---
 
@@ -55,8 +55,8 @@ sudo usermod -aG docker $USER
 ### 3. Clone & sesuaikan URL API (penting)
 
 ```bash
-git clone https://github.com/HardInCode/sme-guard.git
-cd sme-guard
+git clone https://github.com/HardInCode/incidentra.git
+cd incidentra
 cp backend/.env.docker.example backend/.env.docker
 # edit backend/.env.docker jika perlu (GROQ_API_KEY)
 ```
@@ -130,7 +130,7 @@ Tetap valid untuk nilai tambah:
 2. Ikuti [../GUIDE.md](../GUIDE.md) Opsi B, dengan `.env` backend:
 
 ```env
-DATABASE_URL=postgresql://smeguard:smeguard123@localhost:5432/smeguard_db
+DATABASE_URL=postgresql://incidentra:incidentra123@localhost:5432/incidentra_db
 WEB_SERVER_LOG_PATH=../vuln-web/logs/access.log
 # ...
 ```

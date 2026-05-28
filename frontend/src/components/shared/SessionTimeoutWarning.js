@@ -10,7 +10,7 @@ const IDLE_WARN_BEFORE_MS = 60 * 1000; // 1 menit warning sebelum logout
 
 function getTokenExpiry() {
   try {
-    const token = localStorage.getItem('sme_token');
+    const token = localStorage.getItem('incidentra_token');
     if (!token) return null;
     const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
     return payload.exp ? payload.exp * 1000 : null;

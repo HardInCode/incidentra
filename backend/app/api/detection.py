@@ -154,7 +154,7 @@ def simulate_attack():
         raw_payload=payload[:1000],
         request_path=data.get('path', '/simulated'),
         request_method='GET',
-        user_agent='SME-Guard/Simulator',
+        user_agent='Incidentra/Simulator',
     )
     db.session.add(incident)
     db.session.commit()

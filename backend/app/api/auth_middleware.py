@@ -20,7 +20,7 @@ def verify_token():
     try:
         payload = jwt.decode(
             token,
-            os.getenv('SECRET_KEY', 'sme-guard-secret'),
+            os.getenv('SECRET_KEY', 'incidentra-secret'),
             algorithms=['HS256']
         )
         request.current_user = payload

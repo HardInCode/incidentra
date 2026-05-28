@@ -31,11 +31,11 @@ EXTRA_RULES = [
         'description': 'Upload disguised as image (e.g. shell.php.jpg)',
     },
     {
-        'rule_name': 'Path Traversal - SME-Guard JSON',
+        'rule_name': 'Path Traversal - Incidentra JSON',
         'attack_type': 'PATH_TRAVERSAL',
         'pattern': r'(?i)(blocked_ips\.json|rate_limited\.json)',
         'severity_level': SeverityLevel.HIGH,
-        'description': 'Detects reads of SME-Guard enforcement JSON via LFI/path abuse',
+        'description': 'Detects reads of Incidentra enforcement JSON via LFI/path abuse',
     },
     {
         'rule_name': 'Path Traversal - logs folder',

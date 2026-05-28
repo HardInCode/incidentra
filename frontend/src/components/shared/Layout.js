@@ -94,7 +94,7 @@ export default function Layout({ children, onLogout }) {
         >
           <Box
             component="img"
-            src="/icons/smeguard.png"
+            src="/icons/incidentra.png"
             alt={t('brand.full')}
             sx={{
               gridArea: 'logo',

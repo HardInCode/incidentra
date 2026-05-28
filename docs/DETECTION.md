@@ -1,4 +1,4 @@
-# SME-Guard — Detection & Security Lab
+# Incidentra — Detection & Security Lab
 
 Maps **where detection code lives**, distinguishes **AI analyst** vs **OWASP baseline**, and summarizes **vuln-web Phase 3** lab scenarios. Use at defense demo or when examiners ask Ctrl+F questions.
 
@@ -130,4 +130,4 @@ Full lab payloads and bypass notes: see [GUIDE.md](GUIDE.md) Phase 3 section and
 
 ---
 
-*SME-Guard — Detection & Security Lab, May 2026.*
+*Incidentra — Detection & Security Lab, May 2026.*

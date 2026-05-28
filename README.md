@@ -44,7 +44,7 @@ cd frontend && npm install && npm start
 cd vuln-web && .\venv\Scripts\Activate.ps1 && pip install -r requirements.txt && python app.py
 ```
 
-Reset demo: `python scripts/reset_smeguard.py --clear-logs` (from repo root, backend venv active).
+Reset demo: `python scripts/reset_incidentra.py --clear-logs` (from repo root, backend venv active).
 
 ---
 

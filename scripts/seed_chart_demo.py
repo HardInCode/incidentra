@@ -8,8 +8,8 @@ Purpose: fill PostgreSQL with Incident rows whose created_at is spread over 7 da
 Charts use Incident.created_at from the DB — NOT timestamps inside access.log.
 
 Docker (Postgres container exposed on localhost:5432):
-  cd E:\\Capstone\\May\\sme-guard-May
-  $env:DATABASE_URL = "postgresql://smeguard:smeguard123@localhost:5432/smeguard_db"
+  cd E:\\Capstone\\May\\incidentra-May
+  $env:DATABASE_URL = "postgresql://incidentra:incidentra123@localhost:5432/incidentra_db"
   $env:REDIS_URL = "redis://localhost:6379/0"
   python scripts/seed_chart_demo.py
 
@@ -35,8 +35,8 @@ if os.path.isfile(os.path.join("/app", "run.py")):
 sys.path.insert(0, BACKEND_DIR)
 
 # Host localhost:5432 is often Windows PostgreSQL — not the Docker container (see TUTORIAL).
-DOCKER_DATABASE_URL_HOST = "postgresql://smeguard:smeguard123@127.0.0.1:5432/smeguard_db"
-DOCKER_DATABASE_URL_INTERNAL = "postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db"
+DOCKER_DATABASE_URL_HOST = "postgresql://incidentra:incidentra123@127.0.0.1:5432/incidentra_db"
+DOCKER_DATABASE_URL_INTERNAL = "postgresql+psycopg://incidentra:incidentra123@postgres:5432/incidentra_db"
 
 
 def _mask_db_url(url: str) -> str:
@@ -53,8 +53,8 @@ def _mask_db_url(url: str) -> str:
 
 def configure_database_url(use_docker_host: bool, use_docker_internal: bool) -> str:
     """
-    backend/.env often has MANUAL Postgres (postgres/..., sme_guard_db).
-    Docker Compose DB is smeguard/smeguard123/smeguard_db — usually NOT on host :5432
+    backend/.env often has MANUAL Postgres (postgres/..., incidentra_db).
+    Docker Compose DB is incidentra/incidentra123/incidentra_db — usually NOT on host :5432
     if Windows PostgreSQL already uses that port.
     """
     env_path = os.path.join(BACKEND_DIR, ".env")
@@ -81,9 +81,9 @@ def configure_database_url(use_docker_host: bool, use_docker_internal: bool) -> 
             "     If auth fails, Windows PostgreSQL may own port 5432.\n"
             "     Use:  .\\scripts\\seed_chart_docker.ps1"
         )
-    elif os.path.isfile(env_path) and "smeguard_db" not in url:
+    elif os.path.isfile(env_path) and "incidentra_db" not in url:
         print(
-            "     [hint] Using backend/.env (manual DB). Dashboard Docker reads smeguard_db.\n"
+            "     [hint] Using backend/.env (manual DB). Dashboard Docker reads incidentra_db.\n"
             "     For Docker charts:  .\\scripts\\seed_chart_docker.ps1"
         )
     return url
@@ -240,7 +240,7 @@ def main():
     parser.add_argument(
         "--docker",
         action="store_true",
-        help="Host: force smeguard@127.0.0.1:5432 (fails if Windows PG owns port 5432)",
+        help="Host: force incidentra@127.0.0.1:5432 (fails if Windows PG owns port 5432)",
     )
     parser.add_argument(
         "--docker-internal",

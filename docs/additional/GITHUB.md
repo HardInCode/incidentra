@@ -72,7 +72,7 @@ Lalu buat Pull Request di GitHub untuk review tim.
 
 | Mode | File env | URL database |
 |------|-----------|--------------|
-| **Docker** | `backend/.env.docker` + override `docker-compose.yml` | `postgresql+psycopg://smeguard:...@postgres:5432/...` (hostname `postgres`, bukan `localhost`) |
+| **Docker** | `backend/.env.docker` + override `docker-compose.yml` | `postgresql+psycopg://incidentra:...@postgres:5432/...` (hostname `postgres`, bukan `localhost`) |
 | **Manual** | `backend/.env` | `postgresql+psycopg://...@localhost:5432/...` |
 
 **Jangan** mengisi `DATABASE_URL=localhost` di `.env.docker` — di dalam container itu salah. DB/Redis sudah di-set di `docker-compose.yml`.

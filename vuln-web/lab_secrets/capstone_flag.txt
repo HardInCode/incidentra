@@ -1,5 +1,5 @@
 ========================================
-  SME-Guard Capstone — LAB SECRET FILE
+  Incidentra Capstone — LAB SECRET FILE
   (fictional data for security demo only)
 ========================================
 

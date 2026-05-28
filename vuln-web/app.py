@@ -21,7 +21,7 @@ from routes import register_blueprints
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = os.getenv('VULN_SECRET_KEY', 'sme-guard-lab-dev-only')
+    app.secret_key = os.getenv('VULN_SECRET_KEY', 'incidentra-lab-dev-only')
 
     @app.before_request
     def _enforce():

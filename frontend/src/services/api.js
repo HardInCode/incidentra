@@ -13,7 +13,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('sme_token');
+  const token = localStorage.getItem('incidentra_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -27,7 +27,7 @@ api.interceptors.response.use(
 
     // Wrong password on login returns 401 — do not hard-redirect (that reloads the page and clears the error Alert).
     if (status === 401 && !isLoginAttempt) {
-      localStorage.removeItem('sme_token');
+      localStorage.removeItem('incidentra_token');
       window.location.href = '/login';
     }
     return Promise.reject(err);

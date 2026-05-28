@@ -64,17 +64,17 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('sme_token');
+    const token = localStorage.getItem('incidentra_token');
     if (token) setIsAuthenticated(true);
   }, []);
 
   const handleLogin = (token) => {
-    localStorage.setItem('sme_token', token);
+    localStorage.setItem('incidentra_token', token);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('sme_token');
+    localStorage.removeItem('incidentra_token');
     setIsAuthenticated(false);
   };
 

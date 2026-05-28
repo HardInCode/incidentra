@@ -1,4 +1,4 @@
-# SME-Guard — Docker Compose (selaras dengan setup manual di docs/GUIDE.md)
+# Incidentra — Docker Compose (selaras dengan setup manual di docs/GUIDE.md)
 #
 # Opsional: edit backend/.env.docker (GROQ_API_KEY)
 #   docker compose up --build -d
@@ -8,27 +8,27 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: smeguard_postgres
+    container_name: incidentra_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: smeguard_db
-      POSTGRES_USER: smeguard
-      POSTGRES_PASSWORD: smeguard123
+      POSTGRES_DB: incidentra_db
+      POSTGRES_USER: incidentra
+      POSTGRES_PASSWORD: incidentra123
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U smeguard -d smeguard_db"]
+      test: ["CMD-SHELL", "pg_isready -U incidentra -d incidentra_db"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - smeguard_net
+      - incidentra_net
 
   redis:
     image: redis:7-alpine
-    container_name: smeguard_redis
+    container_name: incidentra_redis
     restart: unless-stopped
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
@@ -41,13 +41,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - smeguard_net
+      - incidentra_net
 
   vuln_web:
     build:
       context: ./vuln-web
       dockerfile: Dockerfile
-    container_name: smeguard_vulnweb
+    container_name: incidentra_vulnweb
     restart: unless-stopped
     ports:
       - "5050:5050"
@@ -63,18 +63,18 @@ services:
     volumes:
       - vuln_logs:/app/logs
     networks:
-      - smeguard_net
+      - incidentra_net
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smeguard_backend
+    container_name: incidentra_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env.docker
     environment:
-      DATABASE_URL: postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db
+      DATABASE_URL: postgresql+psycopg://incidentra:incidentra123@postgres:5432/incidentra_db
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -99,13 +99,13 @@ services:
     volumes:
       - vuln_logs:/app/watched_logs
     networks:
-      - smeguard_net
+      - incidentra_net
 
   celery_worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: smeguard_celery
+    container_name: incidentra_celery
     restart: unless-stopped
     command: >
       sh -c "celery -A celery_worker.celery worker --loglevel=info --concurrency=2 &
@@ -114,7 +114,7 @@ services:
     env_file:
       - ./backend/.env.docker
     environment:
-      DATABASE_URL: postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db
+      DATABASE_URL: postgresql+psycopg://incidentra:incidentra123@postgres:5432/incidentra_db
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -131,7 +131,7 @@ services:
     volumes:
       - vuln_logs:/app/watched_logs
     networks:
-      - smeguard_net
+      - incidentra_net
 
   frontend:
     build:
@@ -139,14 +139,14 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: http://localhost:5000/api
-    container_name: smeguard_frontend
+    container_name: incidentra_frontend
     restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
       - backend
     networks:
-      - smeguard_net
+      - incidentra_net
 
 volumes:
   postgres_data:
@@ -154,7 +154,7 @@ volumes:
   vuln_logs:
 
 networks:
-  smeguard_net:
+  incidentra_net:
     driver: bridge
 
 

@@ -1,4 +1,4 @@
-# Audit Full SME-Guard (Incidentra) — Mei 2026
+# Audit Full Incidentra (Incidentra) — Mei 2026
 
 **Versi:** Audit lengkap capstone · **Mei 2026**  
 **Produk:** Intelligent Web-SOC Platform with Automated Incident Response  
@@ -89,7 +89,7 @@
 | # | Langkah | Expected result | Pass | Catatan |
 |---|---------|-----------------|------|---------|
 | P1 | Redis: `redis-cli ping` **atau** `docker compose ps` | `PONG` / 6 service **Up** | | |
-| P2 | Reset demo: `python scripts/reset_smeguard.py --clear-logs` (+ unblock semua IP) | Inciden kosong; `blocked_ips.json` kosong | | Docker: lihat [GUIDE.md](GUIDE.md) reset |
+| P2 | Reset demo: `python scripts/reset_incidentra.py --clear-logs` (+ unblock semua IP) | Inciden kosong; `blocked_ips.json` kosong | | Docker: lihat [GUIDE.md](GUIDE.md) reset |
 | P3 | Login SOC `admin` / `Admin@Incidentra2026!` | Dashboard, sidebar lengkap | | |
 | P4 | Backend: log `Tailing real log` (bukan simulated) | Monitor aktif | | `USE_SIMULATED_LOGS=false` |
 | P5 | Cari `SIDANG Ctrl+F` di `detection_engine.py`, `traffic.py` | Peta kode sidang tersedia | | Opsional — lihat [DETECTION.md](DETECTION.md) |
@@ -160,7 +160,7 @@ Target: `http://localhost:5050` · UA browser normal untuk tes non-scanner.
 |---|---------|----------|------|---------|
 | C2.1 | POST body `username=admin' OR '1'='1' --&password=x` | Login reflected | | |
 | C2.2 | SOC | **SQL_INJECTION** critical | | |
-| C2.3 | GET `/` | **403** SME-Guard | | |
+| C2.3 | GET `/` | **403** Incidentra | | |
 
 ### C3 — XSS
 
@@ -363,7 +363,7 @@ Demo sidang: **rule operator** vs **baseline**.
 | Rule OFF masih detect | Lab mode OFF → baseline aktif — jelaskan di sidang |
 | Lab mode ON masih detect | Rule lain aktif atau brute-force rule aktif |
 | Semua request SCANNER (Burp) | UA browser normal |
-| 403 terus | IP Management unblock atau `reset_smeguard.py --clear-logs` |
+| 403 terus | IP Management unblock atau `reset_incidentra.py --clear-logs` |
 | Threshold Settings tidak jalan | **Save** Settings; tunggu ≤60 s atau restart backend |
 | Model AI selalu sama | Normal jika Groq primary sukses; cek tooltip `model_used` |
 | Docker backend loop | `docker compose logs backend` — cek `DATABASE_URL` |
@@ -386,4 +386,4 @@ Demo sidang: **rule operator** vs **baseline**.
 
 ---
 
-*Audit Full SME-Guard — Mei 2026 · President University Capstone*
+*Audit Full Incidentra — Mei 2026 · President University Capstone*

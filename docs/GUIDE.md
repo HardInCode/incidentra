@@ -1,10 +1,10 @@
-# SME-Guard — Operational Guide
+# Incidentra — Operational Guide
 
 Single guide: **run** the system (Docker or manual), **defense demo**, and **troubleshooting**.
 
 **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · **Detection:** [DETECTION.md](DETECTION.md) · **Full audit:** [AUDIT.md](AUDIT.md)
 
-**Repo:** [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)
+**Repo:** [github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)
 
 ---
 
@@ -88,8 +88,8 @@ Salin dari `vuln-web/.env.example` → `vuln-web/.env`. Nilai **aktif** untuk fl
 ## Jalankan — Docker (disarankan)
 
 ```powershell
-git clone https://github.com/HardInCode/sme-guard.git
-cd sme-guard
+git clone https://github.com/HardInCode/incidentra.git
+cd incidentra
 copy backend\.env.docker.example backend\.env.docker
 docker compose up --build -d
 docker compose ps
@@ -191,8 +191,8 @@ Venv backend aktif (`pip install psycopg redis` jika belum):
 
 | Perintah                                        | Fungsi                                      |
 | ----------------------------------------------- | ------------------------------------------- |
-| `python scripts/reset_smeguard.py`              | Kosongkan insiden, blokir, rate JSON, Redis |
-| `python scripts/reset_smeguard.py --clear-logs` | + kosongkan `vuln-web/logs/access.log`      |
+| `python scripts/reset_incidentra.py`              | Kosongkan insiden, blokir, rate JSON, Redis |
+| `python scripts/reset_incidentra.py --clear-logs` | + kosongkan `vuln-web/logs/access.log`      |
 | `python scripts/seed_chart_demo.py`             | Grafik dashboard 7 hari                     |
 
 
@@ -203,12 +203,12 @@ Setelah reset → restart backend + vuln-web.
 Log & JSON blokir ada di **volume Docker** `vuln_logs`, bukan di folder `vuln-web/logs/` di Windows. Script reset di host **tetap bisa** kosongkan DB + Redis (port 5432/6379 di-expose), lalu kosongkan file di container:
 
 ```powershell
-cd E:\Capstone\May\sme-guard-May
+cd E:\Capstone\May\incidentra-May
 
 Script reset
-cd E:\Capstone\May\sme-guard-May
+cd E:\Capstone\May\incidentra-May
 docker compose up -d
-.\scripts\reset_smeguard_docker.ps1 -ClearLogs
+.\scripts\reset_incidentra_docker.ps1 -ClearLogs
 
 # 2) access.log + JSON di volume (wajib lewat container)
 docker compose exec vuln_web sh -c ":> /app/logs/access.log"
@@ -287,12 +287,12 @@ Respons sukses berisi `incident_ids` (array tidak kosong).
 **Tujuan:** insiden di PostgreSQL dengan `created_at` **berbeda per hari** (timeline + donut severity).  
 **Bukan** tombol Simulate Attack Mode B (itu pipeline detection + log satu baris).
 
-**Penting (Windows):** `localhost:5432` sering = **PostgreSQL Windows** (`backend/.env`: `postgres` / `sme_guard_db`), **bukan** database Docker (`smeguard` / `smeguard_db`). Dashboard Docker membaca DB container — seed dari host dengan `$env:DATABASE_URL=smeguard...` bisa gagal (`password authentication failed`).
+**Penting (Windows):** `localhost:5432` sering = **PostgreSQL Windows** (`backend/.env`: `postgres` / `incidentra_db`), **bukan** database Docker (`incidentra` / `incidentra_db`). Dashboard Docker membaca DB container — seed dari host dengan `$env:DATABASE_URL=incidentra...` bisa gagal (`password authentication failed`).
 
 **Cara yang benar saat pakai Docker Compose:**
 
 ```powershell
-cd E:\Capstone\May\sme-guard-May
+cd E:\Capstone\May\incidentra-May
 docker compose up -d
 .\scripts\seed_chart_docker.ps1
 # Cek rencana dulu:
@@ -316,7 +316,7 @@ Lalu refresh Dashboard (`http://localhost:3000`).
 | `--append-logs` | Plus baris di `access.log` (Live Traffic); **jangan** pakai saat backend tail aktif jika tidak ingin insiden tambahan hari ini |
 
 
-Sebelum demo live (bukan grafik), kosongkan insiden lama: `.\scripts\seed_chart_docker.ps1` hanya untuk grafik — atau `reset_smeguard.py` + restart. Insiden seed lama bisa memicu toast bell IP `203.0.113.x` dengan tanggal yang membingungkan.
+Sebelum demo live (bukan grafik), kosongkan insiden lama: `.\scripts\seed_chart_docker.ps1` hanya untuk grafik — atau `reset_incidentra.py` + restart. Insiden seed lama bisa memicu toast bell IP `203.0.113.x` dengan tanggal yang membingungkan.
 
 **AI Explanation:** hanya muncul setelah klik **Generate AI Explanation** di detail insiden — tidak otomatis saat deteksi / inject log.
 
@@ -325,14 +325,14 @@ Sebelum demo live (bukan grafik), kosongkan insiden lama: `.\scripts\seed_chart_
 
 | Situasi                                                  | `DATABASE_URL` untuk skrip di PowerShell                                         |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **Docker** Postgres di `localhost:5432`, user `smeguard` | `postgresql://smeguard:smeguard123@localhost:5432/smeguard_db` (seperti di atas) |
+| **Docker** Postgres di `localhost:5432`, user `incidentra` | `postgresql://incidentra:incidentra123@localhost:5432/incidentra_db` (seperti di atas) |
 | **Manual** backend pakai `backend/.env` yang sama        | **Sama** — tidak perlu ubah, atau hapus `$env:` dan biarkan skrip baca `.env`    |
 | **Manual** Postgres lain (user/password beda)            | Samakan dengan baris `DATABASE_URL` di `backend/.env`                            |
 
 
 `REDIS_URL` hanya dipakai jika backend/app butuh Redis saat skrip jalan; untuk `seed_chart_demo` yang utama adalah **DATABASE_URL**. Backend `python run.py` manual tetap baca `backend/.env` — tidak otomatis ikut `$env` di terminal kecuali Anda export sebelum `python run.py`.
 
-**Ringkas:** Kalau Postgres/Redis tetap di `localhost` dengan kredensial `smeguard` / `smeguard123`, **satu set URL cukup** untuk Docker dan untuk menjalankan skrip dari host. Ubah hanya jika Anda ganti ke database manual dengan kredensial berbeda.
+**Ringkas:** Kalau Postgres/Redis tetap di `localhost` dengan kredensial `incidentra` / `incidentra123`, **satu set URL cukup** untuk Docker dan untuk menjalankan skrip dari host. Ubah hanya jika Anda ganti ke database manual dengan kredensial berbeda.
 
 ---
 
@@ -445,7 +445,7 @@ npm start
 
 ### Reset (disarankan sebelum demo)
 
-- **Manual:** `python scripts/reset_smeguard.py --clear-logs` → restart backend + vuln-web.
+- **Manual:** `python scripts/reset_incidentra.py --clear-logs` → restart backend + vuln-web.
 - **Docker:** ikuti § **Skrip utilitas — Docker** di atas (bukan `--clear-logs` saja di host).
 
 ### Cek IP Anda
@@ -463,7 +463,7 @@ Buka `http://localhost:5050/` — di Live Traffic lihat kolom **IP**. Itu IP yan
 3. Username: `admin' OR '1'='1' --` , password: apa saja → Submit.
 4. Tunggu 5–10 detik.
 5. SOC → **Incidents** → **SQL_INJECTION**, critical.
-6. Refresh `http://localhost:5050/` → **403 Forbidden SME-Guard**.
+6. Refresh `http://localhost:5050/` → **403 Forbidden Incidentra**.
 
 ### 2. XSS
 
@@ -559,10 +559,10 @@ Lalu `docker compose up -d --build vuln_web`.
 | -------------------- | ------------------------------------------------- |
 | OWASP Top 10         | A04 — Insecure Design / misconfig upload          |
 | CWE                  | **CWE-434** Unrestricted Upload of Dangerous Type |
-| MITRE (di SME-Guard) | **T1105** Ingress Tool Transfer                   |
+| MITRE (di Incidentra) | **T1105** Ingress Tool Transfer                   |
 
 
-**Deteksi SME-Guard:** insiden hanya jika log punya `file=` atau `avatar=` + ekstensi berbahaya (`.php`, `.jsp`, dll.). Upload `.jpg` / `.txt` → log saja.
+**Deteksi Incidentra:** insiden hanya jika log punya `file=` atau `avatar=` + ekstensi berbahaya (`.php`, `.jsp`, dll.). Upload `.jpg` / `.txt` → log saja.
 
 Detail lab path traversal: [DETECTION.md](DETECTION.md) § Security Lab.
 
@@ -589,7 +589,7 @@ Detail lab path traversal: [DETECTION.md](DETECTION.md) § Security Lab.
 | Live Traffic **Attack 200**, tidak ada insiden | Tag heuristik ≠ insiden SOC         | Restart backend `run.py`; cek **Incidents**; pakai `;whoami`                                                                       |
 | Tidak ada insiden sama sekali                  | Log tidak ke-tail                   | `USE_SIMULATED_LOGS=false`, path log benar, restart backend                                                                        |
 | Insiden ada, tidak 403                         | IP beda (LAN vs 127.0.0.1)          | Unblock IP yang benar di kolom Live Traffic                                                                                        |
-| 403 terus                                      | Masih di `blocked_ips.json`         | Unblock di SOC atau `reset_smeguard.py --clear-logs`                                                                               |
+| 403 terus                                      | Masih di `blocked_ips.json`         | Unblock di SOC atau `reset_incidentra.py --clear-logs`                                                                               |
 | Fase 3 tidak shell nyata                       | `.env` tidak dibaca / belum restart | Pastikan file `vuln-web/.env` ada; `VULN_UNSAFE_CMD=1`; restart `python app.py`; halaman `/cmd` harus tulis **Live shell enabled** |
 | Fase 3 di Docker tidak jalan                   | Container tanpa env Fase 3          | Tambah `VULN_UNSAFE_CMD: "1"` di `docker-compose.yml` atau demo manual                                                             |
 | Database / Redis error                         | Service mati                        | Cek `DATABASE_URL`, `redis-cli ping`                                                                                               |

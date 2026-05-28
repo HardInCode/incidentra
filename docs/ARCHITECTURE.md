@@ -1,9 +1,9 @@
-# SME-Guard — Architecture & Application
+# Incidentra — Architecture & Application
 
-**SME-Guard** adalah platform Web-SOC untuk UKM: memantau log aplikasi web, mendeteksi serangan (SQLi, XSS, brute force, path traversal, dll.), membuat insiden, memblokir IP otomatis, dan menampilkan dashboard analis keamanan.
+**Incidentra** adalah platform Web-SOC untuk UKM: memantau log aplikasi web, mendeteksi serangan (SQLi, XSS, brute force, path traversal, dll.), membuat insiden, memblokir IP otomatis, dan menampilkan dashboard analis keamanan.
 
 > Capstone — President University, Faculty of Computer Science  
-> Repo: [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)
+> Repo: [github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)
 
 **Run:** [GUIDE.md](GUIDE.md) · **Detection:** [DETECTION.md](DETECTION.md) · **Audit:** [AUDIT.md](AUDIT.md) · **Deploy:** [additional/DEPLOY.md](additional/DEPLOY.md)
 
@@ -52,7 +52,7 @@ flowchart LR
     L[access.log]
     J[blocked_ips.json / rate_limited.json]
   end
-  subgraph soc [SME-Guard]
+  subgraph soc [Incidentra]
     F[Frontend React :3000]
     API[Flask API :5000]
     LM[Log Monitor]
@@ -157,7 +157,7 @@ Skema DB dibuat dengan `db.create_all()` (bukan migrasi Alembic terpisah). Lihat
 ## Komponen repositori
 
 ```
-sme-guard/
+incidentra/
 ├── backend/           Flask API, detection, response_manager
 ├── frontend/          React 18 + MUI
 ├── vuln-web/          Target lab + enforcement JSON
@@ -417,4 +417,4 @@ Celery ada; notifikasi/AI punya fallback thread jika worker tidak jalan.
 
 ---
 
-*Architecture + team mastery — SME-Guard, May 2026.*
+*Architecture + team mastery — Incidentra, May 2026.*

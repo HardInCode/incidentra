@@ -7,7 +7,7 @@
  */
 export default function useCurrentUser() {
   try {
-    const token = localStorage.getItem('sme_token');
+    const token = localStorage.getItem('incidentra_token');
     if (!token) return null;
 
     const parts = token.split('.');

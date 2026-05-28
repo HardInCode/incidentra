@@ -18,7 +18,7 @@ def _make_token(user_id, username, role):
         'role': role,
         'exp': datetime.utcnow() + timedelta(hours=24),
     }
-    return jwt.encode(payload, os.getenv('SECRET_KEY', 'sme-guard-secret'), algorithm='HS256')
+    return jwt.encode(payload, os.getenv('SECRET_KEY', 'incidentra-secret'), algorithm='HS256')
 
 
 @auth_bp.route('/login', methods=['POST'])

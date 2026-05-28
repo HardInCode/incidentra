@@ -41,7 +41,7 @@ export default function Login({ onLogin }) {
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Box
               component="img"
-              src="/icons/smeguard.png"
+              src="/icons/incidentra.png"
               alt={t('brand.full')}
               sx={{ width: 64, height: 64, borderRadius: 3, mb: 2, objectFit: 'contain' }}
             />

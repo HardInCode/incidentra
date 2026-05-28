@@ -1,4 +1,4 @@
-# SME-Guard — Materi belajar
+# Incidentra — Materi belajar
 
 Konsep untuk capstone / sidang. Guide: [../GUIDE.md](../GUIDE.md) · Arsitektur: [../ARCHITECTURE.md](../ARCHITECTURE.md) · Audit: [../AUDIT.md](../AUDIT.md)
 
@@ -16,7 +16,7 @@ Tanpa token → `{ "error": "Authorization required" }` — itu normal, bukan bu
 
 ```
 :3000 login → POST /api/auth/login → token
-→ localStorage sme_token
+→ localStorage incidentra_token
 → axios menambah Bearer pada setiap /api/*
 ```
 
@@ -72,7 +72,7 @@ Severity → respons: [AUDIT.md](../AUDIT.md) (tabel awal).
 
 ### Apakah rate limit “kurang” karena tidak di DB?
 
-**Tidak untuk scope Bab 3–4.** Dari awal desain SME-Guard:
+**Tidak untuk scope Bab 3–4.** Dari awal desain Incidentra:
 
 | Data | Penyimpanan | Alasan |
 |------|-------------|--------|
@@ -125,4 +125,4 @@ Detail: [GITHUB.md](GITHUB.md).
 
 ---
 
-*Materi belajar SME-Guard — tim capstone President University.*
+*Materi belajar Incidentra — tim capstone President University.*

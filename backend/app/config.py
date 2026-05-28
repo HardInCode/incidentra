@@ -6,14 +6,14 @@ load_dotenv()
 
 
 class BaseConfig:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'sme-guard-secret-change-in-production')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'incidentra-secret-change-in-production')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
     # Database
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        'postgresql+psycopg://smeguard:smeguard123@localhost:5432/smeguard_db'
+        'postgresql+psycopg://incidentra:incidentra123@localhost:5432/incidentra_db'
     )
 
     # Redis

@@ -14,7 +14,7 @@ $Root = Split-Path $PSScriptRoot -Parent
 Push-Location $Root
 try {
     $args = @("run", "--rm",
-        "-e", "DATABASE_URL=postgresql+psycopg://smeguard:smeguard123@postgres:5432/smeguard_db",
+        "-e", "DATABASE_URL=postgresql+psycopg://incidentra:incidentra123@postgres:5432/incidentra_db",
         "-e", "PYTHONPATH=/app",
         "-v", "${Root}/backend:/app",
         "-v", "${Root}/scripts:/scripts",

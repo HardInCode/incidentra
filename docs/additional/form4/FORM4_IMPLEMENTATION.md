@@ -23,7 +23,7 @@ The following items represent substantive changes or additions from the Form 3 d
 
 ### 1. Functions, Procedures, and Classes
 
-This section maps each Form 3 subsystem to its concrete implementation in the SME-Guard codebase. All file paths are relative to the repository root.
+This section maps each Form 3 subsystem to its concrete implementation in the Incidentra codebase. All file paths are relative to the repository root.
 
 #### 1.1 Log Ingestion Layer
 
@@ -133,7 +133,7 @@ The sidebar navigation uses the `nav.ipManagement` i18n key (rendered as "IP Man
 
 ### 2. Database Implementation
 
-SME-Guard uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and populated by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on the first container start. The default seed creates one `admin` user (username `admin`, password `Admin@Incidentra2026!`) and 11 active detection rules covering all supported OWASP attack categories.
+Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and populated by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on the first container start. The default seed creates one `admin` user (username `admin`, password `Admin@Incidentra2026!`) and 11 active detection rules covering all supported OWASP attack categories.
 
 
 | Model Class           | Table                   | Key Columns                                                                                                                                                                                |
@@ -165,7 +165,7 @@ The IP Management page (`/blocked-ips`) presents two tabs. The **Blocked** tab l
 
 The Detection Rules page lists all `DetectionRule` records in a table with columns for rule name, attack type badge, severity badge, regex pattern excerpt, match count, active toggle, and edit/delete actions. The "+ Add Rule" modal collects a rule name, attack type (from a fixed enum), severity level, regex pattern, and optional description. The Live Traffic page auto-refreshes every three seconds via HTTP polling of `/api/traffic/`. Each row shows timestamp, IP, HTTP method, path, query/payload excerpt, HTTP status, and a classification tag (Attack / Suspicious / Blocked / Normal) derived from pattern-matching in the backend.
 
-[SCREENSHOT: Figure 1 — SME-Guard Login Page. Shows the dark-themed card with the shield logo, username/admin field, password field, and default credentials hint.]
+[SCREENSHOT: Figure 1 — Incidentra Login Page. Shows the dark-themed card with the shield logo, username/admin field, password field, and default credentials hint.]
 
 [SCREENSHOT: Figure 2 — SOC Dashboard. Shows four metric cards, system status banner, seven-day Incident Timeline chart, and By Severity donut chart.]
 
@@ -189,13 +189,13 @@ The Detection Rules page lists all `DetectionRule` records in a table with colum
 
 [SCREENSHOT: Figure 12 — vuln-web Shop (Phase 3 enabled). Red banner: "⚠ LAB MODE – VULN_UNSAFE_CMD is enabled". Shop catalog visible below banner.]
 
-[SCREENSHOT: Figure 13 — vuln-web 403 Page. Dark-themed "🔒 403 Access Forbidden — Your IP has been blocked by SME-Guard" page after IP block.]
+[SCREENSHOT: Figure 13 — vuln-web 403 Page. Dark-themed "🔒 403 Access Forbidden — Your IP has been blocked by Incidentra" page after IP block.]
 
 [SCREENSHOT: Figure 14 — vuln-web 429 Page. Yellow-themed "⏱ 429 Too Many Requests" page with rate limit and retry countdown.]
 
 ### 4. Hardware Implementation
 
-**Not applicable.** SME-Guard is a software-only system. No microcontrollers, IoT sensors, or dedicated hardware appliances are required. The minimum recommended specification for the demonstration environment is a laptop or PC with at least 8 GB RAM and Docker Desktop installed, or a Linux VPS with 2 vCPUs and 4 GB RAM. All processing, storage, and network communication occur within Docker containers on the host machine.
+**Not applicable.** Incidentra is a software-only system. No microcontrollers, IoT sensors, or dedicated hardware appliances are required. The minimum recommended specification for the demonstration environment is a laptop or PC with at least 8 GB RAM and Docker Desktop installed, or a Linux VPS with 2 vCPUs and 4 GB RAM. All processing, storage, and network communication occur within Docker containers on the host machine.
 
 ### 5. Integration Among Modules
 
@@ -215,9 +215,9 @@ Four integration points deserve particular attention. First, vuln-web has no Pos
 
 ### 1. Software Product Display
 
-The SME-Guard system consists of two browser-accessible components: the SOC Dashboard (React, port 3000) and the vuln-web target shop (Flask, port 5050). The following subsections describe the key screens as implemented.
+The Incidentra system consists of two browser-accessible components: the SOC Dashboard (React, port 3000) and the vuln-web target shop (Flask, port 5050). The following subsections describe the key screens as implemented.
 
-**Login Page.** The login page (`frontend/src/pages/Login.js`) presents a centered card on a dark background with the SME-Guard shield logo, "Intelligent Web-SOC Platform" subtitle, username and password fields, and a "Sign In" button. On successful authentication the Flask `/api/auth/login` endpoint issues a JWT (HS256, 24-hour expiry). A hint displays the default credentials (`admin / Admin@Incidentra2026!`) to assist new operators.
+**Login Page.** The login page (`frontend/src/pages/Login.js`) presents a centered card on a dark background with the Incidentra shield logo, "Intelligent Web-SOC Platform" subtitle, username and password fields, and a "Sign In" button. On successful authentication the Flask `/api/auth/login` endpoint issues a JWT (HS256, 24-hour expiry). A hint displays the default credentials (`admin / Admin@Incidentra2026!`) to assist new operators.
 
 [SCREENSHOT: Figure 1 — Login Page with default credentials hint.]
 
@@ -267,7 +267,7 @@ The SME-Guard system consists of two browser-accessible components: the SOC Dash
 
 **vuln-web 403 and 429 Pages.** When a blocked IP makes a request, `middleware/security.py` returns the `FORBIDDEN_HTML` template (HTTP 403) which displays the blocked IP address in a dark-themed error page. A rate-limited IP receives the `TOO_MANY_REQUESTS_HTML` template (HTTP 429) displaying the per-minute limit and a retry countdown.
 
-[SCREENSHOT: Figure 13 — vuln-web 403 Forbidden page ("Your IP has been blocked by SME-Guard").]
+[SCREENSHOT: Figure 13 — vuln-web 403 Forbidden page ("Your IP has been blocked by Incidentra").]
 
 [SCREENSHOT: Figure 14 — vuln-web 429 Too Many Requests page with rate limit value and retry countdown.]
 
@@ -275,7 +275,7 @@ The SME-Guard system consists of two browser-accessible components: the SOC Dash
 
 ## C. COST ANALYSIS
 
-All software components used by SME-Guard are open-source and carry no licensing cost. The table below presents the cost structure for two deployment scenarios: local demonstration (Docker Compose on a developer laptop) and optional production deployment on a VPS.
+All software components used by Incidentra are open-source and carry no licensing cost. The table below presents the cost structure for two deployment scenarios: local demonstration (Docker Compose on a developer laptop) and optional production deployment on a VPS.
 
 
 | Item                                          | Local Demo (Docker) | Optional VPS Production         | Notes                                                                                                            |
@@ -295,7 +295,7 @@ All software components used by SME-Guard are open-source and carry no licensing
 | **Total (optional VPS, first year)**          | —                   | **≈ Rp 1,650,000–1,750,000**    | —                                                                                                                |
 
 
-The zero-cost local deployment makes SME-Guard immediately accessible to small and medium enterprises without requiring any IT budget. The optional VPS deployment provides persistent availability for monitoring a production web server at a cost of approximately Rp 1.5–1.6 million per year — substantially below the cost of any commercial SIEM or WAF solution.
+The zero-cost local deployment makes Incidentra immediately accessible to small and medium enterprises without requiring any IT budget. The optional VPS deployment provides persistent availability for monitoring a production web server at a cost of approximately Rp 1.5–1.6 million per year — substantially below the cost of any commercial SIEM or WAF solution.
 
 ---
 
@@ -319,7 +319,7 @@ Testing is conducted against the Docker Compose deployment (six services: `postg
 | No. | Scenario                          | Input                                                                                 | Expected Output                                                                                      | Output Result       |
 | --- | --------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------- |
 | 1   | **Login POST SQLi (demo sidang)** | `http://localhost:5050/login` — username `admin' OR '1'='1' --`, password any; Submit | Incident: `SQL_INJECTION`, `severity=critical`; `POST_DATA` in raw payload; IP in `blocked_ips.json` | *(isi setelah uji)* |
-| 2   | Automated block enforcement       | After step 1, open `http://localhost:5050/` from same IP                              | HTTP 403 Forbidden (SME-Guard branding); Live Traffic shows **Blocked** on next row                  | *(isi setelah uji)* |
+| 2   | Automated block enforcement       | After step 1, open `http://localhost:5050/` from same IP                              | HTTP 403 Forbidden (Incidentra branding); Live Traffic shows **Blocked** on next row                  | *(isi setelah uji)* |
 | 3   | Reflected SQLi via search         | `http://localhost:5050/search?q=admin'+OR+'1'='1'--`                                  | Incident: `SQL_INJECTION`, critical                                                                  | *(isi setelah uji)* |
 | 4   | Blind time-based SQLi             | `http://localhost:5050/search?q=1' AND SLEEP(5)--`                                    | Incident: `SQL_INJECTION` if pattern matches                                                         | *(isi setelah uji)* |
 
@@ -480,8 +480,8 @@ The primary deployment method is Docker Compose, which provisions all six servic
 **Step 1 — Clone the repository.**
 
 ```bash
-git clone https://github.com/HardInCode/sme-guard.git
-cd sme-guard
+git clone https://github.com/HardInCode/incidentra.git
+cd incidentra
 ```
 
 **Step 2 — Configure the backend environment file.**
@@ -523,9 +523,9 @@ The red warning banner will appear on all vuln-web pages.
 From the repository root (with Docker stack running):
 
 ```powershell
-$env:DATABASE_URL = "postgresql://smeguard:smeguard123@localhost:5432/smeguard_db"
+$env:DATABASE_URL = "postgresql://incidentra:incidentra123@localhost:5432/incidentra_db"
 $env:REDIS_URL = "redis://localhost:6379/0"
-python scripts/reset_smeguard.py
+python scripts/reset_incidentra.py
 
 docker compose exec vuln_web sh -c ":> /app/logs/access.log"
 docker compose exec vuln_web sh -c 'echo "{\"blocked\":[],\"details\":{},\"updated_at\":\"\"}" > /app/logs/blocked_ips.json'
@@ -534,7 +534,7 @@ docker compose exec vuln_web sh -c 'echo "{\"rate_limited\":[],\"updated_at\":\"
 docker compose restart backend vuln_web
 ```
 
-For manual mode only: `python scripts/reset_smeguard.py --clear-logs` then restart backend and vuln-web.
+For manual mode only: `python scripts/reset_incidentra.py --clear-logs` then restart backend and vuln-web.
 
 **Manual (3-terminal) alternative.** For development without Docker, open three terminals:
 
@@ -546,7 +546,7 @@ PostgreSQL and Redis must be running locally. Copy `backend/.env.example` to `ba
 
 ### E.2 — End-User Installation
 
-SME-Guard is a server-side platform. End-user installation requires no software installation on the administrator's workstation beyond a modern web browser.
+Incidentra is a server-side platform. End-user installation requires no software installation on the administrator's workstation beyond a modern web browser.
 
 
 | Component                | Requirement                                                                                                                                                                                     |
@@ -563,7 +563,7 @@ No client-side installation is required. The SOC Dashboard is served as a pre-bu
 
 ### E.3 — User Guide per Role
 
-SME-Guard defines three user roles, each with a distinct set of responsibilities and access paths within the system.
+Incidentra defines three user roles, each with a distinct set of responsibilities and access paths within the system.
 
 
 | Role                              | Access Level                  | Primary Responsibilities                                                                                                            | Typical Workflow                                                                                                                                                                                                                                                                               |
@@ -602,4 +602,4 @@ SME-Guard defines three user roles, each with a distinct set of responsibilities
 
 ---
 
-*Form 4 — Implementation | SME-Guard "Intelligent Web-SOC Platform with Automated Incident Response" | President University Capstone Design Project 2026 | Hardin Irfan (001202300066) · Nasywa Kamila (001202300211) · Zaidan Mahfudz Azzam Saidi (001202300144)*
+*Form 4 — Implementation | Incidentra "Intelligent Web-SOC Platform with Automated Incident Response" | President University Capstone Design Project 2026 | Hardin Irfan (001202300066) · Nasywa Kamila (001202300211) · Zaidan Mahfudz Azzam Saidi (001202300144)*

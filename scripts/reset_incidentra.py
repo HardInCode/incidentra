@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-SME-Guard Reset Script
+Incidentra Reset Script
 
 Menghapus semua data incidents, blocked IPs, audit logs, dan file terkait sehingga
 sistem bisa dimulai dari awal (0 incidents). Tidak menghapus users, detection rules,
 atau app settings (konfigurasi API keys, SMTP, Telegram tetap tersimpan).
 
 Usage:
-  python scripts/reset_smeguard.py              → Reset DB, Redis, JSON files
-  python scripts/reset_smeguard.py --clear-logs → Juga kosongkan access.log
-  python scripts/reset_smeguard.py --reset-all  → Reset DB + Redis + JSON + Settings DB
+  python scripts/reset_incidentra.py              → Reset DB, Redis, JSON files
+  python scripts/reset_incidentra.py --clear-logs → Juga kosongkan access.log
+  python scripts/reset_incidentra.py --reset-all  → Reset DB + Redis + JSON + Settings DB
 
-Docker (via reset_smeguard_docker.ps1 — jangan panggil --docker-internal manual):
-  .\scripts\reset_smeguard_docker.ps1
-  .\scripts\reset_smeguard_docker.ps1 -ClearLogs
-  .\scripts\reset_smeguard_docker.ps1 -ResetAll
+Docker (via reset_incidentra_docker.ps1 — jangan panggil --docker-internal manual):
+  .\scripts\reset_incidentra_docker.ps1
+  .\scripts\reset_incidentra_docker.ps1 -ClearLogs
+  .\scripts\reset_incidentra_docker.ps1 -ResetAll
 
 Run dari root project.
 """
@@ -41,7 +41,7 @@ try:
 except ImportError:
     pass
 
-DOCKER_DATABASE_URL = "postgresql://smeguard:smeguard123@postgres:5432/smeguard_db"
+DOCKER_DATABASE_URL = "postgresql://incidentra:incidentra123@postgres:5432/incidentra_db"
 DOCKER_REDIS_URL    = "redis://redis:6379/0"
 
 
@@ -53,7 +53,7 @@ def configure_docker_urls():
 
 def get_db_url():
     """Return URL for psycopg (postgresql://, no +psycopg)."""
-    url = os.getenv("DATABASE_URL", "postgresql://smeguard:smeguard123@localhost:5432/smeguard_db")
+    url = os.getenv("DATABASE_URL", "postgresql://incidentra:incidentra123@localhost:5432/incidentra_db")
     if "postgresql+psycopg://" in url:
         url = url.replace("postgresql+psycopg://", "postgresql://", 1)
     return url
@@ -252,18 +252,18 @@ def clear_access_log(docker_internal: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reset SME-Guard ke state awal (0 incidents)",
+        description="Reset Incidentra ke state awal (0 incidents)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Contoh:
-  python scripts/reset_smeguard.py                  # Reset incidents + Redis + JSON
-  python scripts/reset_smeguard.py --clear-logs     # + kosongkan access.log
-  python scripts/reset_smeguard.py --reset-all      # + hapus app_settings (API keys hilang!)
+  python scripts/reset_incidentra.py                  # Reset incidents + Redis + JSON
+  python scripts/reset_incidentra.py --clear-logs     # + kosongkan access.log
+  python scripts/reset_incidentra.py --reset-all      # + hapus app_settings (API keys hilang!)
 
 Docker (gunakan PS1):
-  .\\scripts\\reset_smeguard_docker.ps1
-  .\\scripts\\reset_smeguard_docker.ps1 -ClearLogs
-  .\\scripts\\reset_smeguard_docker.ps1 -ResetAll
+  .\\scripts\\reset_incidentra_docker.ps1
+  .\\scripts\\reset_incidentra_docker.ps1 -ClearLogs
+  .\\scripts\\reset_incidentra_docker.ps1 -ResetAll
         """
     )
     parser.add_argument(
@@ -279,12 +279,12 @@ Docker (gunakan PS1):
     parser.add_argument(
         "--docker-internal",
         action="store_true",
-        help="Pakai hostname Compose (postgres, redis) — otomatis diset oleh reset_smeguard_docker.ps1",
+        help="Pakai hostname Compose (postgres, redis) — otomatis diset oleh reset_incidentra_docker.ps1",
     )
     args = parser.parse_args()
 
     print("=" * 50)
-    print("SME-Guard Reset Script")
+    print("Incidentra Reset Script")
     print("=" * 50)
 
     if args.docker_internal:
