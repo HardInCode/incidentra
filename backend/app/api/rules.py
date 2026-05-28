@@ -53,6 +53,17 @@ def list_rules():
     return jsonify([r.to_dict() for r in rules])
 
 
+def _signal_rules_dirty():
+    """Signal the detection engine to immediately reload rules from the DB."""
+    try:
+        from app.core.detection_engine import get_redis_client
+        r = get_redis_client()
+        if r:
+            r.set('rules_dirty', '1')
+    except Exception:
+        pass
+
+
 @rules_bp.route('/', methods=['POST'])
 @require_role('admin')  # REVISI 3: hanya admin
 def create_rule():
@@ -69,6 +80,7 @@ def create_rule():
         db.session.add(rule)
         db.session.commit()
         log_audit('rule.create', resource_type='rule', resource_id=rule.id, details={'rule_name': rule.rule_name})
+        _signal_rules_dirty()
         return jsonify(rule.to_dict()), 201
     except (KeyError, ValueError) as e:
         return jsonify({'error': str(e)}), 400
@@ -91,13 +103,7 @@ def update_rule(rule_id):
     db.session.commit()
     log_audit('rule.update', resource_type='rule', resource_id=rule_id, details={'rule_name': rule.rule_name})
     # BUG 9 FIX: Signal detection engine to reload rules
-    try:
-        from app.core.detection_engine import get_redis_client
-        r = get_redis_client()
-        if r:
-            r.set('rules_dirty', '1')
-    except Exception:
-        pass
+    _signal_rules_dirty()
     return jsonify(rule.to_dict())
 
 
@@ -109,4 +115,6 @@ def delete_rule(rule_id):
     db.session.delete(rule)
     db.session.commit()
     log_audit('rule.delete', resource_type='rule', resource_id=rule_id, details={'rule_name': name})
+    _signal_rules_dirty()
     return jsonify({'message': 'Rule deleted'})
+
