@@ -1,14 +1,14 @@
 # Incidentra — GitHub & kolaborasi
 
-Repositori resmi: **[https://github.com/HardInCode/Incidentra](https://github.com/HardInCode/Incidentra)**
+Repositori resmi: **[https://github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)**
 
 ---
 
 ## Clone pertama kali
 
 ```powershell
-git clone https://github.com/HardInCode/Incidentra.git
-cd Incidentra
+git clone https://github.com/HardInCode/incidentra.git
+cd incidentra
 copy backend\.env.docker.example backend\.env.docker
 # Opsional: notepad backend\.env.docker  (GROQ_API_KEY — jangan commit file ini)
 docker compose up --build -d
@@ -35,7 +35,7 @@ Yang **aman di repo**: `*.env.example`, `backend/.env.docker.example`, kode, `do
 ## Push perubahan (tim)
 
 ```powershell
-cd E:\Capstone\May\Incidentra-May   # atau folder clone Anda
+cd E:\Capstone\May\incidentra-May   # atau folder clone Anda
 git status
 # pastikan tidak ada backend/.env atau .env.docker ter-stage
 git add .
@@ -48,7 +48,7 @@ Jika repo baru kosong (pertama kali):
 ```powershell
 git init
 git branch -M main
-git remote add origin https://github.com/HardInCode/Incidentra.git
+git remote add origin https://github.com/HardInCode/incidentra.git
 git add .
 git commit -m "Initial commit: Incidentra capstone"
 git push -u origin main
