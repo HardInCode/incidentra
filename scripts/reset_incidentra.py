@@ -98,8 +98,11 @@ def reset_database():
                 ]
                 for t in tables:
                     cur.execute(f'TRUNCATE TABLE "{t}" RESTART IDENTITY CASCADE')
+                
+                # Reset detection rule match counts back to 0
+                cur.execute('UPDATE "detection_rules" SET "match_count" = 0')
                 conn.commit()
-        print("[OK] Database: incidents, incident_logs, incident_explanations, incident_notes, blocked_ips, audit_logs di-truncate.")
+        print("[OK] Database: incidents, incident_logs, incident_explanations, incident_notes, blocked_ips, audit_logs di-truncate dan match_count di-reset ke 0.")
         return True
     except Exception as e:
         print(f"[ERROR] Database: {e}")
