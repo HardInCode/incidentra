@@ -128,7 +128,7 @@ export default function Incidents({ mode = 'ongoing' }) {
     setSelectedIds([]);
   }, []);
 
-  const showBulkUi = isAdmin && selectionMode;
+  const showBulkUi = (isAdmin || currentUser?.role === 'analyst') && selectionMode;
   const tableColSpan = showBulkUi ? 10 : 9;
 
   useEffect(() => { fetchIncidents(); }, [fetchIncidents]);
@@ -338,7 +338,7 @@ export default function Incidents({ mode = 'ongoing' }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {isAdmin && (
+          {(isAdmin || currentUser?.role === 'analyst') && (
             <Button
               variant={selectionMode ? 'contained' : 'outlined'}
               color={selectionMode ? 'inherit' : 'primary'}

@@ -51,6 +51,46 @@ def _build_items(ips, data, redis_client):
 def list_rate_limited():
     data = _read_rate_limited_data()
     redis_client = get_redis_client()
+
+    # Physically clean up any expired entries from rate_limited.json
+    import time
+    now = time.time()
+    rate_limited = data.get('rate_limited', [])
+    limits = data.get('limits') or {}
+
+    changed = False
+    new_rate_limited = []
+    new_limits = {}
+    for ip in rate_limited:
+        ttl = get_rate_limit_redis_ttl(redis_client, ip)
+        expires_at = limits.get(ip, {}).get('expires_at')
+
+        is_expired = False
+        if redis_client:
+            if ttl <= 0:
+                is_expired = True
+        else:
+            if expires_at and now > expires_at:
+                is_expired = True
+
+        if is_expired:
+            changed = True
+            if redis_client:
+                try:
+                    redis_client.delete(f"ratelimit:{ip}")
+                except Exception:
+                    pass
+        else:
+            new_rate_limited.append(ip)
+            if ip in limits:
+                new_limits[ip] = limits[ip]
+
+    if changed:
+        from app.core.response_manager import _persist_rate_limited_data
+        data['rate_limited'] = new_rate_limited
+        data['limits'] = new_limits
+        _persist_rate_limited_data(data)
+
     items = _build_items(data.get('rate_limited', []), data, redis_client)
 
     search = request.args.get('search', '').strip().lower()

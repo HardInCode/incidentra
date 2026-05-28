@@ -1,14 +1,14 @@
-# SME-Guard — GitHub & kolaborasi
+# Incidentra — GitHub & kolaborasi
 
-Repositori resmi: **[https://github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)**
+Repositori resmi: **[https://github.com/HardInCode/Incidentra](https://github.com/HardInCode/Incidentra)**
 
 ---
 
 ## Clone pertama kali
 
 ```powershell
-git clone https://github.com/HardInCode/sme-guard.git
-cd sme-guard
+git clone https://github.com/HardInCode/Incidentra.git
+cd Incidentra
 copy backend\.env.docker.example backend\.env.docker
 # Opsional: notepad backend\.env.docker  (GROQ_API_KEY — jangan commit file ini)
 docker compose up --build -d
@@ -35,7 +35,7 @@ Yang **aman di repo**: `*.env.example`, `backend/.env.docker.example`, kode, `do
 ## Push perubahan (tim)
 
 ```powershell
-cd E:\Capstone\May\sme-guard-May   # atau folder clone Anda
+cd E:\Capstone\May\Incidentra-May   # atau folder clone Anda
 git status
 # pastikan tidak ada backend/.env atau .env.docker ter-stage
 git add .
@@ -48,9 +48,9 @@ Jika repo baru kosong (pertama kali):
 ```powershell
 git init
 git branch -M main
-git remote add origin https://github.com/HardInCode/sme-guard.git
+git remote add origin https://github.com/HardInCode/Incidentra.git
 git add .
-git commit -m "Initial commit: SME-Guard capstone"
+git commit -m "Initial commit: Incidentra capstone"
 git push -u origin main
 ```
 
@@ -90,4 +90,4 @@ Backend menyalin env kosong ke DB saat startup (`seed_settings_from_env`) jika k
 
 ---
 
-*Terakhir diselaraskan: Mei 2026 — SME-Guard Capstone.*
+*Terakhir diselaraskan: Mei 2026 — Incidentra Capstone.*

@@ -37,8 +37,8 @@ def list_users():
     err = verify_token()
     if err:
         return err
-    if request.current_user.get('role') != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    if request.current_user.get('role') not in ('admin', 'analyst'):
+        return jsonify({'error': 'Admin or Analyst access required'}), 403
     users = User.query.filter_by(is_active=True).order_by(User.username).all()
     return jsonify([u.to_dict() for u in users])
 

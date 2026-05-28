@@ -33,6 +33,54 @@ def cleanup_expired_blocks():
             _write_blocked_ips_json()
             import logging
             logging.getLogger(__name__).info(f"Cleaned up {count} expired IP blocks.")
+
+        # Also clean up expired rate limits
+        try:
+            from app.core.response_manager import _read_rate_limited_data, _persist_rate_limited_data, get_rate_limit_redis_ttl
+            from app.core.detection_engine import get_redis_client
+            import time
+            
+            rate_data = _read_rate_limited_data()
+            redis_client = get_redis_client()
+            now = time.time()
+            
+            changed = False
+            new_rate_limited = []
+            new_limits = {}
+            for ip in rate_data.get('rate_limited', []):
+                ttl = get_rate_limit_redis_ttl(redis_client, ip)
+                expires_at = rate_data.get('limits', {}).get(ip, {}).get('expires_at')
+                
+                is_expired = False
+                if redis_client:
+                    if ttl <= 0:
+                        is_expired = True
+                else:
+                    if expires_at and now > expires_at:
+                        is_expired = True
+                
+                if is_expired:
+                    changed = True
+                    if redis_client:
+                        try:
+                            redis_client.delete(f"ratelimit:{ip}")
+                        except Exception:
+                            pass
+                else:
+                    new_rate_limited.append(ip)
+                    if ip in rate_data.get('limits', {}):
+                        new_limits[ip] = rate_data['limits'][ip]
+                        
+            if changed:
+                rate_data['rate_limited'] = new_rate_limited
+                rate_data['limits'] = new_limits
+                _persist_rate_limited_data(rate_data)
+                import logging
+                logging.getLogger(__name__).info("Cleaned up expired rate limited IPs in celery worker.")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Rate limit cleanup error: {e}")
+
         return count
     except Exception as e:
         import logging

@@ -1,4 +1,4 @@
-# SME-Guard
+# Incidentra
 
 **Intelligent Web-SOC Platform with Automated Incident Response**
 
@@ -6,15 +6,15 @@ Platform pemantauan log web untuk UKM: deteksi serangan, insiden di PostgreSQL, 
 
 > Capstone — President University, Faculty of Computer Science
 
-**Repositori GitHub:** [github.com/HardInCode/sme-guard](https://github.com/HardInCode/sme-guard)
+**Repositori GitHub:** [github.com/HardInCode/Incidentra](https://github.com/HardInCode/Incidentra)
 
 ---
 
 ## Quick start — Docker
 
 ```powershell
-git clone https://github.com/HardInCode/sme-guard.git
-cd sme-guard
+git clone https://github.com/HardInCode/Incidentra.git
+cd Incidentra
 copy backend\.env.docker.example backend\.env.docker
 docker compose up --build -d
 ```
@@ -104,7 +104,6 @@ docs/        Dokumentasi
 | Nama                       | NIM          | Peran                  |
 | -------------------------- | ------------ | ---------------------- |
 | Hardin Irfan               | 001202300066 | Project Lead & Backend |
-| Nasywa Kamila              | 001202300211 | AI Engineer & Frontend |
 | Zaidan Mahfudz Azzam Saidi | 001202300144 | Security & QA          |
 
 

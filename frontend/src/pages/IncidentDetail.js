@@ -125,7 +125,7 @@ export default function IncidentDetail() {
   const currentUser = useCurrentUser();
 
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === 'admin' || currentUser?.role === 'analyst') {
       getUsers().then((res) => setUsers(res.data)).catch(() => {});
     }
   }, [currentUser?.role]);
@@ -281,7 +281,7 @@ export default function IncidentDetail() {
               })()}
               <InfoRow label={t('incidentDetail.detectedAt')} value={formatDate(incident.created_at)} />
               <InfoRow label={t('incidentDetail.resolvedAt')} value={formatDate(incident.resolved_at)} />
-              {currentUser?.role === 'admin' && users.length > 0 && (
+              {(currentUser?.role === 'admin' || currentUser?.role === 'analyst') && users.length > 0 && (
                 <Box sx={{ display: 'flex', gap: 2, py: 1, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem', minWidth: 140 }}>{t('incidentDetail.assignedAnalyst')}</Typography>
                   <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -298,7 +298,7 @@ export default function IncidentDetail() {
                   </FormControl>
                 </Box>
               )}
-              {incident.assigned_username && currentUser?.role !== 'admin' && (
+              {incident.assigned_username && currentUser?.role !== 'admin' && currentUser?.role !== 'analyst' && (
                 <InfoRow label={t('incidentDetail.assignedAnalyst')} value={incident.assigned_username} />
               )}
             </CardContent>

@@ -63,6 +63,11 @@ def enforce_security():
     if ip in rate_data.get('rate_limited', []):
         limits = rate_data.get('limits') or {}
         override = limits.get(ip) if isinstance(limits, dict) else None
+        
+        if isinstance(override, dict) and 'expires_at' in override:
+            if time.time() > override['expires_at']:
+                return None
+
         window = RATE_LIMIT_WINDOW
         max_req = RATE_LIMIT_MAX
         if isinstance(override, dict):

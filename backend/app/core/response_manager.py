@@ -89,6 +89,11 @@ def _write_rate_limited_json(ip: str, add: bool = True):
         limits = dict(data.get("limits") or {})
         if add:
             limited.add(ip)
+            entry = limits.get(ip) or {}
+            if 'expires_at' not in entry:
+                import time
+                entry['expires_at'] = time.time() + RATE_LIMIT_REDIS_TTL
+            limits[ip] = entry
         else:
             limited.discard(ip)
             limits.pop(ip, None)
@@ -147,8 +152,13 @@ def update_rate_limit_entry(
         entry['max_requests'] = max_requests
     if window_seconds is not None:
         entry['window_seconds'] = window_seconds
-    if entry:
-        limits[ip] = entry
+    
+    # Calculate expires_at
+    import time
+    ttl = seconds if seconds is not None else RATE_LIMIT_REDIS_TTL
+    entry['expires_at'] = time.time() + ttl
+
+    limits[ip] = entry
     data['limits'] = limits
     _persist_rate_limited_data(data)
 
