@@ -602,6 +602,6 @@ Detail lab path traversal: [DETECTION.md](DETECTION.md) § Security Lab.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — arsitektur & API
 - [AUDIT.md](AUDIT.md) — audit full sidang (Mei 2026)
-- [GITHUB.md](GITHUB.md) — push tim
+- [GITHUB.md](additional/GITHUB.md) — clone, pull, push tim
 - [LEARNING.md](LEARNING.md) — JWT, konsep Bab 3
 

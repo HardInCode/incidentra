@@ -2,7 +2,7 @@
 
 | File | Isi |
 |------|-----|
-| [GITHUB.md](GITHUB.md) | Clone, push, env Docker |
+| [GITHUB.md](GITHUB.md) | Clone, pull, push, env Docker |
 | [LEARNING.md](LEARNING.md) | JWT, konsep Bab 3 |
 | [DEPLOY.md](DEPLOY.md) | VPS production |
 

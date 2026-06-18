@@ -56,6 +56,40 @@ git push -u origin main
 
 ---
 
+## Pull perubahan (tim)
+
+Ambil commit terbaru dari GitHub sebelum mulai kerja atau sebelum push — supaya tidak bentrok dengan rekan tim.
+
+```powershell
+cd E:\Capstone\May\incidentra-May   # atau folder clone Anda
+git status
+git pull origin main
+```
+
+Jika branch `main` sudah tracking remote:
+
+```powershell
+git pull
+```
+
+**Alur kerja harian yang aman:**
+
+1. `git pull` — sinkronkan dulu
+2. Kerjakan perubahan
+3. `git add .` → `git commit` → `git push`
+
+**Jika muncul konflik:** Git akan menandai file yang bentrok. Edit file tersebut, lalu:
+
+```powershell
+git add .
+git commit -m "Resolve merge conflict"
+git push origin main
+```
+
+> **Catatan:** `git pull` ≠ Pull Request. `git pull` mengambil kode dari remote; Pull Request adalah review di GitHub sebelum merge (lihat bagian Cabang).
+
+---
+
 ## Cabang (opsional)
 
 ```powershell
