@@ -68,19 +68,21 @@
 |----------|---------|----------|
 | low | Log & monitor | 200 |
 | medium | Rate limit | **429** jika melebihi kuota |
-| high | Blokir sementara (~24 jam, Settings) | **403** |
-| critical | Blokir permanen | **403** |
+| high | Blokir eskalasi (default: 1h → 24h → 7d) | **403** |
+| critical | Blokir eskalasi (default: 24h → 7d → 30d) | **403** |
 
-| Attack type | Severity default | Respons |
-|-------------|------------------|---------|
-| SQL_INJECTION | critical | Permanen |
-| XSS | critical | Permanen |
-| COMMAND_INJECTION | critical | Permanen |
-| LFI_RFI | critical | Permanen |
-| BRUTE_FORCE | high | Sementara |
-| PATH_TRAVERSAL | high | Sementara |
-| FILE_UPLOAD | high | Sementara |
+| Attack type | Severity default | Respons otomatis |
+|-------------|------------------|------------------|
+| SQL_INJECTION | critical | Eskalasi (offense #1 ≈ 24 jam) |
+| XSS | critical | Eskalasi |
+| COMMAND_INJECTION | critical | Eskalasi |
+| LFI_RFI | critical | Eskalasi |
+| BRUTE_FORCE | high | Eskalasi |
+| PATH_TRAVERSAL | high | Eskalasi |
+| FILE_UPLOAD | high | Eskalasi |
 | SCANNER | medium | Rate limit |
+
+Permanent block **hanya** via manual di IP Management. Offense ≥ threshold → badge **Repeat Offender**.
 
 ---
 
@@ -115,7 +117,7 @@ Prasyarat: [GUIDE.md](GUIDE.md) Opsi B.
 
 ## B — Serangan MANUAL
 
-**Sebelum blok permanen:** unblock IP di **IP Management → Blocked**.
+**Sebelum demo eskalasi:** unblock IP di **IP Management → Blocked** (counter eskalasi tetap di Redis setelah unblock).
 
 | # | Serangan | Langkah | Expected (≤10 s di Incidents) | Pass | Catatan |
 |---|----------|---------|-------------------------------|------|---------|

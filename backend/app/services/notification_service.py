@@ -21,13 +21,13 @@ def _get_setting(key: str) -> str:
     return os.getenv(key, '')
 
 
-def _do_notify(incident_id: int, severity: str = 'critical'):
+def _do_notify(incident_id: int, severity: str = 'critical', block_hours: int = 0, offense_count: int = 0):
     """
     Core notification logic.
     Must be called within an active Flask app context.
     Shared by Celery task and background thread fallback.
     """
-    from app.models import Incident
+    from app.models import Incident, BlockedIP
     from datetime import timezone, timedelta
     incident = Incident.query.get(incident_id)
     if not incident:
@@ -38,9 +38,37 @@ def _do_notify(incident_id: int, severity: str = 'critical'):
 
     emoji = '🚨' if severity == 'critical' else '⚠️'
     level = severity.upper()
-    action_text = ('IP permanently blocked.'
-                   if severity == 'critical'
-                   else 'IP temporarily blocked for 24 hours.')
+
+    # Build accurate action_text based on actual block info
+    if block_hours > 0 and offense_count > 0:
+        # Called from escalating_block — show actual duration
+        if block_hours >= 720:
+            duration_str = f"{block_hours // 720} month(s)"
+        elif block_hours >= 168:
+            duration_str = f"{block_hours // 168} week(s)"
+        elif block_hours >= 24:
+            duration_str = f"{block_hours // 24} day(s)"
+        else:
+            duration_str = f"{block_hours} hour(s)"
+        action_text = f'IP escalation-blocked for {duration_str} (offense #{offense_count}).'
+    else:
+        # Fallback: look up the actual block status from DB
+        blocked = BlockedIP.query.filter_by(ip_address=incident.source_ip, is_whitelist=False).first()
+        if blocked and blocked.block_type == 'permanent':
+            action_text = 'IP permanently blocked by admin.'
+        elif blocked and blocked.expire_time:
+            remaining = blocked.expire_time - incident.created_at
+            hours = int(remaining.total_seconds() / 3600)
+            if hours >= 720:
+                action_text = f'IP escalation-blocked for {hours // 720} month(s).'
+            elif hours >= 168:
+                action_text = f'IP escalation-blocked for {hours // 168} week(s).'
+            elif hours >= 24:
+                action_text = f'IP escalation-blocked for {hours // 24} day(s).'
+            else:
+                action_text = f'IP escalation-blocked for {hours} hour(s).'
+        else:
+            action_text = 'IP blocked (escalation policy).'
 
     subject = f"[Incidentra SOC {level}] {incident.attack_type} from {incident.source_ip}"
     body = f"""
@@ -70,9 +98,9 @@ Review: http://localhost:3000/incidents/{incident.id}
 
 
 @celery.task
-def notify_incident(incident_id: int, severity: str = 'critical'):
+def notify_incident(incident_id: int, severity: str = 'critical', block_hours: int = 0, offense_count: int = 0):
     """Celery task — delegates to shared core function."""
-    _do_notify(incident_id, severity)
+    _do_notify(incident_id, severity, block_hours=block_hours, offense_count=offense_count)
 
 
 # Backward-compatibility alias (used in existing code)

@@ -132,8 +132,8 @@ SEVERITY_WEIGHTS = {
 RESPONSE_ACTIONS = {
     'low': 'log_and_monitor',
     'medium': 'rate_limit',
-    'high': 'temporary_block',
-    'critical': 'permanent_block',
+    'high': 'escalating_block',
+    'critical': 'escalating_block',
 }
 
 

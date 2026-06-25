@@ -343,7 +343,7 @@ Menu: **IP Management** (`/blocked-ips`).
 
 | Tab              | Fungsi                                                                    |
 | ---------------- | ------------------------------------------------------------------------- |
-| **Blocked**      | Blokir permanen/sementara, edit durasi, unblock (DB + `blocked_ips.json`) |
+| **Blocked**      | Blokir eskalasi/sementara/permanen (manual), Repeat Offender, unblock (DB + `blocked_ips.json`) |
 | **Rate Limited** | Daftar IP rate limit, **Clear**, **Extend**                               |
 
 
@@ -384,7 +384,7 @@ Banner ini = backend **belum menerima aktivitas log** dalam 60 detik (bukan bera
 | **C. Insiden + blokir** | **Incidents** + **IP Management** | `DetectionEngine` → PostgreSQL + `blocked_ips.json` → vuln-web **403** |
 
 
-**Gejala umum:** baris **Attack** status **200** = pola terlihat di log, **belum tentu** ada insiden. Tanpa insiden → **tidak ada** blokir permanen.
+**Gejala umum:** baris **Attack** status **200** = pola terlihat di log, **belum tentu** ada insiden. Tanpa insiden → **tidak ada** blokir otomatis.
 
 **Setelah blokir benar:** request baru ke vuln-web → **403**, tag **Blocked** di Live Traffic.
 
@@ -414,7 +414,7 @@ Peta file untuk sidang: [DETECTION.md](DETECTION.md).
 
 | Kode    | Penyebab                                                                         |
 | ------- | -------------------------------------------------------------------------------- |
-| **403** | IP di `blocked_ips.json` (critical/high block)                                   |
+| **403** | IP di `blocked_ips.json` (escalating block high/critical, atau manual block) |
 | **429** | IP di `rate_limited.json` + terlalu banyak request dalam jendela (mis. 10/menit) |
 
 
@@ -456,14 +456,15 @@ Buka `http://localhost:5050/` — di Live Traffic lihat kolom **IP**. Itu IP yan
 
 ## Demo sidang — langkah demi langkah
 
-### 1. SQL Injection → blokir permanen
+### 1. SQL Injection → escalating block (offense #1 ≈ 24 jam)
 
 1. Unblock IP di SOC → **IP Management** → tab Blocked (jika ada).
 2. Browser: `http://localhost:5050/login`
 3. Username: `admin' OR '1'='1' --` , password: apa saja → Submit.
 4. Tunggu 5–10 detik.
 5. SOC → **Incidents** → **SQL_INJECTION**, critical.
-6. Refresh `http://localhost:5050/` → **403 Forbidden Incidentra**.
+6. **IP Management** → IP blocked, **Offense #1**, durasi ~24 jam.
+7. Refresh `http://localhost:5050/` → **403 Forbidden Incidentra**.
 
 ### 2. XSS
 
@@ -489,7 +490,7 @@ http://localhost:5050/cmd?cmd=whoami%20%26%20id
 | Serangan    | Langkah                                        | Expected                                           |
 | ----------- | ---------------------------------------------- | -------------------------------------------------- |
 | Scanner     | `curl -A "Nikto/2.1.6" http://localhost:5050/` | **SCANNER**, medium, rate limit (tab Rate Limited) |
-| Brute force | 12× POST login gagal                           | **BRUTE_FORCE**, high, temporary block             |
+| Brute force | 12× POST login gagal                           | **BRUTE_FORCE**, high, escalating block (offense #1 ≈ 1 jam) |
 
 
 ### 5. Upload berbahaya vs aman

@@ -31,7 +31,7 @@ Maps **where detection code lives**, distinguishes **AI analyst** vs **OWASP bas
 | `is_lab_mode_ui_only` | Mode lab: hanya rule UI |
 | `DetectionEngine.analyze` | Entry point deteksi per baris log |
 | `BruteForceTracker` | Brute force (threshold) |
-| `RESPONSE_ACTIONS` | Severity → monitor / rate_limit / block |
+| `RESPONSE_ACTIONS` | Severity → monitor / rate_limit / escalating_block |
 | `enforce_security` | vuln-web baca `blocked_ips.json` → 403 |
 | `_call_groq_with_fallback` | Rantai model Groq untuk penjelasan AI |
 | `DETECTION_LAB_MODE_UI_ONLY` | Setting di Settings (DB) |
@@ -75,7 +75,10 @@ Opsional (async): `ai_service` → `IncidentExplanation` (tidak mempengaruhi blo
 |-------|------------|
 | Brute Force Threshold | `BruteForceTracker` — POST gagal ke `/login` |
 | Rate Limit Window | Jendela brute force + policy rate limit |
-| Temp Block Duration | Durasi blok **high** (jam × 3600 disimpan sebagai detik) |
+| Repeat Offender Threshold | Jumlah offense sebelum badge **Repeat Offender** |
+| Escalating High Durations | Durasi blok per offense tier (High): default `1, 24, 168` jam |
+| Escalating Critical Durations | Durasi blok per offense tier (Critical): default `24, 168, 720` jam |
+| Temp Block Duration | Legacy/manual temporary block (jam × 3600 → detik) |
 
 Nilai dibaca dari **AppSetting** (setelah Save) lalu env `.env` sebagai fallback.
 
@@ -120,7 +123,21 @@ SQLi bisa tag **Normal** di Live Traffic tetapi tetap jadi insiden jika pola eng
 
 **Whitelist IP:** `BlockedIP.is_whitelist=True` → excluded from `blocked_ips.json`; `DetectionEngine.analyze` returns `None` for that IP (no new incidents).
 
-**PATH_TRAVERSAL:** severity **high** → **temporary** block (~24h), not permanent. **SQL_INJECTION / XSS / COMMAND_INJECTION:** critical → permanent.
+## Escalating Block Policy (Mei–Juni 2026)
+
+| Severity | Auto action | Default durasi (offense 1 → 2 → 3+) |
+|----------|-------------|-------------------------------------|
+| low | log & monitor | — |
+| medium | rate limit | — |
+| high | `escalating_block` | 1h → 24h → 7d |
+| critical | `escalating_block` | 24h → 7d → 30d |
+
+- **Tidak ada permanent auto-block** untuk insiden otomatis — permanent hanya via **manual block** di IP Management.
+- Offense ke-3+ (default threshold) → badge **Repeat Offender** (`is_repeat_offender=True`).
+- Unblock IP **tidak** reset counter eskalasi — disimpan di Redis (`escalation_count:{ip}`) selama 30 hari.
+- Severity tertinggi pernah tercatat menentukan daftar durasi (critical list menang atas high).
+
+**PATH_TRAVERSAL / FILE_UPLOAD / BRUTE_FORCE:** severity **high** → escalating block (bukan permanent). **SQL_INJECTION / XSS / COMMAND_INJECTION / LFI_RFI:** severity **critical** → escalating block (offense #1 default 24 jam, bukan permanent).
 
 **Absolute path on `/files`:** `?file=E:/.../blocked_ips.json` or `/app/logs/...` may read files without `../` — may not match classic traversal regex; optional custom rule: `blocked_ips\.json`, `[/\\]logs[/\\]`.
 
@@ -130,4 +147,4 @@ Full lab payloads and bypass notes: see [GUIDE.md](GUIDE.md) Phase 3 section and
 
 ---
 
-*Incidentra — Detection & Security Lab, May 2026.*
+*Incidentra — Detection & Security Lab, June 2026.*

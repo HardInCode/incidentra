@@ -1,8 +1,8 @@
-# PART 4 — IMPLEMENTATION (v5, May 2026)
+# PART 4 — IMPLEMENTATION (v5, May–June 2026)
 
 > **Form 4 — primary reference for the Word document.**  
 > Cover: [FORM4_COVER.md](FORM4_COVER.md) · Screenshots: [FORM4_SCREENSHOTS.md](FORM4_SCREENSHOTS.md) · Changelog: [REVISION_LOG.md](REVISION_LOG.md)  
-> **v5** = complete narrative from v3 translated to English + code snippets from v2 + Section B from v4 (already in English).
+> **v5** = complete narrative from v3 translated to English + code snippets from v2 + Section B from v4 (already in English). **Updated June 2026:** escalating block policy, Repeat Offender, 18 seeded rules.
 
 ---
 
@@ -18,7 +18,8 @@
 | Lab mode | UI rules only; OWASP baseline OFF | `settings_reader.py`, `_load_rules_from_db` |
 | Phase 3 lab | Real CMD + unsafe upload via Docker env | `docker-compose.yml`, `vuln-web/config.py` |
 | Live Traffic | Heuristic tag ≠ incident from Detection Engine | `traffic.py` (module docstring) |
-| PATH_TRAVERSAL severity | **High** → temporary block (not permanent) | `RESPONSE_ACTIONS` in `detection_engine.py` |
+| PATH_TRAVERSAL severity | **High** → escalating block (not permanent) | `RESPONSE_ACTIONS` in `detection_engine.py` |
+| Escalating block policy | High/Critical → progressive temp blocks; Repeat Offender flag | `response_manager._escalating_block`, Settings |
 | IP Management route | `/blocked-ips`, Blocked + Rate Limited tabs | `BlockedIPs.js` |
 | Notifications | Bell toast + optional email/Telegram | `NotificationBell.js`, `notification_service.py` |
 
@@ -189,8 +190,8 @@ SEVERITY_WEIGHTS = {'critical': 100, 'high': 70, 'medium': 40, 'low': 10}
 RESPONSE_ACTIONS = {
     'low':      'log_and_monitor',
     'medium':   'rate_limit',
-    'high':     'temporary_block',
-    'critical': 'permanent_block',
+    'high':     'escalating_block',
+    'critical': 'escalating_block',
 }
 ```
 
@@ -302,14 +303,15 @@ The `respond()` method applies the following severity-to-action mapping:
 |----------|--------|----------------------|----------|
 | Low | `log_and_monitor` | `IncidentLog` record in PostgreSQL; Redis key `action:{ip}` | Permanent record |
 | Medium | `rate_limit` | Entry in `rate_limited.json`; Redis key `ratelimit:{ip}` with TTL | Per `RATE_LIMIT_WINDOW` (default 60 s) |
-| High | `temporary_block` | Entry in `blocked_ips.json`; `BlockedIP` DB record with `expire_time` | 24 hours (configurable `TEMP_BLOCK_DURATION`) |
-| Critical | `permanent_block` | Entry in `blocked_ips.json`; `BlockedIP` DB record `block_type='permanent'` | Never expires |
+| High | `escalating_block` | Entry in `blocked_ips.json`; `BlockedIP` with `block_type='temporary'` and escalating `expire_time` | Default: 1h → 24h → 7d per offense tier |
+| Critical | `escalating_block` | Same as high, using critical duration list | Default: 24h → 7d → 30d per offense tier |
+
+Automatic responses **never** apply permanent blocks. Permanent blocking is available only through manual admin action in IP Management. When an IP reaches the Repeat Offender threshold (default: 3 offenses), `is_repeat_offender=True` is set for admin review.
 
 ```python
-# backend/app/core/response_manager.py — respond() and _block_ip()
+# backend/app/core/response_manager.py — respond() and _escalating_block() (summary)
 
 def respond(self, threat: dict, incident_id: int) -> dict:
-    severity = threat.get('severity', 'low')
     action = threat.get('recommended_action', 'log_and_monitor')
 
     if action == 'log_and_monitor':
@@ -319,44 +321,29 @@ def respond(self, threat: dict, incident_id: int) -> dict:
         self._apply_rate_limit(ip)
         _write_rate_limited_json(ip, add=True)
 
-    elif action == 'temporary_block':
-        ok = self._block_ip(ip, permanent=False,
-                            reason=f"Auto-blocked: {threat.get('attack_type')}")
-        if ok:
-            _write_blocked_ips_json()       # update JSON for vuln-web enforcement
-            self._notify_async(incident_id, 'high')
+    elif action == 'escalating_block':
+        block_result = self._escalating_block(
+            ip=ip, severity=severity,
+            attack_type=threat.get('attack_type', ''),
+            incident_id=incident_id,
+        )
+        # writes BlockedIP (temporary) + blocked_ips.json
 
-    elif action == 'permanent_block':
-        ok = self._block_ip(ip, permanent=True,
-                            reason=f"Auto-blocked (CRITICAL): {threat.get('attack_type')}")
-        if ok:
-            _write_blocked_ips_json()
-            self._notify_async(incident_id, 'critical')
+    # Legacy: temporary_block / permanent_block still supported for manual API calls
 
-    self._save_incident_log(incident_id, result)
+def _escalating_block(self, ip, severity, attack_type, incident_id) -> dict:
+    repeat_threshold = get_repeat_offender_threshold()  # default 3
+    # Uses highest severity ever recorded for this IP
+    durations = get_escalating_critical_durations() if effective_severity == 'critical' \
+                else get_escalating_high_durations()
+    hours = _pick_escalating_duration(durations, offense_index)
+    # Sets BlockedIP.block_type='temporary', expire_time, incident_count, is_repeat_offender
+    # Persists escalation_count:{ip} in Redis (survives admin unblock)
+    _write_blocked_ips_json()
     return result
-
-def _block_ip(self, ip: str, permanent: bool, reason: str) -> bool:
-    expire_time = None if permanent else (
-        datetime.utcnow() + timedelta(seconds=self.temp_block_duration)
-    )
-    existing = BlockedIP.query.filter_by(ip_address=ip).first()
-    if existing:
-        existing.is_whitelist = False      # clear whitelist flag if previously trusted
-        existing.reason = reason
-        existing.block_type = 'permanent' if permanent else 'temporary'
-        existing.expire_time = expire_time
-        existing.incident_count = (existing.incident_count or 0) + 1
-    else:
-        blocked = BlockedIP(ip_address=ip, reason=reason,
-                            block_type='permanent' if permanent else 'temporary',
-                            expire_time=expire_time, is_whitelist=False)
-        self.db.session.add(blocked)
-    self.db.session.commit()
-    return True
 ```
 
-**`_write_blocked_ips_json()`** queries all active `BlockedIP` records (non-whitelist), filters out temporary blocks that have already expired, and writes the result to `blocked_ips.json`. This file is read by `vuln-web/middleware/security.py` on every incoming HTTP request via the `before_request` hook, causing blocked IPs to receive an HTTP 403 response without any server restart or direct database access from vuln-web.
+**`_write_blocked_ips_json()`** queries all active `BlockedIP` records (non-whitelist), filters out expired temporary blocks, and writes the result to `blocked_ips.json`. Manual permanent blocks (`block_type='permanent'`) are also included. This file is read by `vuln-web/middleware/security.py` on every incoming HTTP request via the `before_request` hook, causing blocked IPs to receive an HTTP 403 response without any server restart or direct database access from vuln-web.
 
 ```python
 # backend/app/core/response_manager.py — _write_blocked_ips_json()
@@ -518,14 +505,14 @@ All API calls are made through `frontend/src/services/api.js` using Axios with t
 
 ### 2. Database Implementation
 
-Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and seeded by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on first container start. The default seed creates one `admin` user and 11 active detection rules covering all supported OWASP attack categories.
+Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and seeded by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on first container start. The default seed creates `admin` and `analyst` users and **18** active detection rules (11 core OWASP rules plus 7 lab-specific `EXTRA_RULES`) covering all supported attack categories.
 
 | Model Class | Table | Columns |
 |-------------|-------|---------|
 | `User` | `users` | `id`, `username`, `email`, `password_hash` (PBKDF2-SHA256), `role`, `created_at`, `is_active` |
 | `Incident` | `incidents` | `id`, `created_at`, `updated_at`, `source_ip`, `attack_type`, `severity` (enum), `status` (enum), `raw_payload`, `request_path`, `request_method`, `user_agent`, `response_code`, `rule_id` (FK→detection_rules), `assigned_to` (FK→users), `resolved_at`, `country_code`, `abuse_confidence_score` |
 | `DetectionRule` | `detection_rules` | `id`, `rule_name`, `attack_type`, `pattern`, `severity_level` (enum), `description`, `is_active`, `created_at`, `updated_at`, `match_count` |
-| `BlockedIP` | `blocked_ips` | `id`, `ip_address`, `reason`, `block_type` (`permanent`/`temporary`), `block_time`, `expire_time`, `incident_count`, **`is_whitelist`**, `created_by` |
+| `BlockedIP` | `blocked_ips` | `id`, `ip_address`, `reason`, `block_type` (`permanent`/`temporary`), `block_time`, `expire_time`, `incident_count`, **`is_repeat_offender`**, **`is_whitelist`**, `created_by` |
 | `IncidentLog` | `incident_logs` | `id`, `incident_id` (FK→incidents), `action_taken`, `action_detail`, `action_time`, `performed_by` |
 | `IncidentExplanation` | `incident_explanations` | `id`, `incident_id` (FK→incidents), `ai_summary`, `threat_explanation`, `recommended_actions`, `mitre_technique`, `generated_at`, `model_used` |
 | `IncidentNote` | `incident_notes` | `id`, `incident_id` (FK→incidents), `note_content`, `created_at`, `created_by` |
@@ -542,7 +529,7 @@ Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLA
 
 The SOC Dashboard is a React 18 single-page application built with Material UI (MUI) and served by Nginx on port 3000. The dark theme (`frontend/src/theme/index.js`) is optimized for extended use in security operations environments.
 
-**Dashboard** displays four metric cards: Total Incidents (all time), Detections in Last 24 Hours, Blocked IP Addresses (active blocks from the `BlockedIP` table), and MTTR (Mean Time to Resolution). A collapsible system status banner, driven by `last_log_received_at` from the log monitor, warns the operator when no log lines have been received in the last 60 seconds. The Incident Timeline (Chart.js line chart, 7-day window) and By Severity donut chart auto-refresh every 30 seconds.
+**Dashboard** displays four metric cards: Total Incidents (all time), Detections in Last 24 Hours, Blocked IP Addresses (active blocks from the `BlockedIP` table), and MTTR (Mean Time to Resolution). A collapsible system status banner, driven by `last_log_received_at` from the log monitor, warns the operator when no log lines have been received in the last 60 seconds. The Incident Timeline (Chart.js line chart, 7-day window) and By Severity donut chart auto-refresh every 15 seconds (configurable via `REACT_APP_REFRESH_INTERVAL`).
 
 **Incidents** renders a filterable, paginated table. Filter dropdowns cover severity and status. A full-text search field covers IP address, attack type, and path. The `Incidents` component is used twice with a different `mode` prop (`"ongoing"` and `"all"`), so `/incidents` shows only new+investigating, while `/incidents/all` shows the full history including resolved incidents.
 
@@ -647,7 +634,7 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 **Incident Detail — Before AI Analysis.** The detail page shows the full technical breakdown on the left (source IP, AbuseIPDB score, attack type, severity, HTTP method, path, response code, country, timestamps) and the "AI Explanation Not Generated" placeholder with a "Generate AI Explanation" call-to-action on the right. The Automated Actions section below shows what the system executed automatically at detection time. The Investigation Notes section is available for analyst annotations.
 
-[SCREENSHOT: Figure 4 — Incident Detail before AI generation, showing HTTP 200 response code and automated permanent block action in the Automated Actions log.]
+[SCREENSHOT: Figure 4 — Incident Detail before AI generation, showing HTTP 200 response code and automated escalating block action (Offense #1, ~24h) in the Automated Actions log.]
 
 **Incident Detail — After AI Analysis.** After clicking "Generate AI Explanation," the right panel is replaced by the AI-Powered Analysis section containing four color-coded blocks: Summary, Why It's Dangerous, Recommended Actions, and MITRE ATT&CK mapping. The model name badge (e.g., `llama-3.3-70b-versatile`) appears in the panel header.
 
@@ -655,7 +642,7 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 **IP Management — Blocked Tab.** Lists all `BlockedIP` records with IP address, reason, block type (permanent or temporary), blocked-at timestamp, expiry time, incident count, and an unblock button. A "+ Block IP" button opens a dialog for manual IP blocking.
 
-[SCREENSHOT: Figure 6 — IP Management, Blocked tab with one permanent block entry for a SQL injection source.]
+[SCREENSHOT: Figure 6 — IP Management, Blocked tab with one escalating temporary block entry for a SQL injection source (Offense #1, expires in 24 hours).]
 
 **IP Management — Add Block IP.** The "+ Block IP" button allows users to manually block an IP address. Fields include IP address, reason, and block duration (permanent or temporary from 1 hour to 7 days).
 
@@ -695,7 +682,7 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 **Settings — Appearance & Detection.** Configurable options include Dark/Light mode, language (English/Indonesian), in-app notifications toggle, Detection Lab Mode toggle, and Detection Thresholds (brute-force threshold, temporary block duration, rate limit window).
 
-[SCREENSHOT: Figure 11 — Settings page displaying Appearance, In-app alerts, Detection Lab Mode, and Detection Thresholds sections.]
+[SCREENSHOT: Figure 11 — Settings page displaying Appearance, In-app alerts, Detection Lab Mode, Detection Thresholds, and Escalating Block Policy sections.]
 
 **Settings — API Keys & Integrations.** Stores external integration keys in the `AppSetting` table: Groq API key and model, AbuseIPDB API key, SMTP host/port/credentials/recipient, and Telegram bot token and chat ID. Keys are masked (asterisks) in the UI.
 
@@ -758,7 +745,7 @@ Testing was conducted against the Docker Compose deployment (six services: `post
 
 | No. | Scenario | Input | Expected Output | Output Result |
 |-----|----------|-------|-----------------|---------------|
-| 1 | Login POST SQLi (thesis defense demo) | `http://localhost:5050/login` — username `admin' OR '1'='1' --`, any password | Incident: `SQL_INJECTION`, `severity=critical`; `POST_DATA` in raw payload; IP in `blocked_ips.json` | |
+| 1 | Login POST SQLi (thesis defense demo) | `http://localhost:5050/login` — username `admin' OR '1'='1' --`, any password | Incident: `SQL_INJECTION`, `severity=critical`; `POST_DATA` in raw payload; IP in `blocked_ips.json` with escalating block (Offense #1, ~24h) | |
 | 2 | Automatic block enforcement | After step 1, open `http://localhost:5050/` from the same IP | HTTP 403 Forbidden (Incidentra branding); Live Traffic shows **Blocked** on the next row | |
 | 3 | Reflected SQLi via search | `http://localhost:5050/search?q=admin'+OR+'1'='1'--` | Incident: `SQL_INJECTION`, critical | |
 | 4 | Blind time-based SQLi | `http://localhost:5050/search?q=1' AND SLEEP(5)--` | Incident: `SQL_INJECTION` if pattern matches | |
@@ -767,7 +754,7 @@ Testing was conducted against the Docker Compose deployment (six services: `post
 
 | No. | Scenario | Input | Expected Output | Output Result |
 |-----|----------|-------|-----------------|---------------|
-| 1 | Reflected XSS via script tag | `http://localhost:5050/profile?name=<script>alert(document.cookie)</script>` | Incident: `attack_type=XSS`, `severity=critical`; IP permanently blocked | |
+| 1 | Reflected XSS via script tag | `http://localhost:5050/profile?name=<script>alert(document.cookie)</script>` | Incident: `attack_type=XSS`, `severity=critical`; IP escalating blocked (Offense #1) | |
 | 2 | XSS event handler | `http://localhost:5050/search?q=<img onerror=alert(1) src=x>` | Incident: `attack_type=XSS`, `severity=critical` | |
 | 3 | Normal query | `http://localhost:5050/search?q=laptop` | No incident; entry appears as "Normal" in Live Traffic | |
 
@@ -778,7 +765,7 @@ Testing was conducted against the Docker Compose deployment (six services: `post
 | 1 | Classic path traversal | `http://localhost:5050/files?file=../../etc/passwd` | Incident: `attack_type=PATH_TRAVERSAL`, `severity=high`; IP **temporary** block (24 hours) | |
 | 2 | Enforcement file targeting | `http://localhost:5050/files?file=E:/path/blocked_ips.json` | Incident: `attack_type=PATH_TRAVERSAL` | |
 | 3 | Normal file access | `http://localhost:5050/files?file=readme.txt` | No incident; Normal entry in Live Traffic | |
-| 4 | PHP wrapper (LFI) | `http://localhost:5050/files?file=php://filter/convert.base64-encode/resource=index` | Incident: `attack_type=LFI_RFI`, `severity=critical`, permanent block | |
+| 4 | PHP wrapper (LFI) | `http://localhost:5050/files?file=php://filter/convert.base64-encode/resource=index` | Incident: `attack_type=LFI_RFI`, `severity=critical`, escalating block (Offense #1) | |
 
 ### D.5 — File Upload Detection
 
@@ -793,7 +780,7 @@ Testing was conducted against the Docker Compose deployment (six services: `post
 
 | No. | Scenario | Input | Expected Output | Output Result |
 |-----|----------|-------|-----------------|---------------|
-| 1 | Metacharacter payload | `http://localhost:5050/cmd?cmd=;whoami` | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical`; IP permanently blocked | |
+| 1 | Metacharacter payload | `http://localhost:5050/cmd?cmd=;whoami` | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical`; IP escalating blocked (Offense #1) | |
 | 2 | Plain keyword payload | `http://localhost:5050/cmd?cmd=whoami` | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical` (pattern `cmd=whoami`) | |
 | 3 | Phase 3 OFF (default) | `VULN_UNSAFE_CMD` not set; `/cmd?cmd=whoami` | vuln-web displays `[Simulated] Would execute: whoami`; no real shell execution | |
 | 4 | Phase 3 ON | `VULN_UNSAFE_CMD=1`; restart `vuln_web`; `/cmd?cmd=whoami` | Real shell output; red warning banner on all pages; SOC still creates COMMAND_INJECTION incident | |
@@ -933,7 +920,7 @@ Open `backend/.env.docker` and fill in the optional keys: `GROQ_API_KEY` (from c
 docker compose up --build -d
 ```
 
-Docker Compose starts six services: `postgres` (port 5432), `redis` (port 6379), `vuln_web` (port 5050), `backend` (port 5000), `frontend` (port 3000, served by Nginx), and `celery_worker`. The backend entrypoint script (`docker_entrypoint.sh`) runs `db.create_all()`, seeds the admin user and 11 default detection rules, then starts Gunicorn. The log monitor thread starts automatically and begins tailing the shared `vuln_logs` volume.
+Docker Compose starts six services: `postgres` (port 5432), `redis` (port 6379), `vuln_web` (port 5050), `backend` (port 5000), `frontend` (port 3000, served by Nginx), and `celery_worker`. The backend entrypoint script (`docker_entrypoint.sh`) runs `db.create_all()`, seeds admin and analyst users and 18 default detection rules, then starts Gunicorn. The log monitor thread starts automatically and begins tailing the shared `vuln_logs` volume.
 
 **Step 4 — Access the system.**
 

@@ -66,11 +66,11 @@ The `respond()` method applies the following severity-to-action mapping defined 
 | -------- | ----------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Low      | `log_and_monitor` | `IncidentLog` record in PostgreSQL; Redis key `action:{ip}`                                           | Permanent record                                  |
 | Medium   | `rate_limit`      | Entry in `rate_limited.json`; Redis key `ratelimit:{ip}` with configurable TTL                        | Per `RATE_LIMIT_WINDOW` (default 60 s)            |
-| High     | `temporary_block` | Entry in `blocked_ips.json` via `_write_blocked_ips_json()`; `BlockedIP` DB record with `expire_time` | 24 hours (configurable via `TEMP_BLOCK_DURATION`) |
-| Critical | `permanent_block` | Entry in `blocked_ips.json`; `BlockedIP` DB record with `block_type='permanent'`                      | Never expires                                     |
+| High     | `escalating_block` | Entry in `blocked_ips.json`; `BlockedIP` DB record with escalating `expire_time` | Default: 1h → 24h → 7d per offense tier |
+| Critical | `escalating_block` | Entry in `blocked_ips.json`; `BlockedIP` with `block_type='temporary'` | Default: 24h → 7d → 30d per offense tier |
 
 
-After applying the enforcement action, `respond()` calls `_save_incident_log()` to persist an `IncidentLog` record. For high and critical events it calls `_notify_async()`, which spawns a daemon `threading.Thread` invoking `notification_service._do_notify()` inside an application context. The thread approach is preferred over Celery `.delay()` because it is reliable regardless of whether the optional Celery worker container is running.
+After applying the enforcement action, `respond()` calls `_save_incident_log()` to persist an `IncidentLog` record. Automatic responses never apply permanent blocks; permanent blocking is available only through manual admin action in IP Management. For high/critical escalating blocks and repeat offenders, `_notify_async()` spawns a daemon `threading.Thread` invoking `notification_service._do_notify()` inside an application context. The thread approach is preferred over Celery `.delay()` because it is reliable regardless of whether the optional Celery worker container is running.
 
 `_write_blocked_ips_json()` queries all active (non-whitelist) `BlockedIP` records, filters out expired temporary blocks, and writes the resulting list to `blocked_ips.json` at the path given by the `BLOCKED_IPS_JSON_PATH` environment variable. This file is read by `vuln-web/middleware/security.py` on every incoming HTTP request (the `enforce_security()` function called via Flask's `before_request` hook), causing blocked IPs to receive HTTP 403 responses without requiring a server restart or direct database access from vuln-web.
 
@@ -133,7 +133,7 @@ The sidebar navigation uses the `nav.ipManagement` i18n key (rendered as "IP Man
 
 ### 2. Database Implementation
 
-Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and populated by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on the first container start. The default seed creates one `admin` user (username `admin`, password `Admin@Incidentra2026!`) and 11 active detection rules covering all supported OWASP attack categories.
+Incidentra uses PostgreSQL 15 as its primary relational store, accessed via SQLAlchemy 2.x ORM. All models are defined in `backend/app/models/__init__.py`. The schema is initialized by `db.create_all()` and populated by `seed_all()` in `backend/app/utils/seeder.py`, which runs automatically via `backend/docker_entrypoint.sh` on the first container start. The default seed creates `admin` and `analyst` users and **18** active detection rules covering all supported OWASP attack categories and lab-specific patterns.
 
 
 | Model Class           | Table                   | Key Columns                                                                                                                                                                                |
@@ -155,7 +155,7 @@ Rate-limiting state is stored outside PostgreSQL for performance. The `rate_limi
 
 The SOC Dashboard is a React 18 single-page application built with Material UI (MUI) and served by Nginx on port 3000. The dark theme (`frontend/src/theme/index.js`) is optimized for prolonged use in security operations environments. Key UI behaviors verified against the codebase are as follows.
 
-The Dashboard page displays four metric cards: Total Incidents (all time), Detections in Last 24 Hours, Blocked IP Addresses (active blocks from `BlockedIP` table), and MTTR (Mean Time to Resolution). A collapsible system status banner, driven by `last_log_received_at` from the log monitor, alerts operators when no log lines have been received in the last 60 seconds. The Incident Timeline (Chart.js line chart, 7-day window) and By Severity donut chart auto-refresh every 30 seconds.
+The Dashboard page displays four metric cards: Total Incidents (all time), Detections in Last 24 Hours, Blocked IP Addresses (active blocks from `BlockedIP` table), and MTTR (Mean Time to Resolution). A collapsible system status banner, driven by `last_log_received_at` from the log monitor, alerts operators when no log lines have been received in the last 60 seconds. The Incident Timeline (Chart.js line chart, 7-day window) and By Severity donut chart auto-refresh every 15 seconds (default `REACT_APP_REFRESH_INTERVAL`).
 
 The Incidents page renders a filterable, paginated table with columns for detection timestamp, source IP, attack type badge, severity badge, status badge, request path, and the automated response action icon. Dropdown filters cover severity and status. A full-text search field covers IP address, attack type, and path. The "Simulate Attack" button submits a synthetic SQL injection payload through the backend's `/api/incidents/simulate` endpoint to generate a demonstration incident. The "Export CSV" button downloads up to 1,000 records including the columns ID, Date, Source IP, Attack Type, Severity, Status, Path, and Country.
 
@@ -171,15 +171,15 @@ The Detection Rules page lists all `DetectionRule` records in a table with colum
 
 [SCREENSHOT: Figure 3 — Incidents List. Filterable table with SQL_INJECTION row (Critical severity, New status, path /search, lock icon for IP block).]
 
-[SCREENSHOT: Figure 4 — Incident Detail (Before AI Explanation). Left panel: source IP, attack type SQL_INJECTION, severity Critical, GET /search, HTTP 200, Automated Actions showing permanent block. Right panel: "AI Explanation Not Generated" state with Generate button.]
+[SCREENSHOT: Figure 4 — Incident Detail (Before AI Explanation). Left panel: source IP, attack type SQL_INJECTION, severity Critical, GET /search, HTTP 200, Automated Actions showing escalating block (Offense #1, ~24h). Right panel: "AI Explanation Not Generated" state with Generate button.]
 
 [SCREENSHOT: Figure 5 — Incident Detail (After AI Explanation). Right panel shows AI-Powered Analysis with Summary (blue-green), Why It's Dangerous (orange), Recommended Actions (purple), MITRE ATT&CK mapping, and llama-3.3-70b-versatile model badge.]
 
-[SCREENSHOT: Figure 6 — IP Management, Blocked Tab. Table with one permanent block row, reason "Auto-blocked (CRITICAL): SQL_INJECTION", Expires Never, unblock icon.]
+[SCREENSHOT: Figure 6 — IP Management, Blocked Tab. Table with one escalating temporary block row, reason "Auto-blocked (CRITICAL): SQL_INJECTION | Offense #1", expires in 24 hours, unblock icon.]
 
 [SCREENSHOT: Figure 7 — IP Management, Rate Limited Tab. Table showing rate-limited IP with policy (max requests, window), TTL remaining, and Extend / Clear actions.]
 
-[SCREENSHOT: Figure 8 — Detection Rules. Table with 11 active rules including Brute Force – Login, Command Injection (critical), XSS – Script Tag (critical), match_count column, active toggle per row.]
+[SCREENSHOT: Figure 8 — Detection Rules. Table with 18 active rules including Brute Force – Login, Command Injection (critical), XSS – Script Tag, match_count column, active toggle per row.]
 
 [SCREENSHOT: Figure 9 — Create Detection Rule Modal. Fields: Rule Name, Attack Type (dropdown: SQL INJECTION), Severity (high), Regex Pattern text area, Description.]
 
@@ -229,9 +229,9 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 [SCREENSHOT: Figure 3 — Incidents List with SQL_INJECTION entry marked Critical, automated IP block icon.]
 
-**Incident Detail — Before AI Analysis.** The detail page shows the full technical breakdown on the left (source IP, AbuseIPDB score, attack type, severity, HTTP method, path, response code, country, timestamps) and the "AI Explanation Not Generated" placeholder with a "Generate AI Explanation" call-to-action on the right. The Automated Actions section below shows what the system executed automatically at detection time (e.g., permanent block of the source IP). The Investigation Notes section is available for analyst annotations.
+**Incident Detail — Before AI Analysis.** The detail page shows the full technical breakdown on the left (source IP, AbuseIPDB score, attack type, severity, HTTP method, path, response code, country, timestamps) and the "AI Explanation Not Generated" placeholder with a "Generate AI Explanation" call-to-action on the right. The Automated Actions section below shows what the system executed automatically at detection time (e.g., escalating block of the source IP, Offense #1). The Investigation Notes section is available for analyst annotations.
 
-[SCREENSHOT: Figure 4 — Incident Detail before AI generation, showing HTTP 200 response code and automated permanent block action in the Automated Actions log.]
+[SCREENSHOT: Figure 4 — Incident Detail before AI generation, showing HTTP 200 response code and automated escalating block action in the Automated Actions log.]
 
 **Incident Detail — After AI Analysis.** After clicking "Generate AI Explanation," the right panel is replaced by the AI-Powered Analysis section containing four color-coded blocks: Summary, Why It's Dangerous, Recommended Actions, and MITRE ATT&CK mapping. The model name badge (e.g., `llama-3.3-70b-versatile`) appears in the panel header.
 
@@ -239,7 +239,7 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 **IP Management — Blocked Tab.** The Blocked tab of the IP Management page lists all `BlockedIP` records. Each row shows the IP address, reason (including the attack type that triggered the block), block type (permanent or temporary), blocked-at timestamp, expiry time (or "Never" for permanent blocks), incident count, and an unblock button. A "+ Block IP" button opens a dialog for manual IP blocking.
 
-[SCREENSHOT: Figure 6 — IP Management, Blocked tab with one permanent block entry for a SQL injection source.]
+[SCREENSHOT: Figure 6 — IP Management, Blocked tab with one escalating temporary block entry for a SQL injection source.]
 
 **IP Management — Rate Limited Tab.** The Rate Limited tab reads from `rate_limited.json` via the API and displays each rate-limited IP with its per-IP policy and enforcement TTL from Redis. Extend and Clear action buttons are provided per row.
 
@@ -247,7 +247,7 @@ The Incidentra system consists of two browser-accessible components: the SOC Das
 
 **Detection Rules.** The rules table lists each `DetectionRule` record with its name, attack type badge, severity badge, pattern excerpt, match count, active toggle, and edit/delete actions. Toggling a rule sets `is_active` in PostgreSQL and writes the Redis `rules_dirty` flag.
 
-[SCREENSHOT: Figure 8 — Detection Rules page with 11 active rules, match counters, and active toggles.]
+[SCREENSHOT: Figure 8 — Detection Rules page with 18 active rules, match counters, and active toggles.]
 
 **Create Detection Rule.** The "+ Add Rule" modal collects Rule Name, Attack Type (dropdown of supported enums), Severity Level, Regex Pattern, and Description. Upon submission the rule is saved to the `detection_rules` table and `rules_dirty` is set.
 
@@ -329,7 +329,7 @@ Testing is conducted against the Docker Compose deployment (six services: `postg
 
 | No. | Scenario                     | Input                                                                                              | Expected Output                                                                                                                   | Output Result       |
 | --- | ---------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| 1   | Reflected XSS via script tag | Navigate to `http://localhost:5050/profile?name=<script>alert(document.cookie)</script>`; wait 3 s | Incident: `attack_type=XSS`, `severity=critical`; IP permanently blocked; tagged "Attack" in Live Traffic (HTTP 200 on first hit) | *(isi setelah uji)* |
+| 1   | Reflected XSS via script tag | Navigate to `http://localhost:5050/profile?name=<script>alert(document.cookie)</script>`; wait 3 s | Incident: `attack_type=XSS`, `severity=critical`; IP escalating blocked (Offense #1); tagged "Attack" in Live Traffic (HTTP 200 on first hit) | *(isi setelah uji)* |
 | 2   | XSS event handler            | Navigate to `http://localhost:5050/search?q=<img onerror=alert(1) src=x>`; wait 3 s                | Incident: `attack_type=XSS`, `severity=critical`                                                                                  | *(isi setelah uji)* |
 | 3   | Benign search query          | Navigate to `http://localhost:5050/search?q=laptop`; wait 3 s                                      | No incident created; entry appears as "Normal" in Live Traffic                                                                    | *(isi setelah uji)* |
 
@@ -360,7 +360,7 @@ Testing is conducted against the Docker Compose deployment (six services: `postg
 
 | No. | Scenario                                      | Input                                                                  | Expected Output                                                                                                                                                          | Output Result       |
 | --- | --------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| 1   | Metacharacter payload                         | Navigate to `http://localhost:5050/cmd?cmd=;whoami`; wait 3 s          | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical`; IP permanently blocked; subsequent request returns HTTP 403                                              | *(isi setelah uji)* |
+| 1   | Metacharacter payload                         | Navigate to `http://localhost:5050/cmd?cmd=;whoami`; wait 3 s          | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical`; IP escalating blocked (Offense #1); subsequent request returns HTTP 403                                              | *(isi setelah uji)* |
 | 2   | Plain keyword payload (after backend restart) | Navigate to `http://localhost:5050/cmd?cmd=whoami`; wait 3 s           | Incident: `attack_type=COMMAND_INJECTION`, `severity=critical` (matched by `cmd=whoami` pattern in `DETECTION_PATTERNS`)                                                 | *(isi setelah uji)* |
 | 3   | Live Traffic — Attack tag before block        | First request to `/cmd?cmd=;whoami` (before detection cycle completes) | Live Traffic entry shows tag **Attack**, HTTP status **200** — this is the request that was logged and subsequently detected; the block is applied to the *next* request | *(isi setelah uji)* |
 
@@ -452,7 +452,7 @@ Testing is conducted against the Docker Compose deployment (six services: `postg
 
 | No. | Scenario                  | Input                                                               | Expected Output                                 | Output Result       | Ref (AUDIT) |
 | --- | ------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- | ------------------- | ----------- |
-| 1   | PHP wrapper in file param | `GET /files?file=php://filter/convert.base64-encode/resource=index` | Incident **LFI_RFI**, critical, permanent block | *(isi setelah uji)* | C7          |
+| 1   | PHP wrapper in file param | `GET /files?file=php://filter/convert.base64-encode/resource=index` | Incident **LFI_RFI**, critical, escalating block (Offense #1) | *(isi setelah uji)* | C7          |
 | 2   | Remote filter in search   | `GET /search?q=test.php://filter`                                   | Incident **LFI_RFI** if pattern matches         | *(isi setelah uji)* | C7          |
 
 
@@ -500,7 +500,7 @@ Open `backend/.env.docker` and populate the optional keys: `GROQ_API_KEY` (from 
 docker compose up --build -d
 ```
 
-Docker Compose starts six services: `postgres` (port 5432), `redis` (port 6379), `vuln_web` (port 5050), `backend` (port 5000), `frontend` (port 3000, served by Nginx), and `celery_worker`. The `backend` entrypoint script (`docker_entrypoint.sh`) runs `db.create_all()`, seeds the admin user and 11 default detection rules, then starts Gunicorn. The log monitor thread starts automatically and begins tailing the shared `vuln_logs` volume.
+Docker Compose starts six services: `postgres` (port 5432), `redis` (port 6379), `vuln_web` (port 5050), `backend` (port 5000), `frontend` (port 3000, served by Nginx), and `celery_worker`. The `backend` entrypoint script (`docker_entrypoint.sh`) runs `db.create_all()`, seeds the admin and analyst users and 18 default detection rules, then starts Gunicorn. The log monitor thread starts automatically and begins tailing the shared `vuln_logs` volume.
 
 **Step 4 — Access the system.**
 

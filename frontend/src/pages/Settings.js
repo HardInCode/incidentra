@@ -74,7 +74,14 @@ export default function Settings() {
     try {
       const res = await getSettings();
       setSettings(res.data);
-      setEdited({});
+      
+      // Auto-migrate GROQ_MODEL if the database value is deprecated/invalid
+      const loadedModel = res.data?.GROQ_MODEL?.value;
+      if (loadedModel && !GROQ_MODELS.includes(loadedModel)) {
+        setEdited({ GROQ_MODEL: GROQ_MODELS[0] });
+      } else {
+        setEdited({});
+      }
     } catch (e) {
       toast.error('Failed to load settings');
     } finally {
@@ -297,7 +304,10 @@ export default function Settings() {
             <Button
               variant="outlined"
               size="small"
-              onClick={() => runTest('groq', testGroq)}
+              onClick={() => runTest('groq', () => testGroq({
+                model: getValue('GROQ_MODEL') || GROQ_MODELS[0],
+                api_key: getValue('GROQ_API_KEY')
+              }))}
               disabled={testResults.groq?.loading}
             >
               {testResults.groq?.loading ? t('settings.testing') : t('settings.testConnection')}
@@ -471,40 +481,70 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* Section 5 — Detection Thresholds */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>{t('settings.thresholds')}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-            {t('settings.thresholdsHint')}
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 300 }}>
-            <TextField
-              label={t('settings.bruteForce')}
-              type="number"
-              size="small"
-              value={getValue('BRUTE_FORCE_THRESHOLD') || 10}
-              onChange={(e) => setValue('BRUTE_FORCE_THRESHOLD', e.target.value)}
-              helperText={t('settings.bruteForceHint')}
-            />
-            <TextField
-              label={t('settings.tempBlock')}
-              type="number"
-              size="small"
-              value={getValue('TEMP_BLOCK_DURATION') ? Math.round(parseInt(getValue('TEMP_BLOCK_DURATION'), 10) / 3600) : 24}
-              onChange={(e) => setValue('TEMP_BLOCK_DURATION', String(parseInt(e.target.value, 10) * 3600))}
-              helperText={t('settings.tempBlockHint')}
-            />
-            <TextField
-              label={t('settings.rateLimit')}
-              type="number"
-              size="small"
-              value={getValue('RATE_LIMIT_WINDOW') || 60}
-              onChange={(e) => setValue('RATE_LIMIT_WINDOW', e.target.value)}
-            />
-          </Box>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <>
+          {/* Section 5 — Detection Thresholds */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>{t('settings.thresholds')}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                {t('settings.thresholdsHint')}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 300 }}>
+                <TextField
+                  label={t('settings.bruteForce')}
+                  type="number"
+                  size="small"
+                  value={getValue('BRUTE_FORCE_THRESHOLD') || 10}
+                  onChange={(e) => setValue('BRUTE_FORCE_THRESHOLD', e.target.value)}
+                  helperText={t('settings.bruteForceHint')}
+                />
+                <TextField
+                  label={t('settings.rateLimit')}
+                  type="number"
+                  size="small"
+                  value={getValue('RATE_LIMIT_WINDOW') || 60}
+                  onChange={(e) => setValue('RATE_LIMIT_WINDOW', e.target.value)}
+                />
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Section 6 — Escalating Block Policy */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>{t('settings.escalatingTitle')}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                {t('settings.escalatingHint')}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
+                <TextField
+                  label={t('settings.repeatOffenderThreshold')}
+                  type="number"
+                  size="small"
+                  value={getValue('REPEAT_OFFENDER_THRESHOLD') || 3}
+                  onChange={(e) => setValue('REPEAT_OFFENDER_THRESHOLD', e.target.value)}
+                  helperText={t('settings.repeatOffenderThresholdHint')}
+                />
+                <TextField
+                  label={t('settings.escalatingHigh')}
+                  size="small"
+                  value={getValue('ESCALATING_HIGH_DURATIONS') || '1, 24, 168'}
+                  onChange={(e) => setValue('ESCALATING_HIGH_DURATIONS', e.target.value)}
+                  helperText={t('settings.escalatingHighHint')}
+                />
+                <TextField
+                  label={t('settings.escalatingCritical')}
+                  size="small"
+                  value={getValue('ESCALATING_CRITICAL_DURATIONS') || '24, 168, 720'}
+                  onChange={(e) => setValue('ESCALATING_CRITICAL_DURATIONS', e.target.value)}
+                  helperText={t('settings.escalatingCriticalHint')}
+                />
+              </Box>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Button
         variant="contained"

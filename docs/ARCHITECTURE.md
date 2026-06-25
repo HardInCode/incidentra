@@ -15,7 +15,7 @@
 |------|-----------|
 | Monitoring | Tail `access.log` atau mode simulasi demo |
 | Deteksi | Regex + aturan DB + threshold brute force (Redis); FILE_UPLOAD hanya ekstensi berbahaya (.php, .jsp, dll.) |
-| Respons | Monitor / rate limit / blokir temp / blokir permanen |
+| Respons | Monitor / rate limit / blokir eskalasi (high & critical); permanent hanya manual admin |
 | SOC UI | Dashboard, insiden (ongoing vs arsip), **IP Management**, rules, live traffic |
 | AI | Penjelasan insiden & chatbot (Groq, opsional) |
 | Intel | AbuseIPDB (opsional), notifikasi email/Telegram |
@@ -346,7 +346,7 @@ Celery ada; notifikasi/AI punya fallback thread jika worker tidak jalan.
 3. `DetectionEngine.analyze()` → `SQL_INJECTION` (rules DB + baseline, kecuali Lab mode ON).
 4. Whitelist check: jika IP `is_whitelist=True` → **tidak** ada insiden.
 5. `log_monitor` insert `Incident` (dedup 5 menit per IP + attack_type).
-6. `ResponseManager` → critical → `permanent_block` → `BlockedIP` (`is_whitelist=False`) + `_write_blocked_ips.json()`.
+6. `ResponseManager` → high/critical → `escalating_block` → `BlockedIP` (`block_type='temporary'`, durasi eskalasi) + `_write_blocked_ips.json()`. Permanent block hanya via admin manual.
 7. Analis melihat insiden di `/incidents` (ongoing).
 8. Request berikutnya dari IP sama ke vuln-web → middleware → **HTTP 403**.
 9. Live Traffic: baris pertama bisa **Attack 200**, baris berikut **Blocked 403**.

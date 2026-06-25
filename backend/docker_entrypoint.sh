@@ -46,6 +46,23 @@ app = create_app()
 with app.app_context():
     db.create_all()
     seed_all()
+    # Safe migration: add is_repeat_offender column if it does not yet exist
+    try:
+        db.engine.execute(
+            'ALTER TABLE blocked_ips ADD COLUMN IF NOT EXISTS is_repeat_offender BOOLEAN DEFAULT FALSE'
+        )
+        print('Migration: is_repeat_offender column ensured.')
+    except Exception as e:
+        # Fallback for older psycopg / SQLAlchemy that do not support execute() directly
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text(
+                    'ALTER TABLE blocked_ips ADD COLUMN IF NOT EXISTS is_repeat_offender BOOLEAN DEFAULT FALSE'
+                ))
+                conn.commit()
+            print('Migration: is_repeat_offender column ensured (conn path).')
+        except Exception as e2:
+            print(f'Migration note (may be harmless if column exists): {e2}')
 print('DB init complete.')
 "
 

@@ -36,7 +36,7 @@ export default function FilterBar({
   const filterControls = (
     <>
       {filters.map((filter) => (
-        <FormControl key={filter.key} size="small" sx={{ minWidth: 130 }}>
+        <FormControl key={filter.key} size="small" sx={{ minWidth: filter.minWidth || 130, flexShrink: 0 }}>
           <InputLabel>{filter.label}</InputLabel>
           <Select
             value={values[filter.key] || ''}
@@ -52,7 +52,7 @@ export default function FilterBar({
       ))}
       {extra}
       {sortOptions.length > 0 && onSortBy && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
           <InputLabel>{t('common.sortBy')}</InputLabel>
           <Select value={sortBy || ''} label={t('common.sortBy')} onChange={(e) => onSortBy(e.target.value)}>
             {sortOptions.map((opt) => (
@@ -68,6 +68,7 @@ export default function FilterBar({
           onChange={(e, val) => { if (val) onSortDir(val); }}
           size="small"
           sx={{
+            flexShrink: 0,
             '& .MuiToggleButton-root': {
               color: 'text.secondary',
               borderColor,
@@ -132,7 +133,7 @@ export default function FilterBar({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearch(e.target.value)}
-              sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}
+              sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { xs: '1 1 100%', sm: '0 0 auto' }, flexShrink: 0 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">

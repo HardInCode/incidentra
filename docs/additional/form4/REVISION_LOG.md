@@ -20,7 +20,7 @@
 - **Lab mode** — `settings_reader.is_lab_mode_ui_only()`, UI rules only when ON
 - **Phase 3** — `VULN_UNSAFE_CMD`, `VULN_UNSAFE_UPLOAD` in `docker-compose.yml`
 - **Live Traffic** — explicit separation from detection (`traffic.py` header comment)
-- **PATH_TRAVERSAL** — high → temporary block (not permanent)
+- **PATH_TRAVERSAL** — high → escalating block (not permanent)
 - **May 2026 block fix** — `_block_ip` returns `bool`; auto-block sets `is_whitelist=False`
 - **Part D** — separate tables: Export CSV, All Incidents nav, IP History + Whitelist, Lab mode, Notifications, Bulk resolve
 - **Part B** — figure index only (screenshots in user Word doc); no 50+ `[SCREENSHOT:]` placeholders
@@ -56,6 +56,18 @@
 | `AUDIT_FULL_MEI_2026.md` | `AUDIT.md` |
 | `FIX-HANDOFF-PROMPT.md` | `archive/FIX-HANDOFF-PROMPT.md` |
 | `Untitled` | deleted |
+
+---
+
+## June 2026 — Escalating block policy (Form 5 alignment)
+
+- **Auto-response revised:** high/critical → `escalating_block` (no automatic permanent block)
+- **Repeat Offender:** `BlockedIP.is_repeat_offender`, configurable threshold (default 3)
+- **Settings:** `REPEAT_OFFENDER_THRESHOLD`, `ESCALATING_HIGH_DURATIONS`, `ESCALATING_CRITICAL_DURATIONS`
+- **Redis persistence:** `escalation_count:{ip}`, `escalation_severity:{ip}` survive admin unblock (30-day TTL)
+- **Legacy actions:** `temporary_block` / `permanent_block` retained for manual API calls only
+- **Docs synced:** Form 5, `DETECTION.md`, `ARCHITECTURE.md`, `AUDIT.md`, `GUIDE.md`, Form 4 v5
+- **Seed count corrected:** 18 detection rules (11 core + 7 `EXTRA_RULES`), not 11
 
 ---
 

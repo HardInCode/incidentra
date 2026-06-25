@@ -6,7 +6,7 @@ import requests as req
 
 settings_bp = Blueprint('settings', __name__)
 
-from app.api.auth_middleware import verify_token
+from app.api.auth_middleware import verify_token, require_role
 from app.services.audit_service import log_audit
 
 @settings_bp.before_request
@@ -20,6 +20,9 @@ SETTING_KEYS = [
     'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
     'BRUTE_FORCE_THRESHOLD', 'TEMP_BLOCK_DURATION', 'RATE_LIMIT_WINDOW',
     'DETECTION_LAB_MODE_UI_ONLY',
+    'REPEAT_OFFENDER_THRESHOLD',
+    'ESCALATING_HIGH_DURATIONS',
+    'ESCALATING_CRITICAL_DURATIONS',
 ]
 SENSITIVE = ['API_KEY', 'PASSWORD', 'TOKEN', 'SECRET']
 
@@ -51,6 +54,7 @@ def get_settings():
 
 
 @settings_bp.route('/', methods=['PUT'])
+@require_role('admin')
 def update_settings():
     data = request.get_json()
     for key, value in data.items():
@@ -119,50 +123,41 @@ def test_abuseipdb():
 
 @settings_bp.route('/test/groq', methods=['POST'])
 def test_groq():
-    key = _get_raw('GROQ_API_KEY')
+    data = request.get_json(silent=True) or {}
+    
+    # API key: use provided key (if not empty/masked), fallback to DB/Env
+    key = data.get('api_key')
+    if not key or '••••••' in key:
+        key = _get_raw('GROQ_API_KEY')
+        
     if not key:
         return jsonify({'success': False, 'error': 'GROQ_API_KEY not configured'}), 400
 
-    primary_model = _get_raw('GROQ_MODEL') or os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
-    
-    # Same fallbacks as ai_service and chatbot
-    fallback_models = [
-        'llama-3.3-70b-versatile',
-        'llama-3.1-8b-instant',
-        'meta-llama/llama-4-scout-17b-16e-instruct',
-        'meta-llama/llama-guard-4-12b',
-    ]
-    
-    models_to_try = [primary_model] + [m for m in fallback_models if m != primary_model]
-    
-    last_error = None
-    successful_model = None
-    
-    for model in models_to_try:
-        try:
-            r = req.post('https://api.groq.com/openai/v1/chat/completions',
-                         headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                         json={'model': model,
-                               'messages': [{'role': 'user', 'content': 'Say ok'}],
-                               'max_tokens': 5}, timeout=15)
-            r.raise_for_status()
-            successful_model = model
-            break
-        except req.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response is not None else 0
-            if status in (400, 404, 422):
-                last_error = e
-                continue
-            return jsonify({'success': False, 'error': f'HTTP {status}: {e.response.text if e.response else str(e)}'}), 400
-        except Exception as e:
-            last_error = e
-            continue
-            
-    if successful_model:
+    # Model: use provided model, fallback to DB/Env
+    selected_model = data.get('model') or _get_raw('GROQ_MODEL') or os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+
+    try:
+        r = req.post('https://api.groq.com/openai/v1/chat/completions',
+                     headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+                     json={'model': selected_model,
+                           'messages': [{'role': 'user', 'content': 'Say ok'}],
+                           'max_tokens': 5}, timeout=15)
+        r.raise_for_status()
         return jsonify({
             'success': True,
-            'message': f'Groq API key valid. Tested successfully with model: {successful_model}',
-            'model': successful_model,
+            'message': f'Groq API key valid. Model "{selected_model}" is working.',
+            'model': selected_model,
         })
-    else:
-        return jsonify({'success': False, 'error': f'All Groq models failed. Last error: {str(last_error)}'}), 400
+    except req.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 0
+        error_detail = e.response.text if e.response else str(e)
+        return jsonify({
+            'success': False,
+            'error': f'Model "{selected_model}" failed (HTTP {status}): {error_detail}',
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Model "{selected_model}" test failed: {str(e)}',
+        }), 400
+

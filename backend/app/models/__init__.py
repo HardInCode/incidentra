@@ -243,6 +243,7 @@ class BlockedIP(db.Model):
     expire_time = db.Column(db.DateTime, nullable=True)
     incident_count = db.Column(db.Integer, default=1)
     is_whitelist = db.Column(db.Boolean, default=False)
+    is_repeat_offender = db.Column(db.Boolean, default=False)
     created_by = db.Column(db.String(50), default='system')
 
     def to_dict(self):
@@ -255,5 +256,6 @@ class BlockedIP(db.Model):
             'expire_time': self.expire_time.isoformat() + 'Z' if self.expire_time else None,
             'incident_count': self.incident_count,
             'is_whitelist': self.is_whitelist,
+            'is_repeat_offender': self.is_repeat_offender or False,
             'created_by': self.created_by,
         }

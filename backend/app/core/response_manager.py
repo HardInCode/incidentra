@@ -1,6 +1,11 @@
 """
-RESPONSE MANAGER — severity → monitor / rate_limit / temporary_block / permanent_block.
-SIDANG Ctrl+F: respond, _write_blocked_ips_json, _apply_rate_limit
+RESPONSE MANAGER — severity → monitor / rate_limit / escalating_block.
+SIDANG Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit
+
+Escalation logic (configurable in Settings):
+  HIGH:     1st → 1h, 2nd → 24h, 3rd+ → 7d + Repeat Offender flag
+  CRITICAL: 1st → 24h, 2nd → 7d, 3rd+ → 30d + Repeat Offender flag + notify
+
 Writes: blocked_ips.json, rate_limited.json (read by vuln-web middleware.security)
 """
 import logging
@@ -152,7 +157,7 @@ def update_rate_limit_entry(
         entry['max_requests'] = max_requests
     if window_seconds is not None:
         entry['window_seconds'] = window_seconds
-    
+
     # Calculate expires_at
     import time
     ttl = seconds if seconds is not None else RATE_LIMIT_REDIS_TTL
@@ -174,22 +179,34 @@ def extend_rate_limit_entry(ip: str, seconds: int, redis_client=None):
     update_rate_limit_entry(ip, redis_client, seconds=seconds)
 
 
+def _pick_escalating_duration(durations: list, offense_index: int) -> int:
+    """
+    Pick the block duration (in hours) for the given offense index.
+    offense_index 0 = first offense, 1 = second, etc.
+    If offense_index >= len(durations), use the last (highest) value.
+    """
+    if not durations:
+        return 24
+    idx = min(offense_index, len(durations) - 1)
+    return durations[idx]
+
+
 class ResponseManager:
     """
     Executes automated responses based on threat severity.
     Level 1 (Low)      → Log & Monitor
     Level 2 (Medium)   → Rate Limit (Redis counter)
-    Level 3 (High)     → Temporary IP Block (24h)
-    Level 4 (Critical) → Permanent IP Block + Notification
+    Level 3 (High)     → Escalating temp block: 1h → 24h → 7d + Repeat Offender
+    Level 4 (Critical) → Escalating temp block: 24h → 7d → 30d + Repeat Offender + Notify
     """
 
     def __init__(self, db, redis_client=None, app=None):
         self.db = db
         self.redis = redis_client
         self._app = app
-        self.temp_block_duration = int(os.getenv('TEMP_BLOCK_DURATION', 86400))  # refreshed in respond()
+        self.temp_block_duration = int(os.getenv('TEMP_BLOCK_DURATION', 86400))
 
-    def _notify_async(self, incident_id: int, severity: str):
+    def _notify_async(self, incident_id: int, severity: str, block_hours: int = 0, offense_count: int = 0):
         """
         Run notification in a background thread (works without Celery worker).
         Celery .delay() is skipped intentionally: even if broker is reachable,
@@ -200,21 +217,21 @@ class ResponseManager:
 
         app = self._app
         if app:
-            def _notif_thread(app_ref, inc_id, sev):
+            def _notif_thread(app_ref, inc_id, sev, b_hours, o_count):
                 try:
                     with app_ref.app_context():
-                        _do_notify(inc_id, sev)
+                        _do_notify(inc_id, sev, block_hours=b_hours, offense_count=o_count)
                 except Exception as e:
                     logger.error(f"Notification thread error: {e}")
             threading.Thread(
                 target=_notif_thread,
-                args=(app, incident_id, severity),
+                args=(app, incident_id, severity, block_hours, offense_count),
                 daemon=True
             ).start()
         else:
             # Called from API endpoint — already in app context, run directly
             try:
-                _do_notify(incident_id, severity)
+                _do_notify(incident_id, severity, block_hours=block_hours, offense_count=offense_count)
             except Exception as e:
                 logger.warning(f"Notification failed: {e}")
 
@@ -239,9 +256,20 @@ class ResponseManager:
 
         elif action == 'rate_limit':
             self._apply_rate_limit(ip)
-            _write_rate_limited_json(ip, add=True)  # BUG 4 FIX
+            _write_rate_limited_json(ip, add=True)
             result['details'] = f'Rate limiting applied to {ip}. Max 10 req/min enforced.'
 
+        elif action == 'escalating_block':
+            self.db.session.expire_all()
+            block_result = self._escalating_block(
+                ip=ip,
+                severity=severity,
+                attack_type=threat.get('attack_type', ''),
+                incident_id=incident_id,
+            )
+            result.update(block_result)
+
+        # Legacy actions still supported (e.g. manual API calls)
         elif action == 'temporary_block':
             self.db.session.expire_all()
             ok = self._block_ip(ip, permanent=False, reason=f"Auto-blocked: {threat.get('attack_type')}")
@@ -274,6 +302,155 @@ class ResponseManager:
         self._save_incident_log(incident_id, result)
         return result
 
+    def _escalating_block(self, ip: str, severity: str, attack_type: str, incident_id: int) -> dict:
+        """
+        Escalating temporary block logic:
+        - Looks up existing BlockedIP.incident_count to determine offense tier
+        - Picks block duration from configurable duration list per severity
+        - Flags is_repeat_offender=True when count >= threshold
+        - Notifies admin for critical repeat offenders
+        """
+        from app.models import BlockedIP
+        from app.core.settings_reader import (
+            get_escalating_high_durations,
+            get_escalating_critical_durations,
+            get_repeat_offender_threshold,
+        )
+
+        try:
+            repeat_threshold = get_repeat_offender_threshold()
+
+            existing = BlockedIP.query.filter_by(ip_address=ip, is_whitelist=False).first()
+            current_count = 0
+            previous_max_severity = None
+            if existing:
+                current_count = existing.incident_count or 0
+                # Extract the highest severity previously recorded from the reason field
+                if existing.reason:
+                    for sev_tag in ['CRITICAL', 'HIGH']:
+                        if sev_tag in existing.reason.upper():
+                            previous_max_severity = sev_tag.lower()
+                            break
+            elif self.redis:
+                # IP was unblocked — check Redis for preserved escalation count & severity
+                try:
+                    saved = self.redis.get(f"escalation_count:{ip}")
+                    if saved:
+                        current_count = int(saved)
+                    saved_sev = self.redis.get(f"escalation_severity:{ip}")
+                    if saved_sev:
+                        previous_max_severity = saved_sev if isinstance(saved_sev, str) else saved_sev.decode()
+                except Exception:
+                    pass
+
+            # Use the HIGHEST severity between current attack and historical max
+            # This ensures escalation always uses the worst-case duration list
+            SEVERITY_RANK = {'low': 0, 'medium': 1, 'high': 2, 'critical': 3}
+            effective_severity = severity
+            if previous_max_severity and SEVERITY_RANK.get(previous_max_severity, 0) > SEVERITY_RANK.get(severity, 0):
+                effective_severity = previous_max_severity
+
+            durations = (
+                get_escalating_critical_durations()
+                if effective_severity == 'critical'
+                else get_escalating_high_durations()
+            )
+
+            offense_index = current_count  # 0-based: 0=first block, 1=second, ...
+
+            hours = _pick_escalating_duration(durations, offense_index)
+            expire_time = datetime.utcnow() + timedelta(hours=hours)
+            new_count = current_count + 1
+            is_repeat = new_count >= repeat_threshold
+
+            reason_parts = [f"Auto-blocked ({effective_severity.upper()}): {attack_type}"]
+            reason_parts.append(f"Offense #{new_count}")
+            if is_repeat:
+                reason_parts.append("⚠ Repeat Offender")
+            reason = " | ".join(reason_parts)
+
+            if existing:
+                existing.is_whitelist = False
+                existing.reason = reason
+                existing.block_type = 'temporary'
+                existing.expire_time = expire_time
+                existing.block_time = datetime.utcnow()
+                existing.incident_count = new_count
+                existing.is_repeat_offender = is_repeat
+            else:
+                new_block = BlockedIP(
+                    ip_address=ip,
+                    reason=reason,
+                    block_type='temporary',
+                    expire_time=expire_time,
+                    is_whitelist=False,
+                    incident_count=new_count,
+                    is_repeat_offender=is_repeat,
+                )
+                self.db.session.add(new_block)
+
+            self.db.session.commit()
+
+            # Persist escalation count and max severity in Redis (survives future unblock)
+            if self.redis:
+                try:
+                    self.redis.setex(f"escalation_count:{ip}", 30 * 24 * 3600, str(new_count))
+                    self.redis.setex(f"escalation_severity:{ip}", 30 * 24 * 3600, effective_severity)
+                except Exception:
+                    pass
+
+            # Redis TTL for fast enforcement check
+            if self.redis:
+                ttl_seconds = int(hours * 3600)
+                try:
+                    self.redis.setex(f"blocked:{ip}", ttl_seconds, '1')
+                except Exception:
+                    pass
+
+            _write_blocked_ips_json()
+
+            # Human-readable duration
+            if hours >= 720:
+                duration_str = f"{hours // 720} month(s)"
+            elif hours >= 168:
+                duration_str = f"{hours // 168} week(s)"
+            elif hours >= 24:
+                duration_str = f"{hours // 24} day(s)"
+            else:
+                duration_str = f"{hours} hour(s)"
+
+            details = (
+                f'IP {ip} blocked for {duration_str} (offense #{new_count}, {severity}). '
+                f'Expires: {expire_time.strftime("%Y-%m-%d %H:%M UTC")}.'
+            )
+            if is_repeat:
+                details += f' ⚠ Repeat Offender (≥{repeat_threshold} offenses) — review in IP Management.'
+
+            # Notify on critical repeat offenders, or any severity repeat offender
+            if is_repeat and severity == 'critical':
+                self._notify_async(incident_id, 'critical', block_hours=hours, offense_count=new_count)
+            elif is_repeat:
+                self._notify_async(incident_id, 'high', block_hours=hours, offense_count=new_count)
+            elif severity == 'critical' and new_count == 1:
+                # Notify on first critical offense too
+                self._notify_async(incident_id, 'critical', block_hours=hours, offense_count=new_count)
+
+            return {
+                'action_taken': 'escalating_block',
+                'details': details,
+                'block_hours': hours,
+                'offense_count': new_count,
+                'is_repeat_offender': is_repeat,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in escalating block for {ip}: {e}", exc_info=True)
+            self.db.session.rollback()
+            return {
+                'action_taken': 'block_failed',
+                'details': f'Incident logged but escalating block failed for {ip}. Check server logs.',
+            }
+
     def _log_to_redis(self, ip: str, action: str):
         if self.redis:
             try:
@@ -290,6 +467,7 @@ class ResponseManager:
                 pass
 
     def _block_ip(self, ip: str, permanent: bool, reason: str) -> bool:
+        """Legacy helper used by the manual permanent/temporary_block action paths."""
         from app.models import BlockedIP
         try:
             expire_time = None if permanent else (

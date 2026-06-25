@@ -102,6 +102,6 @@ export const getSettings = () => api.get('/settings/');
 export const updateSettings = (data) => api.put('/settings/', data);
 export const testNotification = (channel) => api.post('/settings/test/notification', { channel });
 export const testAbuseIPDB = () => api.post('/settings/test/abuseipdb');
-export const testGroq = () => api.post('/settings/test/groq');
+export const testGroq = (data) => api.post('/settings/test/groq', data);
 
 export default api;

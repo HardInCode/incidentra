@@ -21,6 +21,7 @@ def list_blocked():
     sort_by = request.args.get('sort_by', 'block_time')
     sort_dir = request.args.get('sort_dir', 'desc')
     block_type = request.args.get('block_type')  # permanent | temporary
+    repeat_offender = request.args.get('repeat_offender', 'false').lower() == 'true'
     search = request.args.get('search', '')
 
     query = BlockedIP.query.filter_by(is_whitelist=show_whitelist)
@@ -28,6 +29,10 @@ def list_blocked():
     # Filter block_type
     if block_type:
         query = query.filter(BlockedIP.block_type == block_type)
+
+    # Filter repeat_offender
+    if repeat_offender:
+        query = query.filter(BlockedIP.is_repeat_offender == True)
 
     # Search by IP
     if search:
@@ -114,6 +119,19 @@ def unblock_ip(ip_id):
     blocked = BlockedIP.query.get_or_404(ip_id)
     ip_address = blocked.ip_address
     was_whitelist = blocked.is_whitelist
+
+    # Preserve escalation count in Redis so offense tier survives unblock
+    if not was_whitelist:
+        try:
+            from app.core.detection_engine import get_redis_client as _grc
+            _r = _grc()
+            if _r:
+                count = blocked.incident_count or 0
+                if count > 0:
+                    _r.setex(f"escalation_count:{ip_address}", 30 * 24 * 3600, str(count))
+        except Exception:
+            pass
+
     db.session.delete(blocked)
     db.session.commit()
     # BUG 3 FIX: Also remove from shared JSON file

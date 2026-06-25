@@ -8,7 +8,7 @@ import {
   CircularProgress, RadioGroup, FormControlLabel, Radio, Select, MenuItem,
   FormControl, InputLabel, useTheme, Tabs, Tab,
 } from '@mui/material';
-import { Block, Add, Delete, Refresh, Edit, Timer } from '@mui/icons-material';
+import { Block, Add, Delete, Refresh, Edit, Timer, GppBad } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import {
   getBlockedIPs, addBlockedIP, unblockIP, updateBlockedIP,
@@ -20,7 +20,7 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
 
-const BLOCK_HOUR_OPTIONS = [1, 6, 24, 168];
+const BLOCK_HOUR_OPTIONS = [1, 6, 24, 168, 720];
 const RATE_EXTEND_SECONDS = [60, 300, 600];
 const RATE_MAX_OPTIONS = [5, 10, 15, 20];
 const RATE_WINDOW_OPTIONS = [30, 60, 120, 300];
@@ -59,7 +59,7 @@ export default function BlockedIPs() {
   const [form, setForm] = useState({ ip_address: '', reason: '', block_type: 'permanent', hours: 24 });
   const [editForm, setEditForm] = useState({ reason: '', block_type: 'permanent', hours: 24 });
 
-  const [filterValues, setFilterValues] = useState({ block_type: '' });
+  const [filterValues, setFilterValues] = useState({ block_type: '', repeat_offender: '' });
   const [sortBy, setSortBy] = useState('block_time');
   const [sortDir, setSortDir] = useState('desc');
   const [search, setSearch] = useState('');
@@ -100,6 +100,14 @@ export default function BlockedIPs() {
         { value: 'temporary', label: t('blockType.temporary') },
       ],
     },
+    {
+      key: 'repeat_offender',
+      label: t('blockedIps.filterRepeatOffender'),
+      minWidth: 190,
+      options: [
+        { value: 'true', label: t('blockedIps.repeatOffender') },
+      ],
+    },
   ], [t]);
 
   const fetchIPs = useCallback(async () => {
@@ -107,6 +115,7 @@ export default function BlockedIPs() {
     try {
       const params = { sort_by: sortBy, sort_dir: sortDir };
       if (filterValues.block_type) params.block_type = filterValues.block_type;
+      if (filterValues.repeat_offender) params.repeat_offender = filterValues.repeat_offender;
       if (search) params.search = search;
       const res = await getBlockedIPs(params);
       setIps(res.data);
@@ -145,7 +154,7 @@ export default function BlockedIPs() {
   };
 
   const handleClearFilters = () => {
-    setFilterValues({ block_type: '' });
+    setFilterValues({ block_type: '', repeat_offender: '' });
     setSortBy('block_time');
     setSortDir('desc');
     setSearch('');
@@ -157,7 +166,7 @@ export default function BlockedIPs() {
     setRateSortDir('asc');
   };
 
-  const hasActiveFilters = !!(filterValues.block_type || search);
+  const hasActiveFilters = !!(filterValues.block_type || filterValues.repeat_offender || search);
   const hasActiveRateFilters = !!rateSearch;
 
   const handleAdd = async () => {
@@ -395,10 +404,30 @@ export default function BlockedIPs() {
                   <TableRow><TableCell colSpan={isAdmin ? 7 : 6} align="center" sx={{ py: 6, color: 'text.secondary' }}>{t('blockedIps.empty')}</TableCell></TableRow>
                 ) : ips.map(ip => (
                   <TableRow key={ip.id} hover>
-                    <TableCell>
-                      <Button variant="text" size="small" onClick={() => setSelectedIP(ip.ip_address)} sx={ipButtonSx}>
-                        {ip.ip_address}
-                      </Button>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Button variant="text" size="small" onClick={() => setSelectedIP(ip.ip_address)} sx={ipButtonSx}>
+                          {ip.ip_address}
+                        </Button>
+                        {ip.is_repeat_offender && (
+                          <Tooltip title={t('blockedIps.repeatOffenderTooltip', { threshold: ip.incident_count })}>
+                            <Chip
+                              icon={<GppBad sx={{ fontSize: 14 }} />}
+                              label={t('blockedIps.repeatOffender')}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                bgcolor: 'rgba(255,23,68,0.15)',
+                                color: '#ff1744',
+                                border: '1px solid rgba(255,23,68,0.3)',
+                                '& .MuiChip-icon': { color: '#ff1744' },
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{ip.reason}</TableCell>
                     <TableCell>
@@ -407,13 +436,13 @@ export default function BlockedIPs() {
                           ? { color: sem.chipBlocked.color, bgcolor: sem.chipBlocked.bg }
                           : { color: sem.chipTemporary.color, bgcolor: sem.chipTemporary.bg }} />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(ip.block_time)}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{formatExpiry(ip.expire_time, ip.block_type)}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(ip.block_time)}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{formatExpiry(ip.expire_time, ip.block_type)}</TableCell>
                     <TableCell>
                       <Chip label={ip.incident_count} size="small" sx={{ bgcolor: sem.chipIncident.bg, color: sem.chipIncident.color }} />
                     </TableCell>
                     {isAdmin && (
-                      <TableCell align="center">
+                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                         <Tooltip title={t('blockedIps.edit')}>
                           <IconButton size="small" onClick={() => openEdit(ip)} sx={{ color: 'primary.main', mr: 0.5 }}>
                             <Edit sx={{ fontSize: 18 }} />
@@ -543,7 +572,7 @@ export default function BlockedIPs() {
                   onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}
                 >
                   {BLOCK_HOUR_OPTIONS.map(h => (
-                    <MenuItem key={h} value={h}>{h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
+                    <MenuItem key={h} value={h}>{h >= 720 ? `${h} (30 days)` : h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -593,7 +622,7 @@ export default function BlockedIPs() {
                   onChange={(e) => setEditForm((f) => ({ ...f, hours: e.target.value }))}
                 >
                   {BLOCK_HOUR_OPTIONS.map((h) => (
-                    <MenuItem key={h} value={h}>{h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
+                    <MenuItem key={h} value={h}>{h >= 720 ? `${h} (30 days)` : h === 168 ? '168 (7 days)' : `${h} hour${h > 1 ? 's' : ''}`}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
