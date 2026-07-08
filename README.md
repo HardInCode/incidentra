@@ -67,13 +67,12 @@ Reset demo: `python scripts/reset_incidentra.py --clear-logs` (from repo root, b
 | File | Purpose |
 |------|---------|
 | [docs/GUIDE.md](docs/GUIDE.md) | Run the system (Docker/manual), defense demo, troubleshooting |
-| [docs/AUDIT.md](docs/AUDIT.md) | **Full defense audit — May 2026** (~100 scenarios, A–J) |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: log → engine → JSON → vuln-web |
-| [docs/DETECTION.md](docs/DETECTION.md) | Detection, Lab mode, Phase 3, Live Traffic vs incidents |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, detection engine, API reference, team guide |
+| [docs/AUDIT.md](docs/AUDIT.md) | **Full defense audit — July 2026** (~100 scenarios, A–J) |
 
 ---
 
-## Key features (May 2026)
+## Key features (July 2026)
 
 - Detection: SQLi, XSS, brute force, path traversal, LFI/RFI, scanner, command injection, file upload (malicious extensions); **Lab mode** in Settings (UI rules only, for defense demo)
 - **IP Management** (`/blocked-ips`): **Blocked** + **Rate Limited** tabs

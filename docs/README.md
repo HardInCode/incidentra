@@ -1,23 +1,21 @@
-# Incidentra Documentation (Incidentra)
+# Incidentra Documentation
 
-**Docs map — May 2026** · Compact structure (~15 files).
+**Docs map — July 2026** · Compact structure (3 core docs).
 
 | File | Audience | Content |
 |------|----------|---------|
-| **[GUIDE.md](GUIDE.md)** | Developers, defense demo | Docker/manual, reset, troubleshooting, Phase 3 |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Team, evaluators | Architecture + team guidance (FAQ, 5 layers) |
-| **[DETECTION.md](DETECTION.md)** | Defense presentation | Detection, lab mode, Phase 3, Live Traffic vs incidents |
+| **[GUIDE.md](GUIDE.md)** | Developers, defense demo | Docker/manual setup, reset, troubleshooting |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Team, evaluators | Architecture, detection engine, API reference, team guide |
 | **[AUDIT.md](AUDIT.md)** | QA, defense | Checklist ~100 scenarios (P, A–J) |
 
 ---
 
-## Recommended reading order
+## Recommended Reading Order
 
 1. [README.md](../README.md) (root) — clone & ports  
 2. **GUIDE.md** — run the stack  
-3. **ARCHITECTURE.md** — understand the flow  
-4. **DETECTION.md** — detection & defense presentation  
-5. **AUDIT.md** — checklist before presentation  
+3. **ARCHITECTURE.md** — understand the flow & detection  
+4. **AUDIT.md** — checklist before presentation  
 
 ---
 

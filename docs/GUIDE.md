@@ -2,24 +2,24 @@
 
 Single guide: **run** the system (Docker or manual), **defense demo**, and **troubleshooting**.
 
-**Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · **Detection:** [DETECTION.md](DETECTION.md) · **Full audit:** [AUDIT.md](AUDIT.md)
+**Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · **Full audit:** [AUDIT.md](AUDIT.md)
 
 **Repo:** [github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)
 
 ---
 
-## Prasyarat
+## Prerequisites
 
 
-| Mode       | Yang dibutuhkan                                             |
+| Mode       | Required                                                    |
 | ---------- | ----------------------------------------------------------- |
-| **Docker** | Docker Desktop **Running** (hijau)                          |
+| **Docker** | Docker Desktop **Running** (green icon)                     |
 | **Manual** | Python 3.10–3.13 · Node 18–20 LTS · PostgreSQL 15 · Redis 7 |
 
 
 ---
 
-## Yang akan berjalan
+## What Will Run
 
 ```
 PostgreSQL + Redis
@@ -33,59 +33,59 @@ Frontend (React :3000)     vuln-web (:5050) ──► logs/access.log
 ```
 
 
-| Layanan       | URL                                                    |
+| Service       | URL                                                    |
 | ------------- | ------------------------------------------------------ |
 | SOC Dashboard | [http://localhost:3000](http://localhost:3000)         |
 | Backend API   | [http://localhost:5000/api](http://localhost:5000/api) |
 | Vuln-web      | [http://localhost:5050](http://localhost:5050)         |
 
 
-**Login SOC:** `admin` / `Admin@Incidentra2026!` · analyst / `Analyst@Incidentra2026!`
+**SOC Login:** `admin` / `Admin@Incidentra2026!` · analyst / `Analyst@Incidentra2026!`
 
 ---
 
-## File environment
+## Environment Files
 
 
-| File                          | Dipakai                         | Jangan                              |
+| File                          | Used by                         | Do not                              |
 | ----------------------------- | ------------------------------- | ----------------------------------- |
-| `backend/.env.example`        | Template manual                 | Commit sebagai `.env` dengan secret |
-| `backend/.env`                | Manual `python run.py`          | Push ke GitHub                      |
-| `backend/.env.docker.example` | Template Docker                 | —                                   |
-| `backend/.env.docker`         | Docker compose                  | Push jika berisi API key            |
-| `vuln-web/.env.example`       | Template lab target             | —                                   |
-| `vuln-web/.env`               | Manual `python app.py` (Fase 3) | Push ke GitHub                      |
-| `docker-compose.yml`          | URL DB/Redis container          | Edit `localhost` untuk DB di Docker |
+| `backend/.env.example`        | Manual mode template            | Commit as `.env` with secrets       |
+| `backend/.env`                | Manual `python run.py`          | Push to GitHub                      |
+| `backend/.env.docker.example` | Docker mode template            | —                                   |
+| `backend/.env.docker`         | Docker compose                  | Push if it contains API keys        |
+| `vuln-web/.env.example`       | Lab target template             | —                                   |
+| `vuln-web/.env`               | Manual `python app.py` (Phase 3)| Push to GitHub                      |
+| `docker-compose.yml`          | Container DB/Redis URLs         | Edit `localhost` for DB in Docker   |
 
 
-**Docker:** `DATABASE_URL` di `docker-compose.yml`, bukan di `.env.docker`.  
-**Fase 3 di Docker:** `vuln-web/.env` **tidak** otomatis dibaca container — tambahkan variabel di `docker-compose.yml` service `vuln_web` (lihat § Fase 3) atau demo Fase 3 pakai **manual**.
+**Docker:** `DATABASE_URL` is set in `docker-compose.yml`, not in `.env.docker`.  
+**Phase 3 in Docker:** `vuln-web/.env` is **not** auto-read by the container — add variables in `docker-compose.yml` service `vuln_web` (see § Phase 3) or demo Phase 3 using **manual** mode.
 
-### Variabel `vuln-web/.env` (Mei 2026)
+### `vuln-web/.env` Variables
 
-Salin dari `vuln-web/.env.example` → `vuln-web/.env`. Nilai **aktif** untuk flag boolean: `1`, `true`, atau `yes` (huruf besar/kecil). Nilai lain / kosong = **mati** (sama seperti `0`).
-
-
-| Variabel                 | Default                  | Jika `=1` (atau true/yes)                                                     |
-| ------------------------ | ------------------------ | ----------------------------------------------------------------------------- |
-| `VULN_PORT`              | `5050`                   | Port Flask                                                                    |
-| `VULN_LOG_FILE`          | `logs/access.log`        | Path access log                                                               |
-| `BLOCKED_IPS_JSON`       | `logs/blocked_ips.json`  | File blokir (baca middleware)                                                 |
-| `RATE_LIMITED_JSON`      | `logs/rate_limited.json` | File rate limit                                                               |
-| `**VULN_UNSAFE_CMD`**    | **off**                  | `/cmd` menjalankan **shell nyata** (`subprocess`, timeout `VULN_CMD_TIMEOUT`) |
-| `**VULN_UNSAFE_UPLOAD`** | **off**                  | Upload `/files` boleh **path escape** (`../` di nama file)                    |
-| `VULN_CMD_TIMEOUT`       | `5`                      | Detik (hanya jika `VULN_UNSAFE_CMD=1`)                                        |
+Copy from `vuln-web/.env.example` → `vuln-web/.env`. Active values for boolean flags: `1`, `true`, or `yes` (case-insensitive). Any other value / empty = **off** (same as `0`).
 
 
-**Penting:**
+| Variable                 | Default                  | If `=1` (or true/yes)                                                     |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------- |
+| `VULN_PORT`              | `5050`                   | Flask port                                                                |
+| `VULN_LOG_FILE`          | `logs/access.log`        | Access log path                                                           |
+| `BLOCKED_IPS_JSON`       | `logs/blocked_ips.json`  | Block file (read by middleware)                                           |
+| `RATE_LIMITED_JSON`      | `logs/rate_limited.json` | Rate limit file                                                          |
+| **`VULN_UNSAFE_CMD`**    | **off**                  | `/cmd` runs a **real shell** (`subprocess`, timeout `VULN_CMD_TIMEOUT`)   |
+| **`VULN_UNSAFE_UPLOAD`** | **off**                  | Upload at `/files` allows **path escape** (`../` in filename)             |
+| `VULN_CMD_TIMEOUT`       | `5`                      | Seconds (only when `VULN_UNSAFE_CMD=1`)                                   |
 
-- Edit `.env` → **wajib restart** vuln-web (`Ctrl+C` → `python app.py`). Refresh browser **tidak** cukup.
-- `VULN_UNSAFE_CMD=1` **tidak** mengubah deteksi/blokir SOC — hanya output di halaman lab. Blokir tetap: insiden **COMMAND_INJECTION** di backend → `blocked_ips.json`.
-- Tanpa flag: `/cmd` mode **simulated**; upload profil **avatar tanpa filter ekstensi** (skenario CTF) tetap ada di `/profile`.
+
+**Important:**
+
+- Editing `.env` → **must restart** vuln-web (`Ctrl+C` → `python app.py`). Browser refresh is **not** enough.
+- `VULN_UNSAFE_CMD=1` **does not** change SOC detection/blocking — only the output on the lab page. Blocking still works: **COMMAND_INJECTION** incident in backend → `blocked_ips.json`.
+- Without flags: `/cmd` runs in **simulated** mode; profile upload **avatar without extension filter** (CTF scenario) remains at `/profile`.
 
 ---
 
-## Jalankan — Docker (disarankan)
+## Run — Docker (Recommended)
 
 ```powershell
 git clone https://github.com/HardInCode/incidentra.git
@@ -95,7 +95,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Tunggu ~2 menit. Semua service harus **running**.
+Wait ~2 minutes. All services should be **running**.
 
 **Volume `vuln_logs`:** backend `/app/watched_logs/` = vuln-web `/app/logs/`.
 
@@ -103,25 +103,25 @@ Tunggu ~2 menit. Semua service harus **running**.
 docker compose logs backend --tail 30
 ```
 
-Harus ada: `PostgreSQL ready`, `DB init complete`, `Log monitor started`.
+Should show: `PostgreSQL ready`, `DB init complete`, `Log monitor started`.
 
 **Stop:** `docker compose down`
 
-### Troubleshooting Docker
+### Docker Troubleshooting
 
 
-| Masalah                          | Solusi                                                          |
+| Problem                          | Solution                                                        |
 | -------------------------------- | --------------------------------------------------------------- |
-| `dockerDesktopLinuxEngine` gagal | Jalankan Docker Desktop dulu                                    |
-| Port 3000/5000/5050 dipakai      | Tutup proses manual atau `docker compose down`                  |
-| Backend restart loop             | `docker compose logs backend` — cek `postgresql+psycopg`        |
+| `dockerDesktopLinuxEngine` fails | Start Docker Desktop first                                      |
+| Port 3000/5000/5050 in use       | Close manual processes or `docker compose down`                 |
+| Backend restart loop             | `docker compose logs backend` — check `postgresql+psycopg`      |
 | Build frontend `ajv` error       | `docker compose build --no-cache frontend`                      |
-| UI tidak panggil API             | Rebuild frontend; `REACT_APP_API_URL=http://localhost:5000/api` |
+| UI not calling API               | Rebuild frontend; `REACT_APP_API_URL=http://localhost:5000/api` |
 
 
 ---
 
-## Jalankan — Manual (3 terminal)
+## Run — Manual (3 Terminals)
 
 ### PostgreSQL & Redis
 
@@ -130,7 +130,7 @@ psql -U postgres -f scripts/init_postgres.sql
 redis-cli ping
 ```
 
-Harus `PONG`.
+Should return `PONG`.
 
 ### Terminal 1 — Backend
 
@@ -143,7 +143,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-First run (simulasi): `USE_SIMULATED_LOGS=true`, `DEMO_MODE=true` di `.env`.
+First run (simulation): `USE_SIMULATED_LOGS=true`, `DEMO_MODE=true` in `.env`.
 
 ### Terminal 2 — Frontend
 
@@ -153,7 +153,7 @@ npm install
 npm start
 ```
 
-Opsional grafik: `python scripts/seed_chart_demo.py` (venv backend, dari root).
+Optional charts: `python scripts/seed_chart_demo.py` (backend venv, from root).
 
 ### Terminal 3 — vuln-web
 
@@ -166,7 +166,7 @@ copy .env.example .env
 python app.py
 ```
 
-### Sambungkan log nyata
+### Connect Real Logs
 
 Edit `backend\.env`:
 
@@ -178,86 +178,85 @@ BLOCKED_IPS_JSON_PATH=../vuln-web/logs/blocked_ips.json
 RATE_LIMITED_JSON_PATH=../vuln-web/logs/rate_limited.json
 ```
 
-Restart backend. Log: `Tailing real log: ...`
+Restart backend. Log should show: `Tailing real log: ...`
 
 ---
 
-## Skrip utilitas & reset demo
+## Utility Scripts & Demo Reset
 
-### Manual (dari root repo)
+### Manual (from repo root)
 
-Venv backend aktif (`pip install psycopg redis` jika belum):
-
-
-| Perintah                                        | Fungsi                                      |
-| ----------------------------------------------- | ------------------------------------------- |
-| `python scripts/reset_incidentra.py`              | Kosongkan insiden, blokir, rate JSON, Redis |
-| `python scripts/reset_incidentra.py --clear-logs` | + kosongkan `vuln-web/logs/access.log`      |
-| `python scripts/seed_chart_demo.py`             | Grafik dashboard 7 hari                     |
+Backend venv active (`pip install psycopg redis` if not already installed):
 
 
-Setelah reset → restart backend + vuln-web.
+| Command                                         | Purpose                                     |
+| ------------------------------------------------ | ------------------------------------------- |
+| `python scripts/reset_incidentra.py`              | Clear incidents, blocks, rate JSON, Redis   |
+| `python scripts/reset_incidentra.py --clear-logs` | + clear `vuln-web/logs/access.log`          |
+| `python scripts/seed_chart_demo.py`              | Dashboard chart data (7 days)               |
 
-### Docker (stack `docker compose up` sedang jalan)
 
-Log & JSON blokir ada di **volume Docker** `vuln_logs`, bukan di folder `vuln-web/logs/` di Windows. Script reset di host **tetap bisa** kosongkan DB + Redis (port 5432/6379 di-expose), lalu kosongkan file di container:
+After reset → restart backend + vuln-web.
+
+### Docker (stack `docker compose up` running)
+
+Log & JSON block files are in **Docker volume** `vuln_logs`, not in the `vuln-web/logs/` folder on Windows. The host reset script can **still** clear DB + Redis (ports 5432/6379 are exposed), then clear files inside the container:
 
 ```powershell
-cd E:\Capstone\May\incidentra-May
+cd E:\Capstone\CapstoneProject\incidentra
 
-Script reset
-cd E:\Capstone\May\incidentra-May
+# Reset script
 docker compose up -d
 .\scripts\reset_incidentra_docker.ps1 -ClearLogs
 
-# 2) access.log + JSON di volume (wajib lewat container)
+# access.log + JSON in volume (must go through container)
 docker compose exec vuln_web sh -c ":> /app/logs/access.log"
 docker compose exec vuln_web sh -c 'echo "{\"blocked\":[],\"details\":{},\"updated_at\":\"\"}" > /app/logs/blocked_ips.json'
 docker compose exec vuln_web sh -c 'echo "{\"rate_limited\":[],\"updated_at\":\"\"}" > /app/logs/rate_limited.json'
 
-# 3) Agar tail log backend bersih
+# Clean backend log tail
 docker compose restart backend vuln_web
 ```
 
-**Alternatif keras** (hapus semua data volume termasuk DB): `docker compose down -v` lalu `docker compose up --build -d` — hanya jika Anda OK database kosong total.
+**Hard reset** (deletes all volume data including DB): `docker compose down -v` then `docker compose up --build -d` — only if you are OK with a completely empty database.
 
-**Grafik demo di Docker:** jalankan `seed_chart_demo.py` dengan `$env:DATABASE_URL` yang sama seperti di atas (lihat § di bawah).
+**Chart demo in Docker:** run `seed_chart_demo.py` with the same `$env:DATABASE_URL` (see below).
 
 ---
 
-## Simulate Attack — Mode A vs Mode B (Inject log)
+## Simulate Attack — Mode A vs Mode B (Log Injection)
 
-Ini **bukan** perintah `docker compose exec` ke file log. Inject log lewat **API backend** (tombol di SOC atau `curl`), yang menulis ke volume `vuln_logs` **dan** langsung menjalankan detection engine.
+This is **not** a `docker compose exec` command to the log file. Log injection goes through the **backend API** (SOC button or `curl`), which writes to volume `vuln_logs` **and** immediately runs the detection engine.
 
-### Mode A — Direct Simulation (instan)
+### Mode A — Direct Simulation (instant)
 
 1. Login SOC → **Incidents** → **Simulate Attack**
-2. Pilih **Mode A — Direct Simulation**
-3. Pilih attack type → **Launch**
+2. Select **Mode A — Direct Simulation**
+3. Choose attack type → **Launch**
 
-Insiden langsung masuk PostgreSQL (tanpa baca `access.log`). Cocok untuk uji UI.
+Incident goes directly into PostgreSQL (without reading `access.log`). Good for UI testing.
 
-### Mode B — Log Injection (pipeline penuh) — **disarankan Docker**
+### Mode B — Log Injection (full pipeline) — **recommended for Docker**
 
-1. Pastikan stack jalan: `docker compose up -d`
+1. Ensure stack is running: `docker compose up -d`
 2. Login `http://localhost:3000` (`admin` / `Admin@Incidentra2026!`)
 3. **Incidents** → **Simulate Attack**
-4. Pilih **Mode B — Log Injection**
-5. Attack type mis. **LFI/RFI** atau **SQL Injection**
-6. **Source IP:** ganti jika pernah tes IP yang sama < 5 menit lalu (mis. `203.0.113.99`)
+4. Select **Mode B — Log Injection**
+5. Choose attack type e.g., **LFI/RFI** or **SQL Injection**
+6. **Source IP:** change if you tested the same IP < 5 minutes ago (e.g., `203.0.113.99`)
 7. **Launch**
 
 
-| Hasil toast                                   | Artinya                                                                                   |
+| Toast result                                  | Meaning                                                                                   |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Hijau: `Log injected — N incident(s) created` | Berhasil — refresh tabel; insiden + blokir (jika critical)                                |
-| Kuning: `no new incident (duplicate...)`      | Log tertulis, tapi IP + attack type sama dalam 5 menit → **ganti IP** atau tunggu 5 menit |
-| Merah: `Could not write to log file`          | Backend tidak bisa tulis volume — cek `docker compose ps`, restart `backend`              |
+| Green: `Log injected — N incident(s) created` | Success — refresh table; incident + block (if critical)                                   |
+| Yellow: `no new incident (duplicate...)`      | Log written, but same IP + attack type within 5 min → **change IP** or wait 5 min         |
+| Red: `Could not write to log file`            | Backend cannot write to volume — check `docker compose ps`, restart `backend`              |
 
 
-**Bukan** menunggu 5 detik tailer — backend memproses baris **langsung** lewat `ingest_log_lines`. Live Traffic bisa terisi saat tailer membaca baris yang sama (~1–3 s).
+**Not** waiting 5 seconds for tailer — backend processes the line **immediately** via `ingest_log_lines`. Live Traffic may populate when tailer reads the same line (~1–3 s).
 
-### Mode B lewat PowerShell (debug, Docker)
+### Mode B via PowerShell (debug, Docker)
 
 ```powershell
 $body = @{ username = "admin"; password = "Admin@Incidentra2026!" } | ConvertTo-Json
@@ -270,69 +269,69 @@ Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/detection/inject-
   -Headers $headers -ContentType "application/json" -Body $inject
 ```
 
-Respons sukses berisi `incident_ids` (array tidak kosong).
+Successful response contains `incident_ids` (non-empty array).
 
-### Jangan dicampur dengan ini
+### Do Not Confuse With
 
 
-| Yang Anda coba                                             | Masalah                                                                                                                                                                    |
+| What you tried                                             | Problem                                                                                                                                                                    |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docker compose exec vuln_web` append ke `access.log` saja | Backend **tidak** otomatis proses tanpa tailer/inject API; path di container vuln-web = `/app/logs/access.log` (volume sama dengan backend `/app/watched_logs/access.log`) |
-| `seed_chart_demo.py` tanpa `DATABASE_URL`                  | Error `password authentication failed` — Postgres Docker pakai user/pass di compose (lihat bawah)                                                                          |
-| Mode B dengan IP `45.33.32.156` berulang                   | Dedup 5 menit → ganti IP di dialog                                                                                                                                         |
+| `docker compose exec vuln_web` append to `access.log` only | Backend **does not** auto-process without tailer/inject API; path in vuln-web container = `/app/logs/access.log` (same volume as backend `/app/watched_logs/access.log`)   |
+| `seed_chart_demo.py` without `DATABASE_URL`                | Error `password authentication failed` — Docker Postgres uses user/pass from compose (see below)                                                                           |
+| Mode B with IP `45.33.32.156` repeatedly                   | Dedup 5 min → change IP in dialog                                                                                                                                          |
 
 
-### `seed_chart_demo.py` — isi grafik 7 hari (bukan Mode B)
+### `seed_chart_demo.py` — Fill 7-Day Chart (not Mode B)
 
-**Tujuan:** insiden di PostgreSQL dengan `created_at` **berbeda per hari** (timeline + donut severity).  
-**Bukan** tombol Simulate Attack Mode B (itu pipeline detection + log satu baris).
+**Purpose:** incidents in PostgreSQL with **different `created_at` per day** (timeline + severity donut).  
+**Not** the Simulate Attack Mode B button (that's a single-line detection + log pipeline).
 
-**Penting (Windows):** `localhost:5432` sering = **PostgreSQL Windows** (`backend/.env`: `postgres` / `incidentra_db`), **bukan** database Docker (`incidentra` / `incidentra_db`). Dashboard Docker membaca DB container — seed dari host dengan `$env:DATABASE_URL=incidentra...` bisa gagal (`password authentication failed`).
+**Important (Windows):** `localhost:5432` often = **Windows PostgreSQL** (`backend/.env`: `postgres` / `incidentra_db`), **not** the Docker database (`incidentra` / `incidentra_db`). Docker dashboard reads the container DB — seeding from host with `$env:DATABASE_URL=incidentra...` can fail (`password authentication failed`).
 
-**Cara yang benar saat pakai Docker Compose:**
+**Correct approach when using Docker Compose:**
 
 ```powershell
-cd E:\Capstone\May\incidentra-May
+cd E:\Capstone\CapstoneProject\incidentra
 docker compose up -d
 .\scripts\seed_chart_docker.ps1
-# Cek rencana dulu:
+# Preview plan first:
 .\scripts\seed_chart_docker.ps1 -DryRun
 ```
 
-**Cara manual** (backend `python run.py` + Postgres di `backend/.env`):
+**Manual approach** (backend `python run.py` + Postgres from `backend/.env`):
 
 ```powershell
 python scripts/seed_chart_demo.py
 python scripts/seed_chart_demo.py --dry-run
 ```
 
-Lalu refresh Dashboard (`http://localhost:3000`).
+Then refresh Dashboard (`http://localhost:3000`).
 
 
-| Opsi            | Fungsi                                                                                                                         |
+| Option          | Purpose                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| (default)       | Insert ~15–25 insiden, `created_at` tersebar 7 hari                                                                            |
-| `--dry-run`     | Tampilkan rencana, tanpa tulis DB                                                                                              |
-| `--append-logs` | Plus baris di `access.log` (Live Traffic); **jangan** pakai saat backend tail aktif jika tidak ingin insiden tambahan hari ini |
+| (default)       | Insert ~15–25 incidents, `created_at` spread over 7 days                                                                       |
+| `--dry-run`     | Show plan without writing to DB                                                                                                |
+| `--append-logs` | Plus lines in `access.log` (Live Traffic); **do not** use when backend tail is active if you don't want extra incidents today   |
 
 
-Sebelum demo live (bukan grafik), kosongkan insiden lama: `.\scripts\seed_chart_docker.ps1` hanya untuk grafik — atau `reset_incidentra.py` + restart. Insiden seed lama bisa memicu toast bell IP `203.0.113.x` dengan tanggal yang membingungkan.
+Before a live demo (not charts), clear old incidents: `.\scripts\seed_chart_docker.ps1` is only for charts — or `reset_incidentra.py` + restart. Old seed incidents can trigger toast/bell with `203.0.113.x` IP and confusing dates.
 
-**AI Explanation:** hanya muncul setelah klik **Generate AI Explanation** di detail insiden — tidak otomatis saat deteksi / inject log.
+**AI Explanation:** only appears after clicking **Generate AI Explanation** in incident detail — not automatic on detection / log inject.
 
-**Docker vs manual — kapan ubah `DATABASE_URL`?**
-
-
-| Situasi                                                  | `DATABASE_URL` untuk skrip di PowerShell                                         |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **Docker** Postgres di `localhost:5432`, user `incidentra` | `postgresql://incidentra:incidentra123@localhost:5432/incidentra_db` (seperti di atas) |
-| **Manual** backend pakai `backend/.env` yang sama        | **Sama** — tidak perlu ubah, atau hapus `$env:` dan biarkan skrip baca `.env`    |
-| **Manual** Postgres lain (user/password beda)            | Samakan dengan baris `DATABASE_URL` di `backend/.env`                            |
+**Docker vs manual — when to change `DATABASE_URL`?**
 
 
-`REDIS_URL` hanya dipakai jika backend/app butuh Redis saat skrip jalan; untuk `seed_chart_demo` yang utama adalah **DATABASE_URL**. Backend `python run.py` manual tetap baca `backend/.env` — tidak otomatis ikut `$env` di terminal kecuali Anda export sebelum `python run.py`.
+| Situation                                                  | `DATABASE_URL` for scripts in PowerShell                                          |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Docker** Postgres at `localhost:5432`, user `incidentra`  | `postgresql://incidentra:incidentra123@localhost:5432/incidentra_db`              |
+| **Manual** backend using same `backend/.env`               | **Same** — no change needed, or unset `$env:` and let script read `.env`         |
+| **Manual** Postgres with different user/password           | Match the `DATABASE_URL` line in `backend/.env`                                  |
 
-**Ringkas:** Kalau Postgres/Redis tetap di `localhost` dengan kredensial `incidentra` / `incidentra123`, **satu set URL cukup** untuk Docker dan untuk menjalankan skrip dari host. Ubah hanya jika Anda ganti ke database manual dengan kredensial berbeda.
+
+`REDIS_URL` is only needed if backend/app requires Redis while the script runs; for `seed_chart_demo` the important variable is **DATABASE_URL**. Manual backend `python run.py` reads `backend/.env` — it does not auto-follow `$env` in the terminal unless you export before `python run.py`.
+
+**Summary:** If Postgres/Redis remain at `localhost` with credentials `incidentra` / `incidentra123`, **one set of URLs works** for both Docker and host scripts. Change only if you switch to a manual database with different credentials.
 
 ---
 
@@ -341,90 +340,90 @@ Sebelum demo live (bukan grafik), kosongkan insiden lama: `.\scripts\seed_chart_
 Menu: **IP Management** (`/blocked-ips`).
 
 
-| Tab              | Fungsi                                                                    |
-| ---------------- | ------------------------------------------------------------------------- |
-| **Blocked**      | Blokir eskalasi/sementara/permanen (manual), Repeat Offender, unblock (DB + `blocked_ips.json`) |
-| **Rate Limited** | Daftar IP rate limit, **Clear**, **Extend**                               |
+| Tab              | Function                                                                      |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Blocked**      | Escalating/temporary/permanent (manual) blocks, Repeat Offender, unblock (DB + `blocked_ips.json`) |
+| **Rate Limited** | Rate limited IPs, **Clear**, **Extend**                                       |
 
 
-Unblock di tab Blocked juga menghapus rate limit untuk IP tersebut.
+Unblock on the Blocked tab also removes the rate limit for that IP.
 
 ---
 
 ## Banner "No logs in 60s" (Dashboard)
 
-Banner ini = backend **belum menerima aktivitas log** dalam 60 detik (bukan berarti vuln-web mati).
+This banner = backend **has not received log activity** in 60 seconds (does not mean vuln-web is down).
 
 
-| Mode                         | Cara kerja                                                                                                                                          |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Docker**                   | Log monitor jalan di proses terpisah (`docker_log_monitor.py`). Heartbeat disimpan di **Redis** + cek **mtime** `access.log` di volume `vuln_logs`. |
-| **Manual** (`python run.py`) | Satu proses — heartbeat in-memory, sama seperti Redis jika Redis jalan.                                                                             |
+| Mode                         | How it works                                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Docker**                   | Log monitor runs in a separate process (`docker_log_monitor.py`). Heartbeat stored in **Redis** + checks **mtime** of `access.log` in volume `vuln_logs`. |
+| **Manual** (`python run.py`) | Single process — heartbeat in-memory, same as Redis if Redis is running.                                                               |
 
 
-**Agar hilang:** buka shop `http://localhost:5050` (beberapa halaman), tunggu ~5 detik, refresh Dashboard.
+**To dismiss:** open shop `http://localhost:5050` (a few pages), wait ~5 seconds, refresh Dashboard.
 
 
-| Gejala                         | Penyebab                                         | Solusi                                                                                                 |
+| Symptom                        | Cause                                            | Solution                                                                                               |
 | ------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Banner tetap meski shop dibuka | Backend image lama (sebelum perbaikan heartbeat) | `docker compose up --build -d backend`                                                                 |
-| Banner + Live Traffic kosong   | Volume log tidak shared / vuln-web mati          | `docker compose ps`; cek `docker compose exec vuln_web tail -3 /app/logs/access.log`                   |
-| Manual: banner tetap           | `USE_SIMULATED_LOGS=true` atau path log salah    | `.env`: `USE_SIMULATED_LOGS=false`, `WEB_SERVER_LOG_PATH=../vuln-web/logs/access.log`, restart backend |
+| Banner persists despite shop   | Backend image is old (before heartbeat fix)       | `docker compose up --build -d backend`                                                                 |
+| Banner + empty Live Traffic    | Volume log not shared / vuln-web down             | `docker compose ps`; check `docker compose exec vuln_web tail -3 /app/logs/access.log`                 |
+| Manual: banner persists        | `USE_SIMULATED_LOGS=true` or wrong log path       | `.env`: `USE_SIMULATED_LOGS=false`, `WEB_SERVER_LOG_PATH=../vuln-web/logs/access.log`, restart backend |
 
 
 ---
 
-## Tiga lapisan: Live Traffic ≠ Insiden ≠ Blokir
+## Three Layers: Live Traffic ≠ Incidents ≠ Blocking
 
 
-| Lapisan                 | Di UI                             | Artinya                                                                |
-| ----------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| **A. Log**              | Live Traffic                      | Setiap HTTP ke vuln-web → `access.log`                                 |
-| **B. Tag**              | Live Traffic kolom TAG            | Heuristik cepat (`cmd=` → **Attack**) — **bukan** keputusan SOC        |
-| **C. Insiden + blokir** | **Incidents** + **IP Management** | `DetectionEngine` → PostgreSQL + `blocked_ips.json` → vuln-web **403** |
+| Layer                 | In UI                             | Meaning                                                                |
+| --------------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| **A. Log**            | Live Traffic                      | Every HTTP to vuln-web → `access.log`                                  |
+| **B. Tag**            | Live Traffic TAG column           | Quick heuristic (`cmd=` → **Attack**) — **not** a SOC decision          |
+| **C. Incident + block** | **Incidents** + **IP Management** | `DetectionEngine` → PostgreSQL + `blocked_ips.json` → vuln-web **403** |
 
 
-**Gejala umum:** baris **Attack** status **200** = pola terlihat di log, **belum tentu** ada insiden. Tanpa insiden → **tidak ada** blokir otomatis.
+**Common symptom:** an **Attack** line with status **200** = pattern seen in log, **does not necessarily** mean there is an incident. Without an incident → **no** automatic block.
 
-**Setelah blokir benar:** request baru ke vuln-web → **403**, tag **Blocked** di Live Traffic.
+**After a real block:** new requests to vuln-web → **403**, tag **Blocked** in Live Traffic.
 
-**IP yang diblokir** = IP di kolom Live Traffic (bisa `192.168.x.x`, bukan selalu `127.0.0.1`).
-
----
-
-## Mode Lab deteksi & baseline OWASP
-
-
-| Mode                 | Setting          | Deteksi                                                                           |
-| -------------------- | ---------------- | --------------------------------------------------------------------------------- |
-| Produksi (default)   | Lab mode **OFF** | Rule aktif di UI **+** regex bawaan `DETECTION_PATTERNS` di `detection_engine.py` |
-| Sidang (rule kustom) | Lab mode **ON**  | **Hanya** rule aktif di Detection Rules                                           |
-
-
-Peta file untuk sidang: [DETECTION.md](DETECTION.md).
-
-**Contoh rule kustom SQLi:** pattern `(?i)lorem\s+ipsum` → POST login dengan `username=lorem ipsum` → insiden **SQL_INJECTION** (rule Anda, `match_count` naik).
-
-**Toggle rule OFF** di UI (lab mode OFF): deteksi bisa tetap jalan dari **baseline**, bukan dari rule DB — itu normal.
+**Blocked IP** = the IP shown in the Live Traffic column (could be `192.168.x.x`, not always `127.0.0.1`).
 
 ---
 
-## HTTP 429 (kuning) vs 403 (merah)
+## Lab Mode & OWASP Baseline
 
 
-| Kode    | Penyebab                                                                         |
-| ------- | -------------------------------------------------------------------------------- |
-| **403** | IP di `blocked_ips.json` (escalating block high/critical, atau manual block) |
-| **429** | IP di `rate_limited.json` + terlalu banyak request dalam jendela (mis. 10/menit) |
+| Mode                 | Setting          | Detection                                                                          |
+| -------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| Production (default) | Lab mode **OFF** | Active UI rules **+** built-in regex `DETECTION_PATTERNS` in `detection_engine.py` |
+| Defense (custom rule)| Lab mode **ON**  | **Only** active rules in Detection Rules                                           |
 
 
-Cara memicu 429: serangan **SCANNER** (User-Agent Nikto/sqlmap) → severity medium → rate limit, lalu refresh vuln-web berkali-kali. Tab **IP Management → Rate Limited** menampilkan IP; chip “JSON only” = enforcement lewat file, TTL Redis kosong (lihat tooltip).
+Detection code map: [ARCHITECTURE.md](ARCHITECTURE.md) § Detection Engine.
+
+**Custom SQLi rule example:** pattern `(?i)lorem\s+ipsum` → POST login with `username=lorem ipsum` → **SQL_INJECTION** incident (your rule, `match_count` increments).
+
+**Toggle rule OFF** in UI (lab mode OFF): detection may still fire from **baseline**, not from the DB rule — this is normal.
 
 ---
 
-## Demo sidang — persiapan
+## HTTP 429 (yellow) vs 403 (red)
 
-### Terminal (manual)
+
+| Code    | Cause                                                                             |
+| ------- | --------------------------------------------------------------------------------- |
+| **403** | IP in `blocked_ips.json` (escalating block high/critical, or manual block)        |
+| **429** | IP in `rate_limited.json` + too many requests within window (e.g., 10/minute)     |
+
+
+How to trigger 429: **SCANNER** attack (User-Agent Nikto/sqlmap) → severity medium → rate limit, then refresh vuln-web repeatedly. Tab **IP Management → Rate Limited** shows the IP; chip "JSON only" = enforcement via file, Redis TTL empty (see tooltip).
+
+---
+
+## Defense Demo — Preparation
+
+### Terminals (manual)
 
 ```powershell
 # T1 — Backend
@@ -438,32 +437,32 @@ cd vuln-web
 .\venv\Scripts\Activate.ps1
 python app.py
 
-# T3 — Frontend (opsional)
+# T3 — Frontend (optional)
 cd frontend
 npm start
 ```
 
-### Reset (disarankan sebelum demo)
+### Reset (recommended before demo)
 
 - **Manual:** `python scripts/reset_incidentra.py --clear-logs` → restart backend + vuln-web.
-- **Docker:** ikuti § **Skrip utilitas — Docker** di atas (bukan `--clear-logs` saja di host).
+- **Docker:** follow § **Utility Scripts — Docker** above (not just `--clear-logs` on host).
 
-### Cek IP Anda
+### Check Your IP
 
-Buka `http://localhost:5050/` — di Live Traffic lihat kolom **IP**. Itu IP yang akan diblokir.
+Open `http://localhost:5050/` — in Live Traffic check the **IP** column. That is the IP that will be blocked.
 
 ---
 
-## Demo sidang — langkah demi langkah
+## Defense Demo — Step by Step
 
-### 1. SQL Injection → escalating block (offense #1 ≈ 24 jam)
+### 1. SQL Injection → escalating block (offense #1 ≈ 24 hours)
 
-1. Unblock IP di SOC → **IP Management** → tab Blocked (jika ada).
+1. Unblock IP in SOC → **IP Management** → Blocked tab (if present).
 2. Browser: `http://localhost:5050/login`
-3. Username: `admin' OR '1'='1' --` , password: apa saja → Submit.
-4. Tunggu 5–10 detik.
+3. Username: `admin' OR '1'='1' --` , password: anything → Submit.
+4. Wait 5–10 seconds.
 5. SOC → **Incidents** → **SQL_INJECTION**, critical.
-6. **IP Management** → IP blocked, **Offense #1**, durasi ~24 jam.
+6. **IP Management** → IP blocked, **Offense #1**, duration ~24 hours.
 7. Refresh `http://localhost:5050/` → **403 Forbidden Incidentra**.
 
 ### 2. XSS
@@ -472,9 +471,9 @@ Buka `http://localhost:5050/` — di Live Traffic lihat kolom **IP**. Itu IP yan
 2. `http://localhost:5050/search?q=<script>alert(1)</script>`
 3. Incidents → **XSS** → refresh vuln-web → **403**.
 
-### 3. Command injection
+### 3. Command Injection
 
-Gunakan **salah satu** (setelah **restart backend** `python run.py` jika baru update deteksi):
+Use **one of** (after **restarting backend** `python run.py` if detection was just updated):
 
 ```
 http://localhost:5050/cmd?cmd=;whoami
@@ -482,42 +481,42 @@ http://localhost:5050/cmd?cmd=whoami
 http://localhost:5050/cmd?cmd=whoami%20%26%20id
 ```
 
-**Expected:** Incidents → **COMMAND_INJECTION**, critical → vuln-web **403** pada request berikutnya.
+**Expected:** Incidents → **COMMAND_INJECTION**, critical → vuln-web **403** on next request.
 
-### 4. Scanner & brute force (ringkas)
+### 4. Scanner & Brute Force (summary)
 
 
-| Serangan    | Langkah                                        | Expected                                           |
+| Attack      | Steps                                          | Expected                                           |
 | ----------- | ---------------------------------------------- | -------------------------------------------------- |
-| Scanner     | `curl -A "Nikto/2.1.6" http://localhost:5050/` | **SCANNER**, medium, rate limit (tab Rate Limited) |
-| Brute force | 12× POST login gagal                           | **BRUTE_FORCE**, high, escalating block (offense #1 ≈ 1 jam) |
+| Scanner     | `curl -A "Nikto/2.1.6" http://localhost:5050/` | **SCANNER**, medium, rate limit (Rate Limited tab) |
+| Brute force | 12× POST login with wrong password              | **BRUTE_FORCE**, high, escalating block (offense #1 ≈ 1 hour) |
 
 
-### 5. Upload berbahaya vs aman
+### 5. Dangerous vs Safe Upload
 
 
-| Tes       | Langkah                                                      | Expected                                           |
+| Test      | Steps                                                        | Expected                                           |
 | --------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| Aman      | `/files` POST `notes.txt`                                    | Hanya Live Traffic — **tanpa** insiden FILE_UPLOAD |
-| Berbahaya | `/files` POST `shell.php` atau `/profile` avatar `shell.php` | **FILE_UPLOAD**, high, temporary block             |
+| Safe      | `/files` POST `notes.txt`                                    | Live Traffic only — **no** FILE_UPLOAD incident    |
+| Dangerous | `/files` POST `shell.php` or `/profile` avatar `shell.php`  | **FILE_UPLOAD**, high, temporary block             |
 
 
-### 6. Urutan demo sidang (~15 menit)
+### 6. Demo Sequence (~15 minutes)
 
-1. Dashboard SOC (bersih).
+1. SOC Dashboard (clean).
 2. vuln-web shop (normal).
-3. SQLi login → insiden → 403.
-4. Unblock → XSS search → insiden → 403.
-5. Unblock → `cmd?cmd=;whoami` → insiden → 403.
-6. (Opsional) Fase 3: banner + output shell.
+3. SQLi login → incident → 403.
+4. Unblock → XSS search → incident → 403.
+5. Unblock → `cmd?cmd=;whoami` → incident → 403.
+6. (Optional) Phase 3: banner + shell output.
 7. Live Traffic: Attack vs Blocked + hide static.
 8. IP Management: blocked list + unblock.
 
 ---
 
-## Fase 3 lab (`VULN_UNSAFE_CMD` / `VULN_UNSAFE_UPLOAD`)
+## Phase 3 Lab (`VULN_UNSAFE_CMD` / `VULN_UNSAFE_UPLOAD`)
 
-File: `vuln-web/.env` (buat dari `.env.example` jika belum ada):
+File: `vuln-web/.env` (create from `.env.example` if it doesn't exist):
 
 ```env
 VULN_UNSAFE_CMD=1
@@ -525,59 +524,59 @@ VULN_UNSAFE_CMD=1
 # VULN_CMD_TIMEOUT=5
 ```
 
-**Wajib restart vuln-web** setelah edit (Ctrl+C → `python app.py`).  
-Cek: banner merah di shop + halaman `/cmd` bertuliskan **Live shell enabled**.
+**Must restart vuln-web** after editing (Ctrl+C → `python app.py`).  
+Check: red banner on shop + `/cmd` page says **Live shell enabled**.
 
-**Docker (opsional Fase 3):** tambah di `docker-compose.yml` pada service `vuln_web` → `environment:`:
+**Docker (optional Phase 3):** add to `docker-compose.yml` on service `vuln_web` → `environment:`:
 
 ```yaml
 VULN_UNSAFE_CMD: "1"
 # VULN_UNSAFE_UPLOAD: "1"
 ```
 
-Lalu `docker compose up -d --build vuln_web`.
+Then `docker compose up -d --build vuln_web`.
 
-### Demo command (Fase 3)
+### Command Demo (Phase 3)
 
 1. Reset + unblock IP.
-2. Shop — **banner merah** "Phase 3 lab mode active".
-3. `http://localhost:5050/cmd?cmd=;whoami` → output **shell nyata** (bukan "Simulated").
-4. SOC **Incidents** → **COMMAND_INJECTION** (bukan hanya Live Traffic).
-5. Refresh vuln-web → **403**; Live Traffic baris terbaru → **Blocked**.
+2. Shop — **red banner** "Phase 3 lab mode active".
+3. `http://localhost:5050/cmd?cmd=;whoami` → output is **real shell** (not "Simulated").
+4. SOC **Incidents** → **COMMAND_INJECTION** (not just Live Traffic).
+5. Refresh vuln-web → **403**; Live Traffic latest line → **Blocked**.
 
-### Demo upload (Fase 3, opsional)
+### Upload Demo (Phase 3, optional)
 
 1. Set `VULN_UNSAFE_UPLOAD=1`, restart vuln-web.
-2. Unblock IP → `/files` → upload `shell.php` → insiden **FILE_UPLOAD**.
-3. Upload `notes.txt` → hanya Live Traffic, tanpa insiden.
+2. Unblock IP → `/files` → upload `shell.php` → **FILE_UPLOAD** incident.
+3. Upload `notes.txt` → Live Traffic only, no incident.
 
 ---
 
-## OWASP upload & FILE_UPLOAD (ringkas)
+## OWASP Upload & FILE_UPLOAD (summary)
 
 
-| Standar              | Label                                             |
+| Standard             | Label                                             |
 | -------------------- | ------------------------------------------------- |
 | OWASP Top 10         | A04 — Insecure Design / misconfig upload          |
 | CWE                  | **CWE-434** Unrestricted Upload of Dangerous Type |
-| MITRE (di Incidentra) | **T1105** Ingress Tool Transfer                   |
+| MITRE (in Incidentra) | **T1105** Ingress Tool Transfer                   |
 
 
-**Deteksi Incidentra:** insiden hanya jika log punya `file=` atau `avatar=` + ekstensi berbahaya (`.php`, `.jsp`, dll.). Upload `.jpg` / `.txt` → log saja.
+**Incidentra detection:** incident only if log contains `file=` or `avatar=` + dangerous extension (`.php`, `.jsp`, etc.). Upload of `.jpg` / `.txt` → log only.
 
-Detail lab path traversal: [DETECTION.md](DETECTION.md) § Security Lab.
+Detail on lab path traversal: [ARCHITECTURE.md](ARCHITECTURE.md) § Security Lab.
 
 ---
 
-## Status pengembangan (Mei 2026)
+## Development Status (July 2026)
 
 
-| Fase                     | Isi                                                                 | Status |
+| Phase                    | Contents                                                            | Status |
 | ------------------------ | ------------------------------------------------------------------- | ------ |
-| Core SOC + vuln-web shop | Backend, frontend, deteksi, IP mgmt                                 | Done   |
-| Fase 2                   | `/files` read + upload, FILE_UPLOAD (ekstensi berbahaya)            | Done   |
-| Fase 3                   | `VULN_UNSAFE_CMD`, `VULN_UNSAFE_UPLOAD`, avatar profil tanpa filter | Done   |
-| Form 4                   | Dokumentasi & screenshot                                            | Tim    |
+| Core SOC + vuln-web shop | Backend, frontend, detection, IP mgmt                               | Done   |
+| Phase 2                  | `/files` read + upload, FILE_UPLOAD (dangerous extensions)          | Done   |
+| Phase 3                  | `VULN_UNSAFE_CMD`, `VULN_UNSAFE_UPLOAD`, profile avatar no filter   | Done   |
+| Form 4                   | Documentation & screenshots                                        | Team   |
 
 
 ---
@@ -585,24 +584,23 @@ Detail lab path traversal: [DETECTION.md](DETECTION.md) § Security Lab.
 ## Troubleshooting
 
 
-| Masalah                                        | Penyebab                            | Solusi                                                                                                                             |
+| Problem                                        | Cause                               | Solution                                                                                                                             |
 | ---------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Live Traffic **Attack 200**, tidak ada insiden | Tag heuristik ≠ insiden SOC         | Restart backend `run.py`; cek **Incidents**; pakai `;whoami`                                                                       |
-| Tidak ada insiden sama sekali                  | Log tidak ke-tail                   | `USE_SIMULATED_LOGS=false`, path log benar, restart backend                                                                        |
-| Insiden ada, tidak 403                         | IP beda (LAN vs 127.0.0.1)          | Unblock IP yang benar di kolom Live Traffic                                                                                        |
-| 403 terus                                      | Masih di `blocked_ips.json`         | Unblock di SOC atau `reset_incidentra.py --clear-logs`                                                                               |
-| Fase 3 tidak shell nyata                       | `.env` tidak dibaca / belum restart | Pastikan file `vuln-web/.env` ada; `VULN_UNSAFE_CMD=1`; restart `python app.py`; halaman `/cmd` harus tulis **Live shell enabled** |
-| Fase 3 di Docker tidak jalan                   | Container tanpa env Fase 3          | Tambah `VULN_UNSAFE_CMD: "1"` di `docker-compose.yml` atau demo manual                                                             |
-| Database / Redis error                         | Service mati                        | Cek `DATABASE_URL`, `redis-cli ping`                                                                                               |
-| Banyak insiden duplikat                        | Dedup 5 menit per IP+type           | Normal                                                                                                                             |
+| Live Traffic **Attack 200**, no incident        | Heuristic tag ≠ SOC incident        | Restart backend `run.py`; check **Incidents**; use `;whoami`                                                                       |
+| No incidents at all                             | Log not being tailed                | `USE_SIMULATED_LOGS=false`, correct log path, restart backend                                                                      |
+| Incident exists, no 403                         | Different IP (LAN vs 127.0.0.1)     | Unblock the correct IP from Live Traffic column                                                                                    |
+| 403 persists                                    | Still in `blocked_ips.json`         | Unblock in SOC or `reset_incidentra.py --clear-logs`                                                                               |
+| Phase 3 not real shell                          | `.env` not read / not restarted     | Ensure `vuln-web/.env` exists; `VULN_UNSAFE_CMD=1`; restart `python app.py`; `/cmd` page should show **Live shell enabled**        |
+| Phase 3 in Docker not working                   | Container missing Phase 3 env       | Add `VULN_UNSAFE_CMD: "1"` in `docker-compose.yml` or demo manually                                                               |
+| Database / Redis error                          | Service down                        | Check `DATABASE_URL`, `redis-cli ping`                                                                                             |
+| Many duplicate incidents                        | Dedup 5 min per IP+type             | Normal behavior                                                                                                                    |
 
 
 ---
 
-## Langkah berikutnya
+## Next Steps
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — arsitektur & API
-- [AUDIT.md](AUDIT.md) — audit full sidang (Mei 2026)
-- [GITHUB.md](additional/GITHUB.md) — clone, pull, push tim
-- [LEARNING.md](LEARNING.md) — JWT, konsep Bab 3
-
+- [ARCHITECTURE.md](ARCHITECTURE.md) — architecture, detection & API
+- [AUDIT.md](AUDIT.md) — full defense audit (July 2026)
+- [GITHUB.md](additional/GITHUB.md) — clone, pull, push for team
+- [LEARNING.md](additional/LEARNING.md) — JWT, Chapter 3 concepts
