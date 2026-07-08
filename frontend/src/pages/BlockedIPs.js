@@ -1,4 +1,4 @@
-// IP Management: Blocked IPs (DB) + Rate Limited (JSON/Redis)
+// IP Management: Blocked IPs (DB) + Rate Limited (JSON/Redis) + Whitelisted IPs (DB)
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -8,7 +8,7 @@ import {
   CircularProgress, RadioGroup, FormControlLabel, Radio, Select, MenuItem,
   FormControl, InputLabel, useTheme, Tabs, Tab,
 } from '@mui/material';
-import { Block, Add, Delete, Refresh, Edit, Timer, GppBad } from '@mui/icons-material';
+import { Block, Add, Delete, Refresh, Edit, Timer, GppBad, CheckCircle } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import {
   getBlockedIPs, addBlockedIP, unblockIP, updateBlockedIP,
@@ -75,6 +75,14 @@ export default function BlockedIPs() {
   const [extendMaxRequests, setExtendMaxRequests] = useState(10);
   const [extendWindow, setExtendWindow] = useState(60);
 
+  const [whitelistItems, setWhitelistItems] = useState([]);
+  const [whitelistLoading, setWhitelistLoading] = useState(false);
+  const [whitelistSearch, setWhitelistSearch] = useState('');
+  const [whitelistSortBy, setWhitelistSortBy] = useState('block_time');
+  const [whitelistSortDir, setWhitelistSortDir] = useState('desc');
+  const [whitelistDialogOpen, setWhitelistDialogOpen] = useState(false);
+  const [whitelistForm, setWhitelistForm] = useState({ ip_address: '', reason: '' });
+
   const [selectedIP, setSelectedIP] = useState(null);
 
   const currentUser = useCurrentUser();
@@ -140,6 +148,20 @@ export default function BlockedIPs() {
     }
   }, [rateSortBy, rateSortDir, rateSearch, t]);
 
+  const fetchWhitelisted = useCallback(async () => {
+    setWhitelistLoading(true);
+    try {
+      const params = { whitelist: true, sort_by: whitelistSortBy, sort_dir: whitelistSortDir };
+      if (whitelistSearch) params.search = whitelistSearch;
+      const res = await getBlockedIPs(params);
+      setWhitelistItems(res.data);
+    } catch {
+      toast.error(t('ipHistory.whitelistFailed'));
+    } finally {
+      setWhitelistLoading(false);
+    }
+  }, [whitelistSortBy, whitelistSortDir, whitelistSearch, t]);
+
   useEffect(() => {
     if (tab === 0) fetchIPs();
   }, [tab, fetchIPs]);
@@ -148,9 +170,14 @@ export default function BlockedIPs() {
     if (tab === 1) fetchRateLimited();
   }, [tab, fetchRateLimited]);
 
+  useEffect(() => {
+    if (tab === 2) fetchWhitelisted();
+  }, [tab, fetchWhitelisted]);
+
   const handleRefresh = () => {
     if (tab === 0) fetchIPs();
-    else fetchRateLimited();
+    else if (tab === 1) fetchRateLimited();
+    else fetchWhitelisted();
   };
 
   const handleClearFilters = () => {
@@ -168,6 +195,13 @@ export default function BlockedIPs() {
 
   const hasActiveFilters = !!(filterValues.block_type || filterValues.repeat_offender || search);
   const hasActiveRateFilters = !!rateSearch;
+  const hasActiveWhitelistFilters = !!whitelistSearch;
+
+  const handleClearWhitelistSearch = () => {
+    setWhitelistSearch('');
+    setWhitelistSortBy('block_time');
+    setWhitelistSortDir('desc');
+  };
 
   const handleAdd = async () => {
     try {
@@ -194,6 +228,32 @@ export default function BlockedIPs() {
       fetchIPs();
       if (tab === 1) fetchRateLimited();
     } catch { toast.error('Failed to unblock'); }
+  };
+
+  const handleAddWhitelist = async () => {
+    try {
+      await addBlockedIP({
+        ip_address: whitelistForm.ip_address,
+        reason: whitelistForm.reason || t('ipManagement.whitelistReasonDefault'),
+        is_whitelist: true,
+      });
+      toast.success(t('ipHistory.whitelistSuccess', { ip: whitelistForm.ip_address }));
+      setWhitelistDialogOpen(false);
+      setWhitelistForm({ ip_address: '', reason: '' });
+      fetchWhitelisted();
+    } catch (e) {
+      toast.error(e.response?.data?.error || t('ipHistory.whitelistFailed'));
+    }
+  };
+
+  const handleRemoveWhitelist = async (id, ip) => {
+    try {
+      await unblockIP(id);
+      toast.success(t('ipHistory.whitelistRemoved', { ip }));
+      fetchWhitelisted();
+    } catch {
+      toast.error(t('ipHistory.whitelistRemoveFailed'));
+    }
   };
 
   const handleClearRate = async (ip) => {
@@ -326,7 +386,9 @@ export default function BlockedIPs() {
 
   const subtitle = tab === 0
     ? t('ipManagement.subtitleBlocked', { count: ips.length })
-    : t('ipManagement.subtitleRateLimited', { count: rateItems.length });
+    : tab === 1
+      ? t('ipManagement.subtitleRateLimited', { count: rateItems.length })
+      : t('ipManagement.subtitleWhitelisted', { count: whitelistItems.length });
 
   const ipButtonSx = {
     fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 700,
@@ -353,6 +415,16 @@ export default function BlockedIPs() {
               {t('blockedIps.blockIp')}
             </Button>
           )}
+          {isAdmin && tab === 2 && (
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => setWhitelistDialogOpen(true)}
+              color="success"
+            >
+              {t('ipManagement.addWhitelist')}
+            </Button>
+          )}
           <IconButton onClick={handleRefresh} sx={{ color: 'primary.main' }}><Refresh /></IconButton>
         </Box>
       </Box>
@@ -364,6 +436,7 @@ export default function BlockedIPs() {
       >
         <Tab icon={<Block sx={{ fontSize: 18 }} />} iconPosition="start" label={t('ipManagement.tabBlocked')} />
         <Tab icon={<Timer sx={{ fontSize: 18 }} />} iconPosition="start" label={t('ipManagement.tabRateLimited')} />
+        <Tab icon={<CheckCircle sx={{ fontSize: 18 }} />} iconPosition="start" label={t('ipManagement.tabWhitelisted')} />
       </Tabs>
 
       <TabPanel value={tab} index={0}>
@@ -537,6 +610,85 @@ export default function BlockedIPs() {
         </Card>
       </TabPanel>
 
+      <TabPanel value={tab} index={2}>
+        <FilterBar
+          filters={[]}
+          values={{}}
+          onChange={() => {}}
+          sortOptions={SORT_OPTIONS}
+          sortBy={whitelistSortBy}
+          sortDir={whitelistSortDir}
+          onSortBy={setWhitelistSortBy}
+          onSortDir={setWhitelistSortDir}
+          searchValue={whitelistSearch}
+          searchPlaceholder={t('ipManagement.searchWhitelistPlaceholder')}
+          onSearch={setWhitelistSearch}
+          hasActiveFilters={hasActiveWhitelistFilters}
+          onClear={handleClearWhitelistSearch}
+        />
+
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={tableHeadCellSx}>{t('ipManagement.colIp')}</TableCell>
+                  <TableCell sx={tableHeadCellSx}>{t('blockedIps.colReason')}</TableCell>
+                  <TableCell sx={tableHeadCellSx}>{t('ipManagement.colWhitelistedAt')}</TableCell>
+                  <TableCell sx={tableHeadCellSx}>{t('blockedIps.colIncidents')}</TableCell>
+                  {isAdmin && <TableCell align="center" sx={tableHeadCellSx}>{t('common.actions')}</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {whitelistLoading ? (
+                  <TableRow><TableCell colSpan={isAdmin ? 5 : 4} align="center" sx={{ py: 6 }}><CircularProgress size={28} /></TableCell></TableRow>
+                ) : whitelistItems.length === 0 ? (
+                  <TableRow><TableCell colSpan={isAdmin ? 5 : 4} align="center" sx={{ py: 6, color: 'text.secondary' }}>{t('ipManagement.emptyWhitelist')}</TableCell></TableRow>
+                ) : whitelistItems.map((item) => (
+                  <TableRow key={item.id} hover>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Button variant="text" size="small" onClick={() => setSelectedIP(item.ip_address)} sx={ipButtonSx}>
+                          {item.ip_address}
+                        </Button>
+                        <Chip
+                          icon={<CheckCircle sx={{ fontSize: 14 }} />}
+                          label={t('ipHistory.whitelisted')}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            bgcolor: 'rgba(76,175,80,0.15)',
+                            color: '#4caf50',
+                            border: '1px solid rgba(76,175,80,0.3)',
+                            '& .MuiChip-icon': { color: '#4caf50' },
+                          }}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.reason}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(item.block_time)}</TableCell>
+                    <TableCell>
+                      <Chip label={item.incident_count} size="small" sx={{ bgcolor: sem.chipIncident.bg, color: sem.chipIncident.color }} />
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title={t('ipManagement.removeWhitelist')}>
+                          <IconButton size="small" onClick={() => handleRemoveWhitelist(item.id, item.ip_address)} sx={{ color: '#ff9800' }}>
+                            <Delete sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      </TabPanel>
+
       {isAdmin && (
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ pb: 1 }}>{t('blockedIps.dialogTitle')}</DialogTitle>
@@ -632,6 +784,46 @@ export default function BlockedIPs() {
           <DialogActions>
             <Button onClick={() => setEditOpen(false)}>{t('common.cancel')}</Button>
             <Button variant="contained" onClick={handleEdit} color="primary">{t('common.save')}</Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {isAdmin && (
+        <Dialog open={whitelistDialogOpen} onClose={() => setWhitelistDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ pb: 1 }}>{t('ipManagement.whitelistDialogTitle')}</DialogTitle>
+          <DialogContent sx={dialogContentSx}>
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('blockedIps.ipLabel')}
+              value={whitelistForm.ip_address}
+              onChange={(e) => setWhitelistForm((f) => ({ ...f, ip_address: e.target.value }))}
+              placeholder="e.g. 192.168.1.100"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('blockedIps.reason')}
+              value={whitelistForm.reason}
+              onChange={(e) => setWhitelistForm((f) => ({ ...f, reason: e.target.value }))}
+              placeholder={t('ipManagement.whitelistReasonDefault')}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+              {t('ipHistory.whitelistConfirm')}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setWhitelistDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button
+              variant="contained"
+              onClick={handleAddWhitelist}
+              color="success"
+              disabled={!whitelistForm.ip_address}
+            >
+              {t('ipManagement.addWhitelist')}
+            </Button>
           </DialogActions>
         </Dialog>
       )}

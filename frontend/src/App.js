@@ -18,6 +18,7 @@ import AuditLog from './pages/AuditLog';
 import Login from './pages/Login';
 import ChatbotWidget from './components/shared/ChatbotWidget';
 import SessionTimeoutWarning from './components/shared/SessionTimeoutWarning';
+import { ChatbotProvider } from './context/ChatbotContext';
 
 function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
   const { mode } = useThemeMode();
@@ -34,20 +35,22 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
             isAuthenticated
               ? (
                 <>
-                  <Layout onLogout={onLogout}>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/incidents/all" element={<Incidents key="incidents-all" mode="all" />} />
-                      <Route path="/incidents" element={<Incidents key="incidents-ongoing" mode="ongoing" />} />
-                      <Route path="/incidents/:id" element={<IncidentDetail />} />
-                      <Route path="/blocked-ips" element={<BlockedIPs />} />
-                      <Route path="/rules" element={<DetectionRules />} />
-                      <Route path="/traffic" element={<LiveTraffic />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/audit" element={<AuditLog />} />
-                    </Routes>
-                    <ChatbotWidget />
-                  </Layout>
+                  <ChatbotProvider>
+                    <Layout onLogout={onLogout}>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/incidents/all" element={<Incidents key="incidents-all" mode="all" />} />
+                        <Route path="/incidents" element={<Incidents key="incidents-ongoing" mode="ongoing" />} />
+                        <Route path="/incidents/:id" element={<IncidentDetail />} />
+                        <Route path="/blocked-ips" element={<BlockedIPs />} />
+                        <Route path="/rules" element={<DetectionRules />} />
+                        <Route path="/traffic" element={<LiveTraffic />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/audit" element={<AuditLog />} />
+                      </Routes>
+                      <ChatbotWidget />
+                    </Layout>
+                  </ChatbotProvider>
                   <SessionTimeoutWarning onLogout={onLogout} />
                 </>
               )

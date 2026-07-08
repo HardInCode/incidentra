@@ -71,4 +71,40 @@
 
 ---
 
+## June 2026 — Form 5 cross-check (v5 doc touch-up)
+
+- **Part D testing:** PATH_TRAVERSAL, FILE_UPLOAD, BRUTE_FORCE expected outcomes aligned to escalating block (high → Offense #1 ~1h, HTTP 403), not legacy 24h temp block or rate-limit 429
+- **Part B Settings:** removed stale "temporary block duration" UI reference; documents Escalating Block Policy section
+- **Part B/C IP Management:** Repeat Offender badge and filter documented
+- **Section 1.3 / 5:** client-feedback context (Form 5) and Redis escalation persistence on unblock
+
+---
+
+## June 2026 — Word export sync (FORM4_IMPLEMENTATION_v5.md full doc)
+
+- **Figure 4 / Figure 7:** RESPONSE_ACTIONS and respond() snippets aligned to `escalating_block` (removed stale permanent/temporary auto-block flow)
+- **Part D:** D.2–D.6 expected outputs; new **D.20** Escalating Block / Repeat Offender
+- **§2 / §3 / E.1:** 18 seeded rules, analyst user, 3 IP Management tabs, `is_repeat_offender`, 15s dashboard refresh
+- **Part B:** Incident Detail automated action wording; date June 2026
+
+---
+
+## June 2026 — Form 1 & Form 2 alignment
+
+- **Naming:** SME-Guard → Incidentra (consistent with Forms 3–5)
+- **Form 1 §4.1.2:** escalating block policy (no auto permanent block); demo env vuln-web + Docker Compose
+- **Form 2:** proposed process, use cases, operational env, automated response (P2), data dictionary updated
+
+---
+
+## June 2026 — Team roster (Nasywa removed)
+
+- **Forms 1–5:** group member, Statement of Originality, Signer 1–2
+- **Form 1:** manpower (2 rows), dev hardware 2x laptops
+- **Form 2:** product dev env 2 laptops
+- **Form 4 v5 Table 6:** Developer laptop 3 → **2**; total **~Rp 25.650.000**
+- **Also updated:** `FORM4_COVER.md`, `FORM4_IMPLEMENTATION.md` footer, `GEMINI_SLIDES_PROMPT.md`, `docs/ARCHITECTURE.md` Tim table
+
+---
+
 *Copy sections A, C, D, E from v2 into Word; keep Part B from your Word screenshots.*

@@ -9,7 +9,7 @@ Buat 6 slide (16:9, dark cybersecurity theme, font besar 24pt+) untuk screen rec
 
 Proyek: Incidentra SOC — Intelligent Web-SOC Platform with Automated Incident Response
 President University Capstone 2026
-Tim: Hardin Irfan, Nasywa Kamila, Zaidan Mahfudz Azzam Saidi
+Tim: Hardin Irfan, Zaidan Mahfudz Azzam Saidi
 
 Aturan:
 - Slide manual = ditampilkan sambil narasi, TIDAK di-run di video

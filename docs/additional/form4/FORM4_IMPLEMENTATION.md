@@ -602,4 +602,4 @@ Incidentra defines three user roles, each with a distinct set of responsibilitie
 
 ---
 
-*Form 4 — Implementation | Incidentra "Intelligent Web-SOC Platform with Automated Incident Response" | President University Capstone Design Project 2026 | Hardin Irfan (001202300066) · Nasywa Kamila (001202300211) · Zaidan Mahfudz Azzam Saidi (001202300144)*
+*Form 4 — Implementation | Incidentra "Intelligent Web-SOC Platform with Automated Incident Response" | President University Capstone Design Project 2026 | Hardin Irfan (001202300066) · Zaidan Mahfudz Azzam Saidi (001202300144)*

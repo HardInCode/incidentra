@@ -16,8 +16,7 @@ Salin bagian ini ke **halaman depan Word** sebelum Part A.
 | No. | Student Name | Student ID |
 |-----|--------------|------------|
 | 1. | Hardin Irfan (Leader) | 001202300066 |
-| 2. | Nasywa Kamila | 001202300211 |
-| 3. | Zaidan Mahfudz Azzam Saidi | 001202300144 |
+| 2. | Zaidan Mahfudz Azzam Saidi | 001202300144 |
 
 **Advisor:** Mr. Abdul Ghofir S. Kom., M. Kom.
 
@@ -31,8 +30,7 @@ In my capacity as an active student at President University and as the author of
 
 **Names:**
 1. Hardin Irfan — 001202300066  
-2. Nasywa Kamila — 001202300211  
-3. Zaidan Mahfudz Azzam Saidi — 001202300144  
+2. Zaidan Mahfudz Azzam Saidi — 001202300144  
 
 **Faculty:** Computer Science  
 
@@ -42,8 +40,8 @@ I also declare that this work, in whole or in part, has not been submitted to an
 
 Cikarang, May 2026
 
-| Hardin Irfan | Nasywa Kamila | Zaidan Mahfudz Azzam Saidi |
-|--------------|---------------|----------------------------|
+| Hardin Irfan | Zaidan Mahfudz Azzam Saidi |
+|--------------|----------------------------|
 
 ---
 

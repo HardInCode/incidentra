@@ -6,6 +6,7 @@ import {
 import { Close, Send, Delete, AutoAwesome, OpenWith } from '@mui/icons-material';
 import { sendChatMessage } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
+import { useChatbotContext } from '../../context/ChatbotContext';
 
 const SESSION_ID = 'chatbot-' + Math.random().toString(36).slice(2);
 const POS_STORAGE_KEY = 'sme_chatbot_pos';
@@ -106,9 +107,10 @@ function Message({ msg }) {
   );
 }
 
-export default function ChatbotWidget({ incidentContext = null }) {
+export default function ChatbotWidget() {
   const theme = useTheme();
   const { t } = useLanguage();
+  const { incidentContext } = useChatbotContext();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');

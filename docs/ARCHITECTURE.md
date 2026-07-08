@@ -321,9 +321,8 @@ Celery ada; notifikasi/AI punya fallback thread jika worker tidak jalan.
 
 | Nama | NIM | Peran |
 |------|-----|-------|
-| Hardin Irfan | 001202300066 | Project Lead & Backend |
-| Nasywa Kamila | 001202300211 | AI Engineer & Frontend |
-| Zaidan Mahfudz Azzam Saidi | 001202300144 | Security & QA |
+| Hardin Irfan | 001202300066 | Project Lead, Backend & Frontend |
+| Zaidan Mahfudz Azzam Saidi | 001202300144 | Security, QA & Testing |
 
 ---
 

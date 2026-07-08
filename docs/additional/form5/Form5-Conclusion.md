@@ -1,206 +1,197 @@
-# Form 5
+Form4
 
-## Conclusion
+Capstone Design Implementation
 
-**Intelligent Web-SOC Platform with Automated Incident Response**
+Title :
 
-**Incidentra SOC**
+**Incidentra**
 
----
+“Intelligent Web-SOC Platform with Automated Incident Response”
 
-**GROUP MEMBER:**
+GROUP MEMBER:
 
-| No. | Student Name                     | Student ID    |
-|-----|----------------------------------|---------------|
-| 1.  | Hardin Irfan (Leader)            | 001202300066  |
-| 2.  | Nasywa Kamila                    | 001202300211  |
-| 3.  | Zaidan Mahfudz Azzam Saidi       | 001202300144  |
+| No. | Student Name | Student ID |
+| --- | --- | --- |
+| 1. | Hardin Irfan | 001202300066 |
+| 2. | Zaidan Mahfudz Azzam Saidi | 001202300144 |
 
----
+Advisor:  Mr. Abdul Ghofir S. Kom., M. Kom.
 
 Submitted for
 
-**Capstone Design Project**
+Capstone Design Project
 
 to Faculty of Computer Science
 
 President University
 
----
+**TABLE OF CONTENT**
 
-## TABLE OF CONTENT
+Contents
 
-- [Statement of Originality](#statement-of-originality)
-- [Part 5 — Conclusion](#part-5--conclusion)
-  - [A. Conclusion and Future Works](#a-conclusion-and-future-works)
-  - [B. Client Feedback](#b-client-feedback)
-  - [C. Video Demonstration](#c-video-demonstration)
-- [Reference](#reference)
+	A. CONCLUSION AND FUTURE WORKS	1
 
----
+	Conclusion	1
 
-## STATEMENT OF ORIGINALITY
+	Future Works	3
+
+	B. CLIENT FEEDBACK	5
+
+	Client Feedback Summary	5
+
+	C. VIDEO DEMONSTRATION	11
+
+	The video covers	11
+
+	REFERENCE	12
+
+		
+
+**STATEMENT OF ORIGINALITY**
 
 In my capacity as an active student at President University and as the author of the Capstone Design Project stated below:
 
-**Name** :
-1. Hardin Irfan — 001202300066
-2. Nasywa Kamila — 001202300211
-3. Zaidan Mahfudz Azzam Saidi — 001202300144
+Name			: 1. Hardin Irfan – 001202300066
 
-**Faculty** : Computer Science
+			  2. Zaidan Mahfudz Azzam Saidi – 001202300144
 
-I hereby declare that my Capstone Design Project entitled **"Intelligent Web-SOC Platform with Automated Incident Response"** is to the best of my knowledge and belief, an original piece of work based on sound academic principles. If there is any plagiarism detected in this final project, I am willing to be personally responsible for the consequences of these acts of plagiarism and will accept the sanctions against these acts in accordance with the rules and policies of President University.
+Faculty			: Computer Science
+
+I hereby declare that my Capstone Design Project entitled “**Incidentra**” is to the best of my knowledge and belief, an original piece of work based on sound academic principles. If there is any plagiarism detected in this final project, I am willing to be personally responsible for the consequences of these acts of plagiarism and will accept the sanctions against these acts in accordance with the rules and policies of President University.
 
 I also declare that this work, either in whole or in part, has not been submitted to another university to obtain a degree.
 
 Cikarang, June 2026
 
-| Hardin Irfan — 001202300066 | Nasywa Kamila — 001202300211 | Zaidan Mahfudz Azzam Saidi — 001202300144 |
-|-----------------------------|------------------------------|-------------------------------------------|
-|                             |                              |                                           |
+| Signer 1 | Signer 2 |
+| --- | --- |
+|  |  |
+| Hardin Irfan – 001202300066 | Zaidan Mahfudz Azzam Saidi – 001202300144 |
 
----
-
-**Intelligent Web-SOC Platform with Automated Incident Response**
+**Incidentra**
 
 Approved:
 
-| Mr. Abdul Ghofir S. Kom., M. Kom. — Capstone Advisor | {Your head of study program name} — Program Head of Informatics |
-|-------------------------------------------------------|------------------------------------------------------------------|
+| Abdul Ghofir S. Kom., M. Kom. | Rosalina, S. Kom., M. Kom. Program Head of Computer Science |
+| --- | --- |
 
-**Prof. Dr. Ir. Wiranto Herry Utomo, M.Kom.**
+Prof. Dr. Ir. Wiranto Herry Utomo, M. Kom.
 
 Dean of Faculty of Computer Science
 
----
+**PART 5**
 
-## PART 5 — CONCLUSION
+**CONCLUSION**
 
-**Consists of:**
+**Consists of: **
 
-- CONCLUSION AND FUTURE WORKS
-- CLIENT FEEDBACK
-- VIDEO DEMONSTRATION
+- **CONCLUSION AND FUTURE WORKS**
 
----
+- **CLIENT FEEDBACK**
 
-### A. CONCLUSION AND FUTURE WORKS
+- **VIDEO DEMONSTRATION**
 
-#### Conclusion
+A. CONCLUSION AND FUTURE WORKS
 
-1. **Automated threat detection and incident response is achievable with open-source tools.** Incidentra demonstrates that a fully functional Security Operations Center (SOC) platform can be built entirely from open-source components — Flask, React, PostgreSQL, Redis, and Docker — without requiring any commercial SIEM or WAF license. The system successfully detects eight categories of OWASP web attacks (SQL Injection, XSS, Brute Force, Path Traversal, File Upload, Command Injection, Scanner, and LFI/RFI) through a combination of regex pattern matching and threshold-based analysis, and automatically responds with severity-proportional actions ranging from logging and monitoring to escalating temporary IP blocking. Detection rules can be customized from the SOC Dashboard without restarting services.
+Conclusion
 
-2. **A log-based detection architecture provides effective security monitoring without modifying the monitored application.** By tailing the web server access log (NCSA Combined Log Format with a POST_DATA suffix), Incidentra operates as a passive observer that does not require any code changes, middleware injection, or agent installation on the monitored web application. Enforcement is achieved through shared JSON files on a Docker named volume, keeping the detection backend and the monitored application completely decoupled.
+- **Automated threat detection and incident response is achievable with open-source tools.** Incidentra has demonstrated that a fully functional Security Operations Center (SOC) platform can be built entirely from open-source components—Flask, React, PostgreSQL, Redis, and Docker—without requiring any commercial SIEM or WAF licenses. The system successfully detects the eight OWASP web attack categories (SQL Injection, XSS, Brute Force, Path Traversal, File Upload, Command Injection, Scanner, and LFI/RFI) through a combination of regex pattern matching and threshold-based analysis, and automatically responds with actions proportional to the severity level, ranging from logging and monitoring to escalating to temporary IP blocking. Detection rules can be customized from the SOC Dashboard without the need to restart the service.
 
-3. **AI-powered incident analysis enhances analyst productivity.** The integration with Groq Cloud API (LLaMA models) provides automated incident explanations covering threat summaries, danger assessments, recommended actions, and MITRE ATT&CK technique mappings. The four-model fallback chain with a static explanation safety net ensures that every incident always has a human-readable analysis, even when API connectivity fails. This reduces the cognitive load on SOC analysts during triage.
+- **A log-based detection architecture provides effective security monitoring without modifying the monitored application.** By tailing the web server access logs (NCSA Combined Log Format with the POST_DATA suffix), Incidentra acts as a passive observer that requires no code changes, middleware insertion, or agent installation on the monitored web applications. Deployment is performed via a shared JSON file on a named Docker volume, ensuring that the detection backend and the monitored applications remain completely separate.
 
-4. **A tiered automated response system with escalating block policy balances security with operational continuity.** During the client feedback phase, a concern was raised by a senior IT Application Support professional regarding the risk of permanent automated IP blocking in shared IP environments (NAT, corporate proxy, CGNAT), where multiple users may share the same public IP address. In response to this feedback, the automated response system was revised from a permanent auto-blocking approach to an escalating block policy. The severity-to-action mapping (Low → log & monitor, Medium → rate limit, High → escalating temporary block starting at 1 hour, Critical → escalating temporary block starting at 24 hours) ensures that low-severity threats are observed without disruption while critical attacks receive immediate but proportional enforcement. Repeated offenses from the same IP address receive progressively longer block durations (e.g., 1h → 24h → 168h for high severity; 24h → 168h → 720h for critical severity). IPs that exceed a configurable offense threshold are automatically flagged as Repeat Offenders, alerting the administrator to decide whether permanent blocking is warranted. All block durations and the Repeat Offender threshold are configurable via the Settings page. The administrator retains full override capability through the SOC Dashboard to unblock IPs, whitelist trusted sources, and modify block durations, providing a safety net against false positives.
+- **AI-powered incident analysis enhances analyst productivity.** Integration with the Groq Cloud API (LLaMA models) provides automated incident explanations that include threat summaries, severity assessments, recommended actions, and MITRE ATT&CK mapping. A four-model fallback chain with a safety net of static explanations ensures that every incident is always accompanied by human-readable analysis, even when API connectivity is lost. This reduces the cognitive load on SOC analysts during the triage process.
 
-5. **Containerized deployment reduces operational complexity.** The Docker Compose deployment provisions all six services (PostgreSQL, Redis, backend, frontend, vuln-web, Celery worker) with a single `docker compose up --build -d` command. No manual database setup, virtual environment configuration, or service registration is required, making the system immediately deployable on any machine with Docker installed.
+- **A tiered automated response system with escalating block policy balances security with operational continuity.** During the client feedback phase, a senior professional in the field of IT Application Support raised concerns regarding the risk of permanent automatic IP blocking in shared IP environments (NAT, corporate proxies, CGNAT), where multiple users may share the same public IP address. In response to this feedback, the automated response system has been revised from an automatic permanent blocking approach to a phased blocking policy. Mapping severity levels to actions (Low → logging & monitoring, Medium → rate limiting, High → escalated temporary blocking starting at 1 hour, Critical → escalated temporary blocking starting at 24 hours) ensures that low-severity threats are monitored without disruption, while critical attacks are addressed with immediate yet proportionate measures. Repeated violations from the same IP address will result in progressively longer blocking periods (for example, 1 hour → 24 hours → 168 hours for high severity; 24 hours → 168 hours → 720 hours for critical severity). IP addresses that exceed the configurable violation threshold are automatically flagged as “Repeat Offenders,” alerting administrators to decide whether a permanent block is necessary. All blocking durations and “Repeat Offender” thresholds can be configured via the Settings page. Administrators retain full ability to override these settings through the SOC Dashboard to unblock IP addresses, add trusted sources to the whitelist, and modify blocking durations, thereby providing a safety net against false positives.
 
-#### Future Works
+- **Containerized deployment reduces operational complexity.** Using Docker Compose sets up all six services (PostgreSQL, Redis, backend, frontend, vuln-web, and Celery worker) with just a single command: `docker-compose up --build -d`. No manual database setup, virtual environment configuration, or service registration is required, so this system can be deployed immediately on any machine that has Docker installed.
 
-1. **Enhanced shared IP address awareness.** While the current escalating block policy already mitigates the risk of permanent blocking for shared IP addresses by using progressively longer temporary blocks instead of immediate permanent blocks, further improvements could include combining IP-based detection with session-level fingerprinting (cookie, User-Agent, request patterns) to distinguish between malicious and legitimate users on the same IP. Additionally, integration with known NAT/CGNAT IP range databases could enable the system to automatically apply more lenient block policies for IPs identified as shared.
+Future Works
 
-2. **CIDR range and subnet-based blocking.** Extend the IP management module to support CIDR notation (e.g., `192.168.1.0/24`) for blocking or whitelisting entire subnets, reducing the manual effort of managing individual IP addresses from coordinated attack sources.
+- **Enhanced shared IP address awareness.** Although the current blocking policy—which is being further refined—has reduced the risk of permanent IP address blocking by using temporary blocks of increasingly longer durations instead of immediate permanent blocks, further improvements could include combining IP-based detection with session-level fingerprinting (cookies, User -Agent, request patterns) to distinguish between malicious users and legitimate users sharing the same IP address. Additionally, integration with a database of known NAT/CGNAT IP ranges could enable the system to automatically apply more lenient blocking policies to IP addresses identified as shared IP addresses.
 
-3. **Multi-user role-based access control (RBAC) enhancement.** Expand the current Admin/Analyst role system with more granular permissions, such as separating rule management, IP management, and settings access into distinct privilege levels. Add support for LDAP/Active Directory integration for enterprise environments.
+- **CIDR range and subnet-based blocking.** Expand the IP management module to support CIDR notation (e.g., 192.168.1.0/24) for blocking or whitelisting entire subnets, thereby reducing the manual effort required to manage IP addresses one by one against coordinated attacks.
 
-4. **Real-time WebSocket-based event streaming.** Replace the current HTTP polling mechanism (3-second interval for Live Traffic, 15-second default interval for Dashboard KPI refresh) with WebSocket or Server-Sent Events (SSE) for truly real-time incident notifications and live traffic updates, reducing latency and server load.
+- **Multi-user role-based access control (RBAC) enhancement.** Expand the current Admin/Analyst role system with more granular permissions, such as separating rule management, IP management, and configuration access into different access levels. Add support for LDAP/Active Directory integration for enterprise environments.
 
-5. **Enhanced reporting and compliance.** Add scheduled report generation (daily/weekly PDF/Excel summaries), compliance dashboards aligned with regulatory frameworks (ISO 27001, PCI DSS), and incident response timeline visualization for post-incident reviews.
+- **Real-time WebSocket-based event streaming.** Replace the current HTTP polling mechanism (3-second interval for Live Traffic, default 15-second interval for Dashboard KPI refreshes) with WebSocket or Server-Sent Events (SSE) to receive truly real-time incident notifications and live traffic updates, thereby reducing latency and server load.
 
-6. **Machine learning-based anomaly detection.** Complement the current regex and threshold-based detection with statistical anomaly detection models that learn normal traffic patterns and identify deviations, reducing dependency on predefined patterns and improving zero-day attack detection capability.
+- **Enhanced reporting and compliance.** Add scheduled reporting features (daily/weekly summaries in PDF/Excel format), a compliance dashboard aligned with regulatory frameworks (ISO 27001, PCI DSS), and a visualization of incident response timelines for post-incident reviews.
 
-7. **Multi-application monitoring.** Extend the log ingestion layer to support simultaneous monitoring of multiple web applications from different log sources, with per-application dashboards and rule sets.
+- **Machine learning-based anomaly detection.** Supplement the current regex- and threshold-based detection system with a statistical anomaly detection model that learns normal traffic patterns and identifies deviations, thereby reducing reliance on predefined patterns and improving the ability to detect zero-day attacks.
 
-8. **Web Application Firewall (WAF) integration.** Integrate with established WAF solutions such as ModSecurity or AWS WAF to combine Incidentra's log-based detection intelligence with real-time request filtering at the network edge. This would enable the system to push dynamically generated blocking rules to the WAF based on detected threats, providing defense-in-depth where the WAF handles immediate request-level enforcement while Incidentra continues to serve as the centralized SOC platform for monitoring, analysis, and incident management.
+- **Multi-application monitoring.** Expand the log collection layer to support simultaneous monitoring of multiple web applications from various log sources, with dashboards and custom rule sets for each application.
 
----
+- **Web Application Firewall (WAF) integration.** Integrate with established WAF solutions such as ModSecurity or AWS WAF to combine Incidentra’s log-based detection intelligence with real-time request filtering at the network edge. This will enable the system to send dynamically generated blocking rules to the WAF based on detected threats, providing a layered defense where the WAF handles rule enforcement directly at the request level, while Incidentra continues to serve as a centralized SOC platform for monitoring, analysis, and incident management.
 
-### B. CLIENT FEEDBACK
+B. CLIENT FEEDBACK
 
-<!-- ================================================================
-     GUIDE FOR SECTION B — CLIENT FEEDBACK
-     ================================================================
+To evaluate the effectiveness, ease of use, and features of the Incidentra SOC system, a feedback session was held with **three client representatives** from PT Accelist Lentera Indonesia (an IT Manager and two Senior IT Application Support Staff members). Each representative completed the same evaluation questionnaire after participating in a live demonstration and hands-on trial. The table below presents an **aggregated summary**: the numerical values represent the **arithmetic mean** of the three responses; the notes summarize recurring themes and key comments from the combined feedback (individual sources are not cited unless relevant to the context).
 
-     Questionnaire categories (as per lecturer guidelines):
-     1. Easy of use
-     2. Display and performance
-     3. Feature and functionality
-     4. Satisfaction level
-     5. Respondent suggestions
-     6. Conclusion
+Client Feedback Summary
 
-     STEPS:
-     1. Create a Google Form with the questions below
-     2. Distribute to client stakeholder(s) — follow lecturer minimum respondent count if required
-     3. Collect responses and fill the table
-     4. Attach blank questionnaire screenshot
+| **No.** | **Category** | **Question / Evaluation Criteria** | **Rating (1-5) / Response** | **Client's Remarks / Elaborations** |
+| --- | --- | --- | --- | --- |
+| 1 | Easy of Use | Is the SOC Dashboard easy to navigate and intuitive for daily security monitoring tasks? | **4.7 / 5** | The sidebar structure and incident workflow are considered intuitive for routine security monitoring after a brief explanation. |
+| 2 | Easy of Use | Is the system easy to deploy and set up using Docker Compose? | **4.0 / 5** | The use of Docker Compose is generally considered practical for demo and staging environments. The clarity of the documentation for initial setup is cited as an area for improvement. |
+| 3 | Display and Performance | Is the dashboard layout (charts, tables, KPI cards) clear and visually informative? | **4.0 / 5** | The KPI cards, charts, and tables were consistently rated as clear and informative in all three evaluations. |
+| 4 | Display and Performance | Does the system respond quickly when detecting attacks and displaying incidents? | **4.3 / 5** | Live testing showed that incidents appeared on the dashboard within seconds of the attack simulation being carried out. Overall, the response speed was rated positively. |
+| 5 | Feature and Functionality | Does the system accurately detect web attacks (SQL Injection, XSS, Command Injection, etc.)? | **4.7 / 5** | The simulated attack scenarios (e.g., SQL injection, XSS) were detected with the appropriate severity labels during the evaluation session. |
+| 6 | Feature and Functionality | Is the escalating block policy (progressively longer blocks instead of permanent auto-block) an appropriate automated response? | **4.0 / 5** | The escalating temporary block policy s generally accepted. During discussion, **a shared concern was raised **that strict blocking based solely on IP addresses could harm legitimate users who use shared public IP addresses (NAT/corporate proxies).** **Respondents suggested **session-based blocking** as a future improvement. The tiered policy was considered a reasonable mitigation for a capstone project. |
+| 7 | Feature and Functionality | Is the AI-powered incident explanation feature useful for understanding threats? | **4.3 / 5** | AI-generated explanations are considered useful for understanding the impact of threats and the recommended actions during the incident triage process. |
+| 8 | Satisfaction Level | Overall, how satisfied are you with the Incidentra system? | **4.7 / 5** | Overall satisfaction levels were quite high among the three respondents. The system was assessed as a top-tier SOC project that is capable and worthy of further evaluation. |
+| 9 | Respondent Suggestions | What improvements would you suggest for the system? | [Open Response] | **Aggregated suggestions:** (1) integrate a WAF for real-time edge filtering as part of a layered defense strategy; (2) transition from IP-based blocking alone to **session-based blocking** to reduce false positives on shared IP addresses; (3) improve **end-user and deployment documentation**. |
+| 10 | Conclusion | Would you recommend this system for use in a real SOC environment (with further development)? Why or why not? | [Open Response] | All three respondents would **recommend** the system for further use in a controlled or staging environment, **pending refinement** (documentation, bug fixes, and production-hardening). Core detection and automated response—including the tiered blocking policy—were assessed as effective and promising for real SOC workflows with continued development. |
 
-     ================================================================ -->
+Table 1. Client Feedback Summary
 
-To evaluate the effectiveness, usability, and features of the Incidentra SOC system, a feedback session was conducted with **three client representatives** from PT Accelist Lentera Indonesia (IT Manager, Apps Support, and IT Support). Each representative completed the same evaluation questionnaire after a live demonstration and hands-on testing. The table below presents an **aggregate summary**: numeric ratings are the **arithmetic mean** of all three responses; remarks **synthesize** recurring themes and notable comments from the combined feedback (not attributed individually unless essential for context).
+*Rating notation: ****X.X / 5 (mean, n=3)**** = average of three independent client questionnaire responses. Scores are rounded to one decimal place.*
 
-#### Client Feedback Summary
+The Google Form and the responses to the Google Form are available at the following URL:
 
-| No. | Category | Question / Evaluation Criteria | Rating (1-5) / Response | Client's Remarks / Elaborations |
-|-----|----------|-------------------------------|-------------------------|---------------------------------|
-| 1   | Ease of Use | Is the SOC Dashboard easy to navigate and intuitive for daily security monitoring tasks? (1-5) | **4.7 / 5** *(mean, n=3)* | Respondents consistently rated navigation positively. The sidebar structure and incident workflow were considered intuitive for routine security monitoring after a brief walkthrough. |
-| 2   | Ease of Use | Is the system easy to deploy and set up using Docker Compose? (1-5) | **4.0 / 5** *(mean, n=3)* | Docker Compose deployment was generally viewed as practical for demo and staging environments. Documentation clarity for first-time setup was noted as an area that could be improved. |
-| 3   | Display and Performance | Is the dashboard layout (charts, tables, KPI cards) clear and visually informative? (1-5) | **4.0 / 5** *(mean, n=3)* | KPI cards, charts, and tables were uniformly rated as clear and informative across all three evaluations. |
-| 4   | Display and Performance | Does the system respond quickly when detecting attacks and displaying incidents? (1-5) | **4.3 / 5** *(mean, n=3)* | Live testing showed incidents appearing on the dashboard within seconds of attack simulation. Response speed was rated positively overall. |
-| 5   | Feature and Functionality | Does the system accurately detect web attacks (SQL Injection, XSS, Command Injection, etc.)? (1-5) | **4.7 / 5** *(mean, n=3)* | Demonstrated attack scenarios (e.g., SQL injection, XSS) were detected with appropriate severity labels during the evaluation session. |
-| 6   | Feature and Functionality | Is the escalating block policy (progressively longer blocks instead of permanent auto-block) an appropriate automated response? (1-5) | **4.0 / 5** *(mean, n=3)* | The escalating temporary block policy was generally accepted. During discussion, **concern was raised collectively** that strict **IP-only blocking** may penalize legitimate users on shared public IPs (NAT/corporate proxy). Respondents suggested **session-based blocking** as a future improvement. The tiered policy (no automatic permanent block, admin unblock/whitelist) was considered a reasonable mitigation for a capstone prototype. |
-| 7   | Feature and Functionality | Is the AI-powered incident explanation feature useful for understanding threats? (1-5) | **4.3 / 5** *(mean, n=3)* | AI-generated explanations were rated useful for understanding threat impact and recommended actions during incident triage. |
-| 8   | Satisfaction Level | Overall, how satisfied are you with the Incidentra system? (1 = Very Poor, 5 = Excellent) | **4.7 / 5** *(mean, n=3)* | Overall satisfaction was high across all three respondents. The system was regarded as a capable capstone SOC prototype suitable for further evaluation. |
-| 9   | Respondent Suggestions | What improvements would you suggest for the system? | [Open Response] | **Aggregated suggestions:** (1) integrate a **WAF** for real-time edge filtering as defense-in-depth; (2) evolve from IP-only toward **session-based blocking** to reduce shared-IP false positives; (3) improve **end-user and deployment documentation**. |
-| 10  | Conclusion | Would you recommend this system for use in a real SOC environment (with further development)? Why or why not? | [Open Response] | **Aggregated conclusion:** All three respondents would **recommend** the system for further use in a controlled or staging environment, **pending refinement** (documentation, bug fixes, and production-hardening). Core detection and automated response—including the tiered blocking policy—were assessed as effective and promising for real SOC workflows with continued development. |
+**Questionnaire Form**** URL: **[**FORM**](https://forms.gle/2R4B16hLJsaNomre6)** ****&**** **[**CLIENT FEEDBACK**](https://drive.google.com/drive/folders/1-RjSUXoiCVxqGSyiu8QiTCUy-9VME1oi?usp=sharing)
 
-*Rating notation: **X.X / 5 (mean, n=3)** = average of three independent client questionnaire responses. Scores are rounded to one decimal place (e.g., a total sum of 14 divided by 3 is 4.66, rounding up to 4.7; a total sum of 13 divided by 3 is 4.33, rounding down to 4.3). Remarks = synthesized summary; full raw responses are attached.*
+Figure 1. Form Respondent Screenshot
 
-#### Questionnaire Form
-
-[Attach evaluation questionnaire responses — e.g. **Incidentra Security System Evaluation (Jawaban).xlsx** or exported PDF showing all three completed entries.]
-
----
-
-### C. VIDEO DEMONSTRATION
-
-> Recording script and step-by-step narrative: see [VIDEO_RECORDING_GUIDE.md](VIDEO_RECORDING_GUIDE.md).
+C. VIDEO DEMONSTRATION
 
 The video demonstration of the Incidentra system is available at the following Google Drive link:
 
-**Video URL:** [INSERT YOUR GOOGLE DRIVE VIDEO LINK HERE]
+Video URL: [ **VIDEO DEMONSTRATION**](https://drive.google.com/drive/folders/1qCRW2EdbnSv1P_Ij7dFamKaw44YoW37d?usp=sharing)
 
-<!-- Replace the line above with your actual link, for example:
-**Video URL:** https://drive.google.com/file/d/XXXXXXXXXXXXXXXXXXXXX/view?usp=sharing
--->
+The video covers
 
-The video covers the following sections:
+- **How to Build the System** — **Docker mode (demoed live):** Docker Desktop, Git, clone repo, .env.docker, docker-compose.yml. **Manual mode (on-screen reference):** prerequisites, backend/requirements.txt, vuln-web/requirements.txt, pip install -r, npm install, .env configuration.
 
-1. **How to Build the System** — **Docker mode (demoed live):** Docker Desktop, Git, clone repo, `.env.docker`, `docker-compose.yml`. **Manual mode (on-screen reference):** prerequisites, `backend/requirements.txt`, `vuln-web/requirements.txt`, `pip install -r`, `npm install`, `.env` configuration.
-2. **How to Install the System** — **Docker mode (demoed live):** `docker compose up --build -d`, verify six containers, access :3000 / :5050. **Manual mode (on-screen reference):** three-terminal startup (`python run.py`, `npm start`, `python app.py`).
-3. **How to Use the System** — User Manual-style walkthrough: login, dashboard navigation, Settings (escalating block policy), live Scanner attack demo (Nikto scan) triggering automated IP rate limiting, AI explanation, IP history, whitelist, detection rules, and live traffic.
+- **How to Install the System** — **Docker mode (demoed live):** docker compose up --build -d, verify six containers, access :3000 / :5050. **Manual mode (on-screen reference):** three-terminal startup (python run.py, npm start, python app.py).
 
----
+- **How to Use the System** — User Manual-style walkthrough: login, dashboard navigation, Settings (escalating block policy), live Scanner attack demo (Nikto scan) triggering automated IP rate limiting, AI explanation, IP history, whitelist, detection rules, and live traffic.
 
-## REFERENCE
+REFERENCE
 
-1. OWASP Top 10 (2021) — A03 Injection, A04 Insecure Design. https://owasp.org/Top10/
-2. MITRE ATT&CK — Enterprise matrix. https://attack.mitre.org/
-3. NCSA Combined Log Format — web server logging conventions.
-4. Flask Documentation — https://flask.palletsprojects.com/
-5. React 18 Documentation — https://react.dev/
-6. PostgreSQL 15 Documentation — https://www.postgresql.org/docs/
-7. Redis Documentation — https://redis.io/docs/
-8. Docker Compose Specification — https://docs.docker.com/compose/
-9. Groq API Documentation — https://console.groq.com/docs
-10. AbuseIPDB API v2 — https://www.abuseipdb.com/api-documentation
-11. Material UI (MUI) — https://mui.com/
-12. Chart.js — https://www.chartjs.org/
+- OWASP Top 10 (2021) — A03 Injection, A04 Insecure Design. [https://owasp.org/Top10/](https://owasp.org/Top10/)
 
----
+- MITRE ATT&CK — Enterprise matrix. [https://attack.mitre.org/](https://attack.mitre.org/)
 
-*Form 5 Conclusion | Incidentra "Intelligent Web-SOC Platform with Automated Incident Response" | President University Capstone 2026 | Hardin Irfan (001202300066) · Nasywa Kamila (001202300211) · Zaidan Mahfudz Azzam Saidi (001202300144)*
+- NCSA Combined Log Format — web server logging conventions.
+
+- Flask Documentation — [https://flask.palletsprojects.com/](https://flask.palletsprojects.com/)
+
+- React 18 Documentation — [https://react.dev/](https://react.dev/)
+
+- PostgreSQL 15 Documentation — [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+
+- Redis Documentation — [https://redis.io/docs/](https://redis.io/docs/)
+
+- Docker Compose Specification — [https://docs.docker.com/compose/](https://docs.docker.com/compose/)
+
+- Groq API Documentation — [https://console.groq.com/docs](https://console.groq.com/docs)
+
+- AbuseIPDB API v2 — [https://www.abuseipdb.com/api-documentation](https://www.abuseipdb.com/api-documentation)
+
+- Material UI (MUI) — [https://mui.com/](https://mui.com/)
+
+- Chart.js — [https://www.chartjs.org/](https://www.chartjs.org/)
+
+2
+
+2

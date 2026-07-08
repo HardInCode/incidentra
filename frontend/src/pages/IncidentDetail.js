@@ -15,7 +15,7 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
 import { SeverityChip, StatusChip, AttackTypeChip } from '../components/shared/Chips';
-import ChatbotWidget from '../components/shared/ChatbotWidget';
+import { useChatbotContext } from '../context/ChatbotContext';
 
 function InfoRow({ label, value, mono = false }) {
   return (
@@ -123,6 +123,12 @@ export default function IncidentDetail() {
   const [savingNote, setSavingNote] = useState(false);
   const [users, setUsers] = useState([]);
   const currentUser = useCurrentUser();
+  const { setIncidentContext } = useChatbotContext();
+
+  useEffect(() => {
+    setIncidentContext(incident);
+    return () => setIncidentContext(null);
+  }, [incident, setIncidentContext]);
 
   useEffect(() => {
     if (currentUser?.role === 'admin' || currentUser?.role === 'analyst') {
@@ -403,9 +409,6 @@ export default function IncidentDetail() {
           </Card>
         </Grid>
       </Grid>
-
-      {/* BUG 10 FIX: Chatbot with incident context pre-loaded */}
-      <ChatbotWidget incidentContext={incident} />
     </Box>
   );
 }
