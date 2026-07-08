@@ -70,9 +70,6 @@ Reset demo: `python scripts/reset_incidentra.py --clear-logs` (from repo root, b
 | [docs/AUDIT.md](docs/AUDIT.md) | **Full defense audit — May 2026** (~100 scenarios, A–J) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: log → engine → JSON → vuln-web |
 | [docs/DETECTION.md](docs/DETECTION.md) | Detection, Lab mode, Phase 3, Live Traffic vs incidents |
-| [docs/form4/](docs/form4/) | **Form 4** — v2 implementation + cover + screenshot checklist |
-
-Optional: [docs/additional/](docs/additional/) (deploy, GitHub, learning)
 
 ---
 

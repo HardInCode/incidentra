@@ -46,3 +46,7 @@ Thumbs.db
 # Docker local volumes (not used by compose named volumes, but safe)
 postgres_data/
 redis_data/
+
+# Docs — capstone/internal only (keep core docs/*.md in repo: README, GUIDE, ARCHITECTURE, DETECTION, AUDIT)
+docs/additional/
+docs/archive/
