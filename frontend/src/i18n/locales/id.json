@@ -403,7 +403,7 @@
     "labModeTitle": "Mode Lab Deteksi",
     "labModeLabel": "Hanya aturan aktif dari Detection Rules (nonaktifkan baseline OWASP)",
     "labModeHint": "Default OFF untuk demo produksi. Jika ON, deteksi hanya dari regex di UI — berguna membuktikan aturan kustom (mis. lorem ipsum SQLi). AI analyst tidak berubah.",
-    "groqTestHint": "Menguji API key dengan Model yang dipilih di atas (bukan semua model). Penjelasan insiden mencoba model pilihan dulu, lalu fallback model Groq lain jika gagal."
+    "groqTestHint": "Model ini digunakan untuk Chatbot dan Analisis Insiden AI. Model yang dipilih dicoba pertama, lalu sistem otomatis beralih ke model berikutnya jika gagal. Model yang sudah deprecated (llama-3.3-70b-versatile, llama-3.1-8b-instant) telah dihapus."
   },
   "ipHistory": {
     "title": "Riwayat IP",

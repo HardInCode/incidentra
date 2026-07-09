@@ -23,10 +23,14 @@ import {
   playNotificationSound,
 } from '../utils/notificationSound';
 
+// Current Groq models (non-deprecated as of July 2026).
+// llama-3.3-70b-versatile and llama-3.1-8b-instant removed — deprecated Aug 16 2026.
 const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
   'meta-llama/llama-4-scout-17b-16e-instruct',
+  'openai/gpt-oss-120b',
+  'qwen/qwen3-32b',
+  'qwen/qwen3.6-27b',
+  'openai/gpt-oss-20b',
 ];
 
 function ConfigBadge({ configured }) {
@@ -267,6 +271,7 @@ export default function Settings() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <SettingsIcon sx={{ color: '#7c4dff' }} />
             <Typography variant="h6">AI Assistant (Groq)</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>— Chatbot &amp; Incident Analysis</Typography>
             <ConfigBadge configured={settings.GROQ_API_KEY?.configured} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>

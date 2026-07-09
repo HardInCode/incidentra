@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify
 import os
+import re
 import requests
 import logging
-import json
 
 chatbot_bp = Blueprint('chatbot', __name__)
 logger = logging.getLogger(__name__)
@@ -15,30 +15,49 @@ def _check_auth():
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-SYSTEM_PROMPT = """You are a cybersecurity assistant for Incidentra SOC, an intelligent Web-SOC platform.
-You help IT administrators understand security incidents, write regex detection patterns,
-explain attack techniques, and provide security recommendations.
-Be concise and practical. When asked to write a regex pattern for detection rules,
-always format it ready to copy-paste in a code block.
-Keep responses focused and actionable for non-technical SME owners."""
-
-# BUG 10 FIX: 4 fallback models from the screenshot
+# Fallback model chain — tries primary then falls through automatically.
+# Removed (deprecated by Groq, decommissioned Aug 16 2026):
+#   llama-3.3-70b-versatile, llama-3.1-8b-instant
 GROQ_MODELS = [
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant',
     'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-guard-4-12b',
+    'openai/gpt-oss-120b',
+    'qwen/qwen3-32b',
+    'qwen/qwen3.6-27b',
+    'openai/gpt-oss-20b',
 ]
 
 # In-memory conversation history per session (last 10 messages)
 _conversations: dict = {}
 
 
-def _get_groq_reply(messages: list) -> str:
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks output by reasoning models (qwen3, DeepSeek-R1, etc.)."""
+    return re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.DOTALL).strip()
+
+
+def _build_system_prompt(model_name: str) -> str:
+    """Build a system prompt that includes model self-awareness."""
+    return f"""You are a cybersecurity AI assistant embedded in Incidentra SOC, an intelligent Web-SOC platform.
+Your model identity: you are running as **{model_name}**. If a user asks what model or AI you are, answer truthfully with this model name.
+You help IT administrators understand security incidents, write regex detection patterns,
+explain attack techniques, and provide security recommendations.
+Be concise and practical. When asked to write a regex pattern for detection rules,
+always format it in a code block ready to copy-paste.
+Keep responses focused and actionable for non-technical SME owners."""
+
+
+def _get_groq_reply(messages: list) -> tuple:
+    """
+    Call Groq API with fallback chain.
+    Returns (reply_text, model_used).
+    """
     from app.services.notification_service import _get_setting
     api_key = _get_setting('GROQ_API_KEY')
     if not api_key:
-        return "⚠️ Groq API key not configured. Please set GROQ_API_KEY in your .env file to enable the AI chatbot."
+        return (
+            "⚠️ Groq API key not configured. Please set GROQ_API_KEY in Settings to enable the AI chatbot.",
+            "none",
+        )
 
     primary_model = _get_setting('GROQ_MODEL') or os.getenv('GROQ_MODEL', GROQ_MODELS[0])
     models_to_try = [primary_model] + [m for m in GROQ_MODELS if m != primary_model]
@@ -52,23 +71,27 @@ def _get_groq_reply(messages: list) -> str:
         try:
             payload = {
                 'model': model,
-                'messages': [{'role': 'system', 'content': SYSTEM_PROMPT}] + messages,
+                'messages': [{'role': 'system', 'content': _build_system_prompt(model)}] + messages,
                 'max_tokens': 800,
                 'temperature': 0.5,
             }
             response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
-            return response.json()['choices'][0]['message']['content'].strip()
+            raw = response.json()['choices'][0]['message']['content'].strip()
+            clean = _strip_think_tags(raw)
+            logger.info(f"Chatbot replied using model: {model}")
+            return clean, model
         except requests.exceptions.HTTPError as e:
-            if response.status_code == 404 or response.status_code == 400:
-                logger.warning(f"Model {model} unavailable, trying next...")
+            status = e.response.status_code if e.response is not None else 0
+            if status in (400, 404, 422):
+                logger.warning(f"Model {model} unavailable (HTTP {status}), trying next...")
                 continue
             raise
         except Exception as e:
             logger.warning(f"Model {model} failed: {e}, trying next...")
             continue
 
-    return "❌ All AI models are currently unavailable. Please try again later."
+    return ("❌ All AI models are currently unavailable. Please try again later.", "none")
 
 
 @chatbot_bp.route('/message', methods=['POST'])
@@ -100,10 +123,10 @@ def chat_message():
         _conversations[session_id] = history
 
     try:
-        reply = _get_groq_reply(history)
+        reply, model_used = _get_groq_reply(history)
         history.append({'role': 'assistant', 'content': reply})
         _conversations[session_id] = history[-10:]
-        return jsonify({'reply': reply, 'session_id': session_id})
+        return jsonify({'reply': reply, 'session_id': session_id, 'model_used': model_used})
     except Exception as e:
         logger.error(f"Chatbot error: {e}")
         return jsonify({'error': 'AI service error', 'reply': f'Sorry, I encountered an error: {str(e)}'}), 500

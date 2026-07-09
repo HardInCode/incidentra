@@ -51,8 +51,8 @@ export const assignIncident = (id, assignedTo) =>
   api.put(`/incidents/${id}/assign`, { assigned_to: assignedTo });
 export const addIncidentNote = (id, content, created_by = 'admin') =>
   api.post(`/incidents/${id}/notes`, { content, created_by });
-export const triggerExplanation = (id, language = 'en') =>
-  api.post(`/incidents/${id}/explain`, { language });
+export const triggerExplanation = (id, language = 'en', force = false) =>
+  api.post(`/incidents/${id}/explain`, { language, force });
 export const exportIncidentsCsv = (params) =>
   api.get('/incidents/export', { params, responseType: 'blob' });
 

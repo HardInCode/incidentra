@@ -404,7 +404,7 @@
     "labModeTitle": "Detection Lab Mode",
     "labModeLabel": "Use only active rules from Detection Rules (disable OWASP baseline)",
     "labModeHint": "Default OFF for production-style demos. When ON, attacks are detected only if they match an active rule in the UI — useful to prove custom regex (e.g. lorem ipsum SQLi). AI assistant is unchanged.",
-    "groqTestHint": "Tests your API key with the selected Model above (not every model in the list). Incident explanations try the selected model first, then fall back to other Groq models if needed."
+    "groqTestHint": "This model is used for both the Chatbot and AI Incident Analysis. The selected model is tried first, then the system automatically falls back to the next model in the list if it fails. Deprecated models (llama-3.3-70b-versatile, llama-3.1-8b-instant) have been removed."
   },
   "ipHistory": {
     "title": "IP History",

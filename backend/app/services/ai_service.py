@@ -11,15 +11,26 @@ from app import celery, db
 
 logger = logging.getLogger(__name__)
 
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks output by reasoning models (qwen3, DeepSeek-R1, etc.).
+    Must be called before JSON parsing — think blocks before the JSON object cause json.loads to fail.
+    """
+    import re as _re
+    return _re.sub(r'<think>[\s\S]*?</think>', '', text, flags=_re.DOTALL).strip()
+
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# BUG 8 FIX: 4 fallback models from the Groq console screenshot
-# Tries primary model first, then falls through this list automatically
+# Fallback model chain — tries primary then falls through automatically.
+# Primary: llama-4-scout (30K tpm, 500K tpd — best free-tier limits)
+# Removed (deprecated by Groq, decommissioned Aug 16 2026):
+#   llama-3.3-70b-versatile, llama-3.1-8b-instant, llama-guard-4-12b
 GROQ_FALLBACK_MODELS = [
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant',
     'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-guard-4-12b',
+    'openai/gpt-oss-120b',
+    'qwen/qwen3-32b',
+    'qwen/qwen3.6-27b',
+    'openai/gpt-oss-20b',
 ]
 
 
@@ -55,6 +66,7 @@ def _call_groq_with_fallback(prompt: str, max_tokens: int = 600):
             response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             content = response.json()['choices'][0]['message']['content'].strip()
+            content = _strip_think_tags(content)  # strip <think> blocks from reasoning models
             logger.info(f"Groq responded successfully with model: {model}")
             return content, model
         except requests.exceptions.HTTPError as e:

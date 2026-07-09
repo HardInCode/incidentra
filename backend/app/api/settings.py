@@ -134,7 +134,7 @@ def test_groq():
         return jsonify({'success': False, 'error': 'GROQ_API_KEY not configured'}), 400
 
     # Model: use provided model, fallback to DB/Env
-    selected_model = data.get('model') or _get_raw('GROQ_MODEL') or os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+    selected_model = data.get('model') or _get_raw('GROQ_MODEL') or os.getenv('GROQ_MODEL', 'meta-llama/llama-4-scout-17b-16e-instruct')
 
     try:
         r = req.post('https://api.groq.com/openai/v1/chat/completions',

@@ -5,7 +5,7 @@ import {
   AccordionDetails, IconButton, Tooltip, Select, MenuItem, FormControl,
 } from '@mui/material';
 import {
-  ArrowBack, AutoAwesome, Add, ExpandMore, Shield, ContentCopy, SmartToy,
+  ArrowBack, AutoAwesome, Add, ExpandMore, Shield, ContentCopy, SmartToy, Refresh,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -16,6 +16,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
 import { SeverityChip, StatusChip, AttackTypeChip } from '../components/shared/Chips';
 import { useChatbotContext } from '../context/ChatbotContext';
+import { InlineContent, FormattedMessage } from '../utils/renderMarkdown';
 
 function InfoRow({ label, value, mono = false }) {
   return (
@@ -30,7 +31,7 @@ function InfoRow({ label, value, mono = false }) {
   );
 }
 
-function AIExplanationCard({ explanation, onGenerate, generating }) {
+function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }) {
   const { t } = useLanguage();
   if (!explanation) {
     return (
@@ -68,13 +69,26 @@ function AIExplanationCard({ explanation, onGenerate, generating }) {
               sx={{ ml: 'auto', color: 'text.secondary', fontSize: '0.7rem', maxWidth: 220 }}
             />
           </Tooltip>
+          {/* Regenerate button */}
+          <Tooltip title="Regenerate AI analysis">
+            <IconButton
+              size="small"
+              onClick={onRegenerate}
+              disabled={generating}
+              sx={{ color: 'text.secondary', ml: 0.5 }}
+            >
+              {generating
+                ? <CircularProgress size={14} color="inherit" />
+                : <Refresh sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </Tooltip>
         </Box>
 
         <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: '3px solid #00d4aa' }}>
           <Typography variant="body2" sx={{ color: '#00d4aa', fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
             {t('incidentDetail.summary')}
           </Typography>
-          <Typography variant="body1">{explanation.ai_summary}</Typography>
+          <Typography variant="body1"><InlineContent text={explanation.ai_summary} /></Typography>
         </Box>
 
         {explanation.threat_explanation && (
@@ -82,7 +96,7 @@ function AIExplanationCard({ explanation, onGenerate, generating }) {
             <Typography variant="body2" sx={{ color: '#ff6d00', fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
               {t('incidentDetail.whyDangerous')}
             </Typography>
-            <Typography variant="body2">{explanation.threat_explanation}</Typography>
+            <Typography variant="body2"><InlineContent text={explanation.threat_explanation} /></Typography>
           </Box>
         )}
 
@@ -91,11 +105,10 @@ function AIExplanationCard({ explanation, onGenerate, generating }) {
             <Typography variant="body2" sx={{ color: '#7c4dff', fontWeight: 600, mb: 1, fontSize: '0.75rem', textTransform: 'uppercase' }}>
               {t('incidentDetail.recommended')}
             </Typography>
-            {explanation.recommended_actions.split('\n').filter(Boolean).map((line, i) => (
-              <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                {line}
-              </Typography>
-            ))}
+            <FormattedMessage
+              content={explanation.recommended_actions}
+              textVariant="body2"
+            />
           </Box>
         )}
 
@@ -187,6 +200,19 @@ export default function IncidentDetail() {
       }
     } catch (e) {
       toast.error('Failed to generate explanation. Check GROQ_API_KEY in backend/.env');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleRegenerateExplanation = async () => {
+    setGenerating(true);
+    try {
+      await triggerExplanation(id, language, true); // force=true deletes existing and regenerates
+      toast.success('AI explanation regenerated!');
+      fetchIncident();
+    } catch (e) {
+      toast.error('Failed to regenerate explanation.');
     } finally {
       setGenerating(false);
     }
@@ -349,6 +375,7 @@ export default function IncidentDetail() {
             <AIExplanationCard
               explanation={incident.explanation}
               onGenerate={handleGenerateExplanation}
+              onRegenerate={handleRegenerateExplanation}
               generating={generating}
             />
           </Box>

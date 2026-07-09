@@ -255,12 +255,24 @@ def add_note(incident_id):
 def trigger_explanation(incident_id):
     """
     Always runs synchronously — explanation is in the response body.
-    No Celery, no polling. Uses Groq with 4-model fallback chain.
+    No Celery, no polling. Uses Groq with fallback chain.
     Falls back to rich static explanation if GROQ_API_KEY is not set.
+    Pass { "force": true } to delete an existing explanation and regenerate.
     """
     incident = Incident.query.get_or_404(incident_id)
+
+    # Read body once — used for both lang and force params
+    body = request.get_json(silent=True) or {}
+    lang = body.get('language') or request.args.get('lang') or 'en'
+    force = body.get('force', False)
+
     if incident.explanation:
-        return jsonify({'message': 'Already exists', 'explanation': incident.explanation.to_dict()})
+        if not force:
+            return jsonify({'message': 'Already exists', 'explanation': incident.explanation.to_dict()})
+        # Force regenerate: delete existing and re-generate
+        db.session.delete(incident.explanation)
+        db.session.commit()
+        db.session.refresh(incident)
 
     from app.services.ai_service import build_prompt, _call_groq_with_fallback, _save_fallback_explanation
     from app.models import IncidentExplanation
@@ -274,7 +286,6 @@ def trigger_explanation(incident_id):
             'explanation': incident.explanation.to_dict() if incident.explanation else None,
         })
 
-    lang = (request.get_json(silent=True) or {}).get('language') or request.args.get('lang') or 'en'
     try:
         prompt = build_prompt(incident.to_dict(), language=lang)
         raw, model_used = _call_groq_with_fallback(prompt, max_tokens=600)
@@ -283,6 +294,7 @@ def trigger_explanation(incident_id):
         except json.JSONDecodeError:
             match = re.search(r'\{.*?\}', raw, re.DOTALL)
             data = json.loads(match.group(0)) if match else {}
+
 
         explanation = IncidentExplanation(
             incident_id=incident_id,

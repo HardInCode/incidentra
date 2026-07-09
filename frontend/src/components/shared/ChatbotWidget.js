@@ -3,10 +3,11 @@ import {
   Box, IconButton, Typography, TextField,
   CircularProgress, Chip, Divider, Tooltip, Drawer, useTheme,
 } from '@mui/material';
-import { Close, Send, Delete, AutoAwesome, OpenWith } from '@mui/icons-material';
+import { Close, Send, Delete, AutoAwesome, OpenWith, SmartToy } from '@mui/icons-material';
 import { sendChatMessage } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useChatbotContext } from '../../context/ChatbotContext';
+import { FormattedMessage } from '../../utils/renderMarkdown';
 
 const SESSION_ID = 'chatbot-' + Math.random().toString(36).slice(2);
 const POS_STORAGE_KEY = 'sme_chatbot_pos';
@@ -86,22 +87,40 @@ function Message({ msg }) {
           sx={{ width: 28, height: 28, borderRadius: '50%', mr: 1, flexShrink: 0, mt: 0.5, objectFit: 'contain' }}
         />
       )}
-      <Box sx={{
-        maxWidth: '80%',
-        px: 2, py: 1.2,
-        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-        bgcolor: isUser ? 'action.selected' : 'action.hover',
-        border: `1px solid ${theme.palette.divider}`,
-      }}>
-        <Typography variant="body2" sx={{
-          color: 'text.primary',
-          fontSize: '0.85rem',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          lineHeight: 1.6,
+      <Box sx={{ maxWidth: '80%' }}>
+        <Box sx={{
+          px: 2, py: 1.2,
+          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          bgcolor: isUser ? 'action.selected' : 'action.hover',
+          border: `1px solid ${theme.palette.divider}`,
         }}>
-          {msg.content}
-        </Typography>
+          {isUser ? (
+            <Typography variant="body2" sx={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+              {msg.content}
+            </Typography>
+          ) : (
+            <FormattedMessage content={msg.content} textVariant="body2" textSx={{ fontSize: '0.85rem' }} />
+          )}
+        </Box>
+        {/* Model badge on assistant messages */}
+        {!isUser && msg.model && msg.model !== 'none' && (
+          <Box sx={{ mt: 0.4, ml: 0.5 }}>
+            <Chip
+              icon={<SmartToy sx={{ fontSize: '10px !important' }} />}
+              label={msg.model}
+              size="small"
+              sx={{
+                fontSize: '0.62rem',
+                height: 18,
+                color: 'text.disabled',
+                bgcolor: 'transparent',
+                border: 'none',
+                '& .MuiChip-label': { px: 0.5 },
+                '& .MuiChip-icon': { ml: 0.5 },
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   );
@@ -193,7 +212,11 @@ export default function ChatbotWidget() {
         context: incidentContext ? JSON.stringify(incidentContext) : '',
         session_id: SESSION_ID,
       });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.data.reply,
+        model: res.data.model_used || null,
+      }]);
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
