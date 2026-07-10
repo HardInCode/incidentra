@@ -71,8 +71,10 @@ def create_app(config_name=None):
     from app.api.ip_history import ip_history_bp
     from app.api.audit import audit_bp
     from app.api.notifications import notifications_bp
+    from app.api.users import users_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(incidents_bp, url_prefix='/api/incidents')
     app.register_blueprint(detection_bp, url_prefix='/api/detection')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')

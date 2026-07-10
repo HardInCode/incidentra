@@ -142,7 +142,7 @@ def list_incidents():
 @incidents_bp.route('/bulk-status', methods=['PATCH'])
 @require_role('admin', 'analyst')
 def bulk_update_status():
-    """Update status for multiple incidents. Admin only."""
+    """Bulk-update status for multiple incidents. Admin + analyst (triage workflow)."""
     data = request.get_json() or {}
     ids = data.get('ids') or []
     new_status = data.get('status')

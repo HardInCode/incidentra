@@ -40,7 +40,11 @@ Frontend (React :3000)     vuln-web (:5050) ──► logs/access.log
 | Vuln-web      | [http://localhost:5050](http://localhost:5050)         |
 
 
-**SOC Login:** `admin` / `Admin@Incidentra2026!` · analyst / `Analyst@Incidentra2026!`
+**SOC Login:** `admin` / `analyst` — password is whatever you set via `DEMO_ADMIN_PASSWORD` /
+`DEMO_ANALYST_PASSWORD` in `.env` / `.env.docker` (see [Environment Files](#environment-files)
+below). If left blank, a random password is generated on first seed and printed **once** to
+the startup log (`python run.py` output or `docker compose logs backend`) — it is never stored
+in plaintext.
 
 ---
 
@@ -239,7 +243,7 @@ Incident goes directly into PostgreSQL (without reading `access.log`). Good for 
 ### Mode B — Log Injection (full pipeline) — **recommended for Docker**
 
 1. Ensure stack is running: `docker compose up -d`
-2. Login `http://localhost:3000` (`admin` / `Admin@Incidentra2026!`)
+2. Login `http://localhost:3000` (`admin` / password from `.env.docker` or startup log — see above)
 3. **Incidents** → **Simulate Attack**
 4. Select **Mode B — Log Injection**
 5. Choose attack type e.g., **LFI/RFI** or **SQL Injection**
@@ -259,7 +263,7 @@ Incident goes directly into PostgreSQL (without reading `access.log`). Good for 
 ### Mode B via PowerShell (debug, Docker)
 
 ```powershell
-$body = @{ username = "admin"; password = "Admin@Incidentra2026!" } | ConvertTo-Json
+$body = @{ username = "admin"; password = "<your DEMO_ADMIN_PASSWORD>" } | ConvertTo-Json
 $login = Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/auth/login" `
   -ContentType "application/json" -Body $body
 $headers = @{ Authorization = "Bearer $($login.token)" }

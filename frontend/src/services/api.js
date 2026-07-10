@@ -92,7 +92,15 @@ export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
 // Auth
 export const login = (username, password) => api.post('/auth/login', { username, password });
+export const register = (data) => api.post('/auth/register', data);
 export const getUsers = () => api.get('/auth/users');
+
+// User Management (admin only)
+export const listUsers = (params) => api.get('/users/', { params });
+export const createUser = (data) => api.post('/users/', data);
+export const updateUser = (id, data) => api.patch(`/users/${id}`, data);
+export const resetUserPassword = (id, data) => api.post(`/users/${id}/reset-password`, data);
+export const deleteUser = (id) => api.delete(`/users/${id}`);
 
 // Audit
 export const getAuditLogs = (params) => api.get('/audit/', { params });

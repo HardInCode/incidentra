@@ -29,7 +29,9 @@ docker compose up --build -d
 | Target lab | [http://localhost:5050](http://localhost:5050)         |
 
 
-Login: `admin` / `Admin@Incidentra2026!`  
+Login: check `backend\.env.docker` for `DEMO_ADMIN_PASSWORD` if you set one, otherwise run
+`docker compose logs backend` and look for the one-time generated admin password (printed
+once on first seed — see [docs/GUIDE.md](docs/GUIDE.md#environment-files)).  
 Optional: edit `backend\.env.docker` → `GROQ_API_KEY` (local file, do not commit).
 
 ---
@@ -51,11 +53,11 @@ Reset demo: `python scripts/reset_incidentra.py --clear-logs` (from repo root, b
 ## Ports & login
 
 
-| Service        | URL                                                    | Credentials                      |
-| -------------- | ------------------------------------------------------ | -------------------------------- |
-| SOC Dashboard  | [http://localhost:3000](http://localhost:3000)         | `admin` / `Admin@Incidentra2026!` |
-| Backend API    | [http://localhost:5000/api](http://localhost:5000/api) | JWT after login                  |
-| vuln-web (lab) | [http://localhost:5050](http://localhost:5050)         | `admin` / `password` (shop demo) |
+| Service        | URL                                                    | Credentials                                      |
+| -------------- | ------------------------------------------------------ | ------------------------------------------------- |
+| SOC Dashboard  | [http://localhost:3000](http://localhost:3000)         | `admin` / see `.env`/`.env.docker` or startup log |
+| Backend API    | [http://localhost:5000/api](http://localhost:5000/api) | JWT after login                                  |
+| vuln-web (lab) | [http://localhost:5050](http://localhost:5050)         | `admin` / `password` (shop demo)                 |
 
 
 ---

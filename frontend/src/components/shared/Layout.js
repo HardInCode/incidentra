@@ -8,6 +8,7 @@ import {
 import {
   Dashboard, Security, Block, Rule, Menu,
   Logout, ChevronLeft, Wifi, Settings as SettingsIcon, History, ListAlt,
+  People,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useCurrentUser from '../../hooks/useCurrentUser';
@@ -52,7 +53,11 @@ export default function Layout({ children, onLogout }) {
   const sidebarBg = theme.palette.background.paper;
 
   const navItems = isAdmin
-    ? [...NAV_ITEMS, { labelKey: 'nav.auditLog', Icon: History, path: '/audit' }]
+    ? [
+        ...NAV_ITEMS,
+        { labelKey: 'nav.userManagement', Icon: People, path: '/users' },
+        { labelKey: 'nav.auditLog', Icon: History, path: '/audit' },
+      ]
     : NAV_ITEMS;
 
   const roleChipColor = currentUser?.role === 'admin'

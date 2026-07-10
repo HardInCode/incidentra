@@ -42,6 +42,26 @@ export function StatusChip({ status, size = 'small' }) {
   );
 }
 
+export function AccountStatusChip({ status, size = 'small' }) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const config = theme.semantic?.accountStatus?.[status] || theme.semantic?.accountStatus?.pending;
+  const label = t(`accountStatus.${status || 'pending'}`);
+  return (
+    <Chip
+      label={label}
+      size={size}
+      sx={{
+        color: config.color,
+        bgcolor: config.bg,
+        fontWeight: 700,
+        fontSize: '0.7rem',
+        letterSpacing: '0.03em',
+      }}
+    />
+  );
+}
+
 export function AttackTypeChip({ type, size = 'small' }) {
   const theme = useTheme();
   const atk = theme.semantic?.attackType;

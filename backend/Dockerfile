@@ -12,6 +12,8 @@ COPY . .
 
 RUN chmod +x docker_entrypoint.sh
 
+ENV FLASK_APP=run.py
+
 EXPOSE 5000
 
 CMD ["./docker_entrypoint.sh"]

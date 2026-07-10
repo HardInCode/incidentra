@@ -160,7 +160,7 @@ export default function Settings() {
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>{t('settings.title')}</Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-          {t('settings.subtitle')}
+          {t(isAdmin ? 'settings.subtitle' : 'settings.subtitleAnalyst')}
         </Typography>
       </Box>
 
@@ -265,6 +265,10 @@ export default function Settings() {
         </Card>
       )}
 
+      {/* Sections 1-4 — integration credentials (API keys, SMTP password, Telegram token).
+          Admin only: matches backend PUT /settings/ + /test/* enforcement (require_role('admin')). */}
+      {isAdmin && (
+        <>
       {/* Section 1 — AI Assistant (Groq) */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -459,6 +463,8 @@ export default function Settings() {
           </Box>
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Detection lab mode (capstone demo) */}
       {isAdmin && (

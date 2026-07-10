@@ -8,6 +8,7 @@
     "rules": "Detection Rules",
     "traffic": "Live Traffic",
     "settings": "Settings",
+    "userManagement": "User Management",
     "auditLog": "Audit Log"
   },
   "common": {
@@ -49,6 +50,11 @@
   "blockType": {
     "permanent": "Permanent",
     "temporary": "Temporary"
+  },
+  "accountStatus": {
+    "pending": "Pending",
+    "active": "Active",
+    "suspended": "Suspended"
   },
   "tags": {
     "attack": "Attack",
@@ -296,6 +302,56 @@
     "loadError": "Failed to load traffic. Check if backend is running.",
     "hideStatic": "Hide static assets (CSS/JS)"
   },
+  "users": {
+    "title": "User Management",
+    "subtitle": "{{count}} accounts",
+    "info": "Approve pending self-registrations, assign roles, suspend accounts, or force a password reset.",
+    "searchPlaceholder": "Search username or email...",
+    "filterStatus": "Status",
+    "addUser": "Add User",
+    "colUsername": "Username",
+    "colEmail": "Email",
+    "colRole": "Role",
+    "colStatus": "Status",
+    "colCreatedAt": "Created At",
+    "empty": "No users found",
+    "noRole": "No role",
+    "approve": "Approve",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "resetPassword": "Reset Password",
+    "delete": "Delete",
+    "manageTitle": "Manage User",
+    "manageRoleLabel": "Role",
+    "manageStatusLabel": "Status",
+    "manageHint": "Approving a pending user requires a role to be assigned.",
+    "approveSuccess": "{{username}} approved",
+    "suspendSuccess": "{{username}} suspended",
+    "reactivateSuccess": "{{username}} reactivated",
+    "updateSuccess": "{{username}} updated",
+    "actionFailed": "Action failed",
+    "createTitle": "Add User",
+    "createUsername": "Username",
+    "createEmail": "Email",
+    "createPassword": "Password",
+    "createRole": "Role",
+    "createSuccess": "User {{username}} created",
+    "createFailed": "Failed to create user",
+    "resetPasswordTitle": "Reset Password — {{username}}",
+    "resetPasswordHint": "Leave blank to auto-generate a secure password. It will be shown once below — copy it now, it cannot be retrieved later.",
+    "newPasswordLabel": "New password (optional)",
+    "resetPasswordButton": "Reset Password",
+    "resetPasswordSuccess": "Password reset for {{username}}",
+    "resetPasswordFailed": "Failed to reset password",
+    "generatedPasswordLabel": "Generated password (copy now — shown only once):",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "deleteTitle": "Delete User",
+    "deleteConfirm": "Delete user \"{{username}}\"? This cannot be undone. Any incidents assigned to this user will be unassigned.",
+    "deleteSuccess": "{{username}} deleted",
+    "deleteFailed": "Failed to delete user",
+    "cannotModifySelf": "You cannot modify your own account here"
+  },
   "audit": {
     "title": "Audit Log",
     "subtitle": "Admin actions and security events",
@@ -349,6 +405,7 @@
   "settings": {
     "title": "Settings",
     "subtitle": "Configure external integrations and detection thresholds",
+    "subtitleAnalyst": "Customize your appearance, language, and alert preferences",
     "appearance": "Appearance",
     "theme": "Theme",
     "themeHint": "Preference is saved locally and applied on next visit.",
@@ -470,7 +527,19 @@
     "signIn": "Sign In",
     "username": "Username",
     "password": "Password",
-    "defaultCreds": "Default credentials:",
-    "invalidCredentials": "Invalid username or password."
+    "email": "Email",
+    "confirmPassword": "Confirm Password",
+    "noAccountHint": "Contact your SOC administrator for account access.",
+    "invalidCredentials": "Invalid username or password.",
+    "noAccountPrompt": "Don't have an account?",
+    "registerLink": "Register",
+    "haveAccountPrompt": "Already have an account?",
+    "registerButton": "Create Account",
+    "passwordHint": "At least 8 characters.",
+    "registerHint": "Your account will need admin approval before you can log in.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "registerSuccess": "Registration submitted. An administrator must approve your account before you can log in.",
+    "registerFailed": "Registration failed. Please try again."
   }
 }

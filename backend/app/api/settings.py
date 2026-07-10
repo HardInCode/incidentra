@@ -85,6 +85,7 @@ def update_settings():
 
 
 @settings_bp.route('/test/notification', methods=['POST'])
+@require_role('admin')
 def test_notification():
     from app.services.notification_service import _send_email, _send_telegram
     channel = request.get_json().get('channel', 'both')
@@ -106,6 +107,7 @@ def test_notification():
 
 
 @settings_bp.route('/test/abuseipdb', methods=['POST'])
+@require_role('admin')
 def test_abuseipdb():
     key = _get_raw('ABUSEIPDB_API_KEY')
     if not key:
@@ -122,6 +124,7 @@ def test_abuseipdb():
 
 
 @settings_bp.route('/test/groq', methods=['POST'])
+@require_role('admin')
 def test_groq():
     data = request.get_json(silent=True) or {}
     

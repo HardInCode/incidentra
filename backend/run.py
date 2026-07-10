@@ -24,32 +24,19 @@ def seed():
 
 @app.cli.command('init-db')
 def init_db():
-    """Initialize database tables."""
+    """Apply pending Alembic migrations (replaces the old db.create_all())."""
+    from flask_migrate import upgrade
     with app.app_context():
-        db.create_all()
-        print("Database tables created.")
+        upgrade()
+        print("Database migrated to head.")
 
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        from flask_migrate import upgrade
+        upgrade()
         from app.utils.seeder import seed_all
         seed_all()
-
-        # Add new columns to existing tables if missing (safe to run repeatedly)
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            for col, col_type in [
-                ("country_code", "VARCHAR(5)"),
-                ("abuse_confidence_score", "INTEGER"),
-            ]:
-                try:
-                    conn.execute(text(
-                        f"ALTER TABLE incidents ADD COLUMN IF NOT EXISTS {col} {col_type}"
-                    ))
-                    conn.commit()
-                except Exception:
-                    pass  # Column already exists
 
         # Start log monitor
         from app.core.log_monitor import start_monitor

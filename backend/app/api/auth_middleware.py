@@ -23,12 +23,24 @@ def verify_token():
             os.getenv('SECRET_KEY', 'incidentra-secret'),
             algorithms=['HS256']
         )
-        request.current_user = payload
-        return None  # OK
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Token expired — please log in again'}), 401
     except jwt.InvalidTokenError:
         return jsonify({'error': 'Invalid token'}), 401
+
+    # Re-check live account status on every request — catches accounts that were
+    # suspended (or left pending) after a token was already issued.
+    from app.models import User
+    user = User.query.get(payload.get('user_id'))
+    if not user or not user.is_active:
+        return jsonify({'error': 'Account is inactive — please log in again'}), 401
+    if user.status == 'pending':
+        return jsonify({'error': 'Akun menunggu approval admin'}), 403
+    if user.status == 'suspended':
+        return jsonify({'error': 'Akun Anda disuspend. Silakan hubungi administrator.'}), 403
+
+    request.current_user = payload
+    return None  # OK
 
 
 # REVISI 3A: decorator untuk role-based access control

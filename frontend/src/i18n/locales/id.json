@@ -8,6 +8,7 @@
     "rules": "Aturan Deteksi",
     "traffic": "Lalu Lintas",
     "settings": "Pengaturan",
+    "userManagement": "Kelola Pengguna",
     "auditLog": "Log Audit"
   },
   "common": {
@@ -49,6 +50,11 @@
   "blockType": {
     "permanent": "Permanen",
     "temporary": "Sementara"
+  },
+  "accountStatus": {
+    "pending": "Menunggu",
+    "active": "Aktif",
+    "suspended": "Disuspend"
   },
   "tags": {
     "attack": "Serangan",
@@ -295,6 +301,56 @@
     "tagHint": "Tag bersifat heuristik (cocokkan pola di log). Baris Attack bisa tetap HTTP 200 sampai request berikutnya setelah IP diblokir SOC. Pastikan di Insiden / Kelola IP.",
     "loadError": "Gagal memuat lalu lintas. Periksa apakah backend berjalan."
   },
+  "users": {
+    "title": "Kelola Pengguna",
+    "subtitle": "{{count}} akun",
+    "info": "Approve pendaftaran mandiri yang menunggu, tetapkan role, suspend akun, atau reset password paksa.",
+    "searchPlaceholder": "Cari username atau email...",
+    "filterStatus": "Status",
+    "addUser": "Tambah Pengguna",
+    "colUsername": "Username",
+    "colEmail": "Email",
+    "colRole": "Role",
+    "colStatus": "Status",
+    "colCreatedAt": "Dibuat Pada",
+    "empty": "Tidak ada pengguna ditemukan",
+    "noRole": "Belum ada role",
+    "approve": "Approve",
+    "suspend": "Suspend",
+    "reactivate": "Aktifkan Lagi",
+    "resetPassword": "Reset Password",
+    "delete": "Hapus",
+    "manageTitle": "Kelola Pengguna",
+    "manageRoleLabel": "Role",
+    "manageStatusLabel": "Status",
+    "manageHint": "Approve pengguna pending wajib menetapkan role.",
+    "approveSuccess": "{{username}} disetujui",
+    "suspendSuccess": "{{username}} disuspend",
+    "reactivateSuccess": "{{username}} diaktifkan kembali",
+    "updateSuccess": "{{username}} diperbarui",
+    "actionFailed": "Aksi gagal",
+    "createTitle": "Tambah Pengguna",
+    "createUsername": "Username",
+    "createEmail": "Email",
+    "createPassword": "Password",
+    "createRole": "Role",
+    "createSuccess": "Pengguna {{username}} dibuat",
+    "createFailed": "Gagal membuat pengguna",
+    "resetPasswordTitle": "Reset Password — {{username}}",
+    "resetPasswordHint": "Kosongkan untuk membuat password acak otomatis. Password akan ditampilkan sekali di bawah — salin sekarang, tidak bisa dilihat lagi setelah ini.",
+    "newPasswordLabel": "Password baru (opsional)",
+    "resetPasswordButton": "Reset Password",
+    "resetPasswordSuccess": "Password untuk {{username}} berhasil direset",
+    "resetPasswordFailed": "Gagal mereset password",
+    "generatedPasswordLabel": "Password yang dibuat (salin sekarang — hanya ditampilkan sekali):",
+    "copy": "Salin",
+    "copied": "Disalin ke clipboard",
+    "deleteTitle": "Hapus Pengguna",
+    "deleteConfirm": "Hapus pengguna \"{{username}}\"? Tindakan ini tidak bisa dibatalkan. Insiden yang ditugaskan ke pengguna ini akan dilepas penugasannya.",
+    "deleteSuccess": "{{username}} dihapus",
+    "deleteFailed": "Gagal menghapus pengguna",
+    "cannotModifySelf": "Anda tidak bisa mengubah akun sendiri di sini"
+  },
   "audit": {
     "title": "Log Audit",
     "subtitle": "Aksi admin dan peristiwa keamanan",
@@ -348,6 +404,7 @@
   "settings": {
     "title": "Pengaturan",
     "subtitle": "Konfigurasi integrasi eksternal dan ambang deteksi",
+    "subtitleAnalyst": "Sesuaikan tampilan, bahasa, dan preferensi notifikasi Anda",
     "appearance": "Tampilan",
     "theme": "Tema",
     "themeHint": "Preferensi disimpan lokal dan diterapkan pada kunjungan berikutnya.",
@@ -469,7 +526,19 @@
     "signIn": "Masuk",
     "username": "Nama Pengguna",
     "password": "Kata Sandi",
-    "defaultCreds": "Kredensial default:",
-    "invalidCredentials": "Username atau password salah."
+    "email": "Email",
+    "confirmPassword": "Konfirmasi Kata Sandi",
+    "noAccountHint": "Hubungi administrator SOC untuk mendapatkan akses akun.",
+    "invalidCredentials": "Username atau password salah.",
+    "noAccountPrompt": "Belum punya akun?",
+    "registerLink": "Daftar",
+    "haveAccountPrompt": "Sudah punya akun?",
+    "registerButton": "Buat Akun",
+    "passwordHint": "Minimal 8 karakter.",
+    "registerHint": "Akun Anda perlu disetujui admin sebelum bisa login.",
+    "passwordMismatch": "Kata sandi tidak cocok.",
+    "passwordTooShort": "Kata sandi minimal 8 karakter.",
+    "registerSuccess": "Pendaftaran berhasil dikirim. Administrator harus menyetujui akun Anda sebelum bisa login.",
+    "registerFailed": "Pendaftaran gagal. Silakan coba lagi."
   }
 }

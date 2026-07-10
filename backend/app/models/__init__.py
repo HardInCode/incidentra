@@ -24,7 +24,14 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='analyst')
+    # No column-level default: SQLAlchemy applies client-side defaults even when a caller
+    # explicitly passes role=None (e.g. pending self-registration), so every code path here
+    # sets role explicitly instead (see app/api/auth.py register(), app/api/users.py).
+    role = db.Column(db.String(20), nullable=True)
+    # pending: self-registered, awaiting admin approval (no role, cannot log in)
+    # active: normal login allowed
+    # suspended: admin-disabled, cannot log in
+    status = db.Column(db.String(20), default='active', server_default='active', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -36,6 +43,7 @@ class User(db.Model):
             'username': self.username,
             'email': self.email,
             'role': self.role,
+            'status': self.status,
             'created_at': self.created_at.isoformat() + 'Z',
             'is_active': self.is_active,
         }

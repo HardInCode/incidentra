@@ -15,6 +15,7 @@ import BlockedIPs from './pages/BlockedIPs';
 import DetectionRules from './pages/DetectionRules';
 import Settings from './pages/Settings';
 import AuditLog from './pages/AuditLog';
+import Users from './pages/Users';
 import Login from './pages/Login';
 import ChatbotWidget from './components/shared/ChatbotWidget';
 import SessionTimeoutWarning from './components/shared/SessionTimeoutWarning';
@@ -46,6 +47,7 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
                         <Route path="/rules" element={<DetectionRules />} />
                         <Route path="/traffic" element={<LiveTraffic />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/users" element={<Users />} />
                         <Route path="/audit" element={<AuditLog />} />
                       </Routes>
                       <ChatbotWidget />

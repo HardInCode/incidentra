@@ -95,6 +95,11 @@ export function getSemanticTokens(isDark) {
       bg: isDark ? 'rgba(0,212,170,0.1)' : 'rgba(0,168,132,0.1)',
       borderColor: isDark ? 'rgba(0,212,170,0.25)' : 'rgba(0,168,132,0.3)',
     },
+    accountStatus: {
+      pending:   { color: isDark ? '#ffd600' : '#b45309', bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.18)' },
+      active:    { color: isDark ? '#00e676' : '#007a5e', bg: isDark ? 'rgba(0,230,118,0.12)' : 'rgba(0,168,132,0.12)' },
+      suspended: { color: isDark ? '#ff1744' : '#c62828', bg: isDark ? 'rgba(255,23,68,0.12)' : 'rgba(244,67,54,0.12)' },
+    },
     severity: {
       critical: { color: '#ff1744', bg: isDark ? 'rgba(255,23,68,0.15)' : 'rgba(244,67,54,0.12)', border: isDark ? 'rgba(255,23,68,0.4)' : 'rgba(211,47,47,0.35)' },
       high:     { color: '#ff6d00', bg: isDark ? 'rgba(255,109,0,0.15)' : 'rgba(255,109,0,0.12)', border: isDark ? 'rgba(255,109,0,0.4)' : 'rgba(230,81,0,0.35)' },

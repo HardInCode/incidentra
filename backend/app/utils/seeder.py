@@ -1,17 +1,21 @@
 """Seed the database with default detection rules and demo users."""
 import os
+import secrets
 from werkzeug.security import generate_password_hash
 from app import db
 from app.models import DetectionRule, User, SeverityLevel, AppSetting
 
 # Demo credentials (PostgreSQL users table — hashed, not stored in JSON).
-# Override via env for production; SYNC_DEMO_CREDENTIALS=0 skips password refresh on existing users.
+# No hardcoded default password: set DEMO_ADMIN_PASSWORD / DEMO_ANALYST_PASSWORD manually
+# (see .env / .env.docker), otherwise a random password is generated on first seed and
+# printed ONCE to the startup log — it is never persisted in plaintext anywhere.
+# SYNC_DEMO_CREDENTIALS=0 skips password refresh on existing users.
 DEMO_ADMIN_USER = os.getenv('DEMO_ADMIN_USER', 'admin')
 DEMO_ADMIN_EMAIL = os.getenv('DEMO_ADMIN_EMAIL', 'admin@incidentra.local')
-DEMO_ADMIN_PASSWORD = os.getenv('DEMO_ADMIN_PASSWORD', 'Admin@Incidentra2026!')
+DEMO_ADMIN_PASSWORD = os.getenv('DEMO_ADMIN_PASSWORD', '')
 DEMO_ANALYST_USER = os.getenv('DEMO_ANALYST_USER', 'analyst')
 DEMO_ANALYST_EMAIL = os.getenv('DEMO_ANALYST_EMAIL', 'analyst@incidentra.local')
-DEMO_ANALYST_PASSWORD = os.getenv('DEMO_ANALYST_PASSWORD', 'Analyst@Incidentra2026!')
+DEMO_ANALYST_PASSWORD = os.getenv('DEMO_ANALYST_PASSWORD', '')
 SYNC_DEMO_CREDENTIALS = os.getenv('SYNC_DEMO_CREDENTIALS', '1').lower() in ('1', 'true', 'yes')
 
 
@@ -197,29 +201,49 @@ def seed_rules():
 
 
 def _ensure_demo_user(username, email, password, role):
-    """Create or optionally refresh demo user in PostgreSQL (password stored as hash)."""
+    """Create or optionally refresh demo user in PostgreSQL (password stored as hash).
+
+    - password came from DEMO_*_PASSWORD env var: sync it on every start (explicit operator choice).
+    - password not set: generate a random one on FIRST creation only (printed once, never
+      persisted in plaintext); existing users are left untouched on later restarts so their
+      credentials do not silently change.
+    """
     user = User.query.filter_by(username=username).first()
     if user:
-        if SYNC_DEMO_CREDENTIALS:
+        if password and SYNC_DEMO_CREDENTIALS:
             user.email = email
             user.password_hash = generate_password_hash(password)
             user.role = role
             user.is_active = True
             db.session.commit()
-            print(f"Demo user synced: {username} / {password}")
+            print(f"Demo user synced: {username} (password set from env var)")
         else:
             print(f"Demo user exists (sync skipped): {username}")
         return
+
+    generated = not password
+    if generated:
+        password = secrets.token_urlsafe(12)
 
     user = User(
         username=username,
         email=email,
         password_hash=generate_password_hash(password),
         role=role,
+        status='active',
     )
     db.session.add(user)
     db.session.commit()
-    print(f"Demo user created: {username} / {password}")
+
+    if generated:
+        print("=" * 64)
+        print(f"[SECURITY] Generated first-time password for '{username}':")
+        print(f"  {username} / {password}")
+        print("  Save this now — it will not be shown again. Change it after logging in,")
+        print(f"  or set DEMO_{role.upper()}_PASSWORD in .env / .env.docker to control it.")
+        print("=" * 64)
+    else:
+        print(f"Demo user created: {username} (password set from env var)")
 
 
 def seed_admin():
