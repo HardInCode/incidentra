@@ -3,6 +3,16 @@ set -e
 
 echo "=== Incidentra SOC Backend Starting ==="
 
+# Fix DATABASE_URL for psycopg3 compatibility
+# Railway / some platforms inject postgresql:// but psycopg3 needs postgresql+psycopg://
+if echo "${DATABASE_URL:-}" | grep -q "^postgresql://"; then
+    DATABASE_URL=$(echo "$DATABASE_URL" | sed 's|^postgresql://|postgresql+psycopg://|')
+    export DATABASE_URL
+    echo "DATABASE_URL: converted to psycopg3 format (postgresql+psycopg://)."
+fi
+
+
+
 echo "Waiting for PostgreSQL..."
 python -c "
 import time, os, psycopg
@@ -58,7 +68,7 @@ MONITOR_PID=$!
 echo "Starting gunicorn (log monitor PID=$MONITOR_PID)..."
 exec gunicorn \
   --workers 2 \
-  --bind 0.0.0.0:5000 \
+  --bind 0.0.0.0:${PORT:-5000} \
   --timeout 120 \
   --access-logfile - \
   --error-logfile - \
