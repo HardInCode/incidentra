@@ -8,16 +8,7 @@ import { PlayArrow, Terminal, DirectionsRun } from '@mui/icons-material';
 import { injectLog } from '../../services/api';
 import { toast } from 'react-toastify';
 
-const ATTACK_TYPES = [
-  { value: 'SQL_INJECTION', label: 'SQL Injection', severity: 'Critical', desc: 'Simulates a UNION-based SQL injection attempt' },
-  { value: 'XSS', label: 'Cross-Site Scripting', severity: 'High', desc: 'Simulates a script tag XSS injection' },
-  { value: 'BRUTE_FORCE', label: 'Brute Force', severity: 'High', desc: 'Simulates multiple failed login attempts' },
-  { value: 'PATH_TRAVERSAL', label: 'Path Traversal', severity: 'High', desc: 'Simulates directory traversal attack' },
-  { value: 'COMMAND_INJECTION', label: 'Command Injection', severity: 'Critical', desc: 'Simulates OS command injection' },
-  { value: 'SCANNER', label: 'Security Scanner', severity: 'Medium', desc: 'Simulates automated vulnerability scanner' },
-  { value: 'LFI_RFI', label: 'LFI/RFI', severity: 'Critical', desc: 'Simulates PHP file inclusion attack' },
-  { value: 'FILE_UPLOAD', label: 'File Upload', severity: 'High', desc: 'Simulates POST /files with uploaded filename in log' },
-];
+import { SIMULATE_ATTACK_TYPES } from '../../constants/attackTypes';
 
 const SEVERITY_COLORS = { Critical: '#ff1744', High: '#ff6d00', Medium: '#ffd600' };
 
@@ -27,7 +18,7 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
   const [mode, setMode] = useState('direct');
   const [injecting, setInjecting] = useState(false);
 
-  const selected = ATTACK_TYPES.find(a => a.value === attackType);
+  const selected = SIMULATE_ATTACK_TYPES.find(a => a.value === attackType);
 
   const handleLaunch = async () => {
     if (mode === 'inject') {
@@ -105,7 +96,7 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
         <FormControl fullWidth>
           <InputLabel>Attack Type</InputLabel>
           <Select value={attackType} label="Attack Type" onChange={e => setAttackType(e.target.value)}>
-            {ATTACK_TYPES.map(a => (
+            {SIMULATE_ATTACK_TYPES.map(a => (
               <MenuItem key={a.value} value={a.value}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   <span>{a.label}</span>

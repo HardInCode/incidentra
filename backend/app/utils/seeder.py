@@ -69,6 +69,13 @@ EXTRA_RULES = [
         'severity_level': SeverityLevel.CRITICAL,
         'description': 'Detects shell commands in GET /cmd?cmd=... (vuln-web lab)',
     },
+    {
+        'rule_name': 'CSRF - missing token',
+        'attack_type': 'CSRF',
+        'pattern': r'(?i)(csrf|xsrf).*token.*missing',
+        'severity_level': SeverityLevel.MEDIUM,
+        'description': 'Detects requests rejected for missing CSRF/XSRF token (vuln-web forms lab)',
+    },
 ]
 
 
@@ -188,6 +195,13 @@ def seed_rules():
             'pattern': r'threshold-based: 10+ requests to /login within 60s',
             'severity_level': SeverityLevel.HIGH,
             'description': 'Detects brute force login attempts (threshold-based)',
+        },
+        {
+            'rule_name': 'CSRF - missing token',
+            'attack_type': 'CSRF',
+            'pattern': r'(?i)(csrf|xsrf).*token.*missing',
+            'severity_level': SeverityLevel.MEDIUM,
+            'description': 'Detects requests rejected for missing CSRF/XSRF token (vuln-web forms lab)',
         },
         *EXTRA_RULES,
     ]

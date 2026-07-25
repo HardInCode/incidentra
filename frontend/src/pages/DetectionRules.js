@@ -16,7 +16,7 @@ import FilterBar from '../components/shared/FilterBar';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 
-const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI', 'FILE_UPLOAD'];
+import { ATTACK_TYPES } from '../constants/attackTypes';
 
 const DEFAULT_PAYLOAD = "' OR 1=1--";
 const EXAMPLE_LOG_LINE = '192.168.1.50 - - [15/May/2026:10:30:00 +0000] "GET /search?q=\'+OR+1=1+UNION+SELECT+username,password+FROM+users-- HTTP/1.1" 200 512 "-" "sqlmap/1.7"';

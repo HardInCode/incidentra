@@ -25,7 +25,7 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { getFlagEmoji } from '../utils/country';
 import { iconSize } from '../theme';
 
-const ATTACK_TYPES = ['SQL_INJECTION', 'XSS', 'BRUTE_FORCE', 'PATH_TRAVERSAL', 'COMMAND_INJECTION', 'SCANNER', 'LFI_RFI', 'FILE_UPLOAD'];
+import { ATTACK_TYPES } from '../constants/attackTypes';
 
 const STATUS_OPTIONS_ALL = ['new', 'investigating', 'resolved', 'false_positive'];
 

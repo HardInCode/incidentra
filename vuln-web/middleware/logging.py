@@ -5,7 +5,7 @@ SIDANG Ctrl+F: log_request, POST_DATA
 import datetime
 import os
 
-from flask import request
+from flask import g, request
 
 from config import LOG_FILE
 
@@ -22,6 +22,10 @@ def log_request(response):
                     parts.append(f'{key}={f.filename[:200]}')
         if parts:
             post_data = ' POST_DATA:' + '&'.join(parts)
+
+    log_extra = getattr(g, 'log_extra', '')
+    if log_extra:
+        post_data = f'{post_data} {log_extra}' if post_data else f' POST_DATA:{log_extra}'
 
     log_line = (
         f'{request.remote_addr} - - '

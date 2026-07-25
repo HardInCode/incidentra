@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Contact{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel">
+    <header class="page-head page-head--tight">
+      <h1>Contact us</h1>
+      <p>Send a message to the shop team (demo form).</p>
+    </header>
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success">{{ success }}</div>
+    {% endif %}
+
+    {% set lab_text = "This form has <strong>no CSRF token</strong>. Submitting triggers a 403 and logs <code>error=CSRF token missing</code> — Incidentra should create a <strong>CSRF</strong> incident within a few seconds." %}
+    {% include "partials/lab_hint.html" %}
+
+    <form method="post" class="form-stack">
+      <div>
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" value="{{ name }}" placeholder="Your name">
+      </div>
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="{{ email }}" placeholder="you@example.com">
+      </div>
+      <div>
+        <label for="message">Message</label>
+        <textarea id="message" name="message" rows="4" placeholder="How can we help?">{{ message }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Send message</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -233,6 +233,12 @@ def _save_fallback_explanation(incident_id: int):
                 'actions': '1. Review what the scanner found in the request path.\n2. Check for any follow-up attacks from the same IP.\n3. Ensure your application is patched and up to date.\n4. Consider geo-blocking or rate-limiting suspicious user agents.\n5. Review your public attack surface for unnecessary exposed endpoints.',
                 'mitre': 'T1595 - Active Scanning',
             },
+            'CSRF': {
+                'summary': 'A cross-site request forgery (CSRF) attempt was detected — a state-changing request was made without a valid CSRF token.',
+                'explanation': 'CSRF tricks a logged-in user\'s browser into submitting unwanted actions (e.g. changing settings or transferring funds) using the victim\'s active session.',
+                'actions': '1. Ensure all state-changing forms include a CSRF token validated server-side.\n2. Use SameSite cookies and verify Origin/Referer headers.\n3. Review affected endpoints for unauthorized state changes.\n4. Require re-authentication for sensitive actions.\n5. Audit session activity from the source IP.',
+                'mitre': 'T1185 - Browser Session Hijacking',
+            },
         }
 
         attack_type = incident.attack_type

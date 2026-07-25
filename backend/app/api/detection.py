@@ -82,6 +82,7 @@ def inject_log():
         'SCANNER': f"{ip} - - [{ts}] \"GET / HTTP/1.1\" 200 4096 \"-\" \"Nikto/2.1.6 (Evasions:None)\"",
         'LFI_RFI': f"{ip} - - [{ts}] \"GET /index.php?page=php://filter/convert.base64-encode/resource=config HTTP/1.1\" 200 2048 \"-\" \"curl/7.68.0\"",
         'FILE_UPLOAD': f'{ip} - - [{ts}] "POST /files HTTP/1.1" 302 0 "-" "Mozilla/5.0" POST_DATA:file=shell.php',
+        'CSRF': f'{ip} - - [{ts}] "POST /forms HTTP/1.1" 403 128 "-" "Mozilla/5.0" POST_DATA:error=CSRF+token+missing',
     }
 
     log_block = ATTACK_LOG_LINES.get(attack_type, ATTACK_LOG_LINES['SCANNER'])
@@ -132,6 +133,7 @@ def simulate_attack():
         'COMMAND_INJECTION': '; cat /etc/passwd',
         'SCANNER': 'sqlmap/1.7 (https://sqlmap.org)',
         'FILE_UPLOAD': 'POST_DATA:file=webshell.php',
+        'CSRF': 'POST /forms error=CSRF token missing',
     }
 
     payload = ATTACK_PAYLOADS.get(attack_type, data.get('payload', 'test'))
@@ -141,6 +143,7 @@ def simulate_attack():
         'COMMAND_INJECTION': 'critical', 'SCANNER': 'medium',
         'FILE_UPLOAD': 'high',
         'LFI_RFI': 'critical',
+        'CSRF': 'medium',
     }
     sev = severity_map.get(attack_type, 'medium')
     sev_enum = {'low': SeverityLevel.LOW, 'medium': SeverityLevel.MEDIUM,
