@@ -7,6 +7,7 @@ from app import db
 from app.models import User
 from app.services.audit_service import log_audit
 from app.api.auth_middleware import verify_token
+from app.utils.net import get_client_ip
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -78,7 +79,7 @@ def list_users():
 def register():
     """Self-registration. New accounts start as status=pending / role=None — no access until
     an admin approves them via the User Management panel (see app/api/users.py)."""
-    ip = request.remote_addr or 'unknown'
+    ip = get_client_ip(request)
     if _register_rate_limited(ip):
         return jsonify({'error': 'Too many registration attempts. Please try again later.'}), 429
 

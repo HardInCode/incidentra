@@ -16,6 +16,7 @@ from config import (
     RATE_LIMIT_WINDOW,
     RATE_LIMITED_FILE,
 )
+from ip_utils import get_client_ip
 
 _request_log: dict = defaultdict(list)
 
@@ -51,7 +52,7 @@ def _load_json_file(path):
 
 
 def enforce_security():
-    ip = request.remote_addr
+    ip = get_client_ip(request)
     # endswith (not ==) so this still matches when mounted under a prefix
     # (e.g. Railway deployment mounts this app at /lab -> /lab/api/status).
     if request.path.endswith('/api/status'):

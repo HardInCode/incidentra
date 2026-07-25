@@ -2,6 +2,7 @@ import json
 from flask import request
 from app import db
 from app.models import AuditLog
+from app.utils.net import get_client_ip
 
 
 def log_audit(action, resource_type=None, resource_id=None, details=None, user=None, ip_address=None):
@@ -15,7 +16,7 @@ def log_audit(action, resource_type=None, resource_id=None, details=None, user=N
             resource_type=resource_type,
             resource_id=str(resource_id) if resource_id is not None else None,
             details=json.dumps(details) if details and not isinstance(details, str) else details,
-            ip_address=ip_address or (request.remote_addr if request else None),
+            ip_address=ip_address or (get_client_ip(request) if request else None),
         )
         db.session.add(entry)
         db.session.commit()

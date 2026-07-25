@@ -50,14 +50,18 @@ with app.app_context():
 "
 echo "Backend DB init complete."
 
-echo "Initializing vuln-web demo SQLite database..."
-python -c "
+if [ "${ENABLE_LAB:-true}" = "true" ]; then
+  echo "Initializing vuln-web demo SQLite database..."
+  python -c "
 import sys
 sys.path.insert(0, './vulnweb')
 from db import init_db
 init_db()
 "
-echo "vuln-web DB init complete."
+  echo "vuln-web DB init complete."
+else
+  echo "ENABLE_LAB=false - skipping vuln-web init (lab endpoints disabled)."
+fi
 
 echo "Starting log monitor..."
 python docker_log_monitor.py &

@@ -8,6 +8,7 @@ import os
 from flask import g, request
 
 from config import LOG_FILE
+from ip_utils import get_client_ip
 
 
 def log_request(response):
@@ -28,7 +29,7 @@ def log_request(response):
         post_data = f'{post_data} {log_extra}' if post_data else f' POST_DATA:{log_extra}'
 
     log_line = (
-        f'{request.remote_addr} - - '
+        f'{get_client_ip(request)} - - '
         f'[{datetime.datetime.utcnow().strftime("%d/%b/%Y:%H:%M:%S +0000")}] '
         f'"{request.method} {request.full_path.rstrip("?")} HTTP/1.1" '
         f'{response.status_code} {response.content_length or 0} '
