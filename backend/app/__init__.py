@@ -89,4 +89,9 @@ def create_app(config_name=None):
     app.register_blueprint(audit_bp, url_prefix='/api/audit')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
+    # Unauthenticated health check — Railway (and other PaaS) health probes hit this directly.
+    @app.route('/api/health')
+    def health():
+        return {'status': 'ok'}
+
     return app

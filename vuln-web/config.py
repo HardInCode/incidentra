@@ -12,7 +12,9 @@ RATE_LIMITED_FILE = os.getenv('RATE_LIMITED_JSON', 'logs/rate_limited.json')
 RATE_LIMIT_MAX = int(os.getenv('RATE_LIMIT_MAX_REQUESTS', 10))
 RATE_LIMIT_WINDOW = int(os.getenv('RATE_LIMIT_WINDOW', 60))
 LOG_FILE = os.getenv('VULN_LOG_FILE', 'logs/access.log')
-SAFE_FILES_DIR = os.path.join(os.getcwd(), 'safe_files')
+# Env override lets deployments that don't run this app with CWD at its own project root
+# (e.g. Railway's merged core container, see railway/core/wsgi.py) point at the right dir.
+SAFE_FILES_DIR = os.getenv('VULN_SAFE_FILES_DIR', os.path.join(os.getcwd(), 'safe_files'))
 VULN_PORT = int(os.getenv('VULN_PORT', 5050))
 
 # Phase 3 — only enable on isolated lab machines (see docs/DETECTION.md)

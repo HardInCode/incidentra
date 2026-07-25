@@ -5,16 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _normalize_database_url(raw: str) -> str:
+    """Managed Postgres providers (e.g. Railway) inject postgresql:// — psycopg3 needs the
+    postgresql+psycopg:// driver scheme. No-op if already correct (local Docker Compose)."""
+    if raw.startswith('postgresql://'):
+        return raw.replace('postgresql://', 'postgresql+psycopg://', 1)
+    return raw
+
+
 class BaseConfig:
     SECRET_KEY = os.getenv('SECRET_KEY', 'incidentra-secret-change-in-production')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
     # Database
-    SQLALCHEMY_DATABASE_URI = os.getenv(
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.getenv(
         'DATABASE_URL',
         'postgresql+psycopg://incidentra:incidentra123@localhost:5432/incidentra_db'
-    )
+    ))
 
     # Redis
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')

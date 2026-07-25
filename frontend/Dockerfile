@@ -18,6 +18,11 @@ RUN npm run build
 
 FROM nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx:alpine's default entrypoint runs envsubst on *.template files in
+# /etc/nginx/templates/ before starting nginx, substituting ${PORT}. PaaS platforms like
+# Railway inject a dynamic PORT at runtime; ENV PORT=80 below keeps local Docker Compose
+# (which maps host 3000 -> container 80, and never sets PORT) working unchanged.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+ENV PORT=80
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

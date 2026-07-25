@@ -52,7 +52,9 @@ def _load_json_file(path):
 
 def enforce_security():
     ip = request.remote_addr
-    if request.path == '/api/status':
+    # endswith (not ==) so this still matches when mounted under a prefix
+    # (e.g. Railway deployment mounts this app at /lab -> /lab/api/status).
+    if request.path.endswith('/api/status'):
         return None
 
     blocked_data = _load_json_file(BLOCKED_IPS_FILE)
