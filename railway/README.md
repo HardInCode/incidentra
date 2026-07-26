@@ -22,6 +22,86 @@ vuln-web at `/lab`).
 - `core/entrypoint.sh` — migrate → seed → init vuln-web DB → start log monitor + Celery
 worker/beat in background → `exec gunicorn`.
 
+## Two ways to deploy vuln-web
+
+| | **Option A — merged `/lab`** (default, steps below) | **Option B — separate domain** |
+|---|---|---|
+| Domain | Same domain as `core`, path `/lab/*` | Its own distinct Railway domain, no path prefix |
+| Services | 4 total (`core` bundles vuln-web) | 5 total (`core` + standalone `vulnweb`) |
+| Shared state transport | Same container filesystem (no network hop) | HTTP, over `backend/app/api/internal.py` |
+| Setup effort | Lower (nothing extra) | Higher (2 extra variables + own service) |
+| Looks like, in a demo | One SOC app with a `/lab` sub-path | Two independent sites: a "target website" and a separate "SOC dashboard" |
+
+Both options run the **exact same detection engine, unmodified**: a raw HTTP request
+hits an intentionally vulnerable Flask route in vuln-web, gets appended as one line to
+an access-log file, and the backend's log monitor tails that file and runs it through
+`detection_engine.py` exactly as it always has. The only thing that differs between A
+and B is *how that log line, and the current blocklist, physically travel from vuln-web
+to the backend* — see the next section.
+
+### Why local Docker Compose, Option A, and Option B can legitimately differ (and how to describe this in your report)
+
+`docker-compose.yml` (local) and Option A (Railway, merged) both move state via **a
+shared filesystem** — a Docker named volume locally, one container's own filesystem on
+Railway. Option B moves the *identical* state over **HTTP between two independent
+services** instead, because that's the only way to give vuln-web its own domain without
+a filesystem in common. This is a completely normal, expected divergence between a local
+dev topology and a cloud/PaaS production topology — it happens on real projects any time
+a platform doesn't offer a feature (here: cross-service shared volumes) that a
+single-host `docker-compose` setup gets "for free". Frame it in your report as:
+
+- **Local Docker Compose**: simplest topology for development — one Docker volume
+  (`vuln_logs`) shared by `backend`, `vuln_web`, and `celery_worker` containers.
+- **Production (Railway)**: PaaS platforms typically don't support a volume mounted by
+  more than one service, so state exchange is re-architected around the same
+  boundary that any real microservice split would use — an authenticated internal HTTP
+  API (`POST /api/internal/logs`, `GET /api/internal/blocklist`) — while the detection
+  logic itself, and the local Docker setup, are **completely unchanged**.
+
+This is a legitimate, deliberate architecture decision to point out in your
+report/sidang, not a shortcut — it's the same "log shipping" pattern real SOC/observability
+stacks use (e.g. Filebeat → Logstash) when log producer and log consumer aren't on the
+same host.
+
+### Setting up Option B
+
+Everything below is **additive** on top of Option A's steps (1 and 2) further down —
+follow those first for `Postgres`, `Redis`, and `core`, except set `ENABLE_LAB=false` on
+`core` (vuln-web no longer lives inside it), then come back here.
+
+1. **On `core`'s Variables tab**, add:
+   - `INTERNAL_API_TOKEN` = *(generate a random 32+ char value — this is the shared
+     secret between `core` and the new `vulnweb` service)*
+   - `ENABLE_LAB` = `false` *(vuln-web is no longer mounted inside `core`; it's its own
+     service now)*
+2. **+ Create** → **GitHub Repo** → same repo again. Rename the service to `vulnweb`.
+3. Service → **Settings**:
+   - **Root Directory**: leave **blank** (must stay the repo root, same reason as
+     `core` — the Dockerfile's `COPY vuln-web/ ...` needs that build context).
+   - **Build** → set `RAILWAY_DOCKERFILE_PATH` = `railway/vulnweb/Dockerfile`.
+   - **Networking**: **Generate Domain** — this is vuln-web's own, independent public URL.
+4. Service → **Variables** tab → add:
+   - `LOG_INGEST_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/logs`
+   - `BLOCKLIST_API_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/blocklist`
+   - `INTERNAL_API_TOKEN` = *(same exact value you set on `core` in step 1)*
+   - `VULN_UNSAFE_CMD` = `1`, `VULN_UNSAFE_UPLOAD` = `1` *(needed for the command-injection
+     / file-upload labs to actually work — same as Option A's baked-in defaults)*
+   - `RATE_LIMIT_MAX_REQUESTS` = `10`, `RATE_LIMIT_WINDOW` = `60` *(cosmetic — only shown
+     on vuln-web's own 429 page; real enforcement now comes from `core` via
+     `BLOCKLIST_API_URL`)*
+5. Deploy. Validate:
+   - `https://<vulnweb-domain>/` → vuln-web homepage renders, **on its own domain**.
+   - Trigger an attack (e.g. submit `/forms` without the CSRF token) → within a couple
+     seconds an incident appears on the dashboard, exactly like Option A — confirms
+     `LOG_INGEST_URL` → `/api/internal/logs` → the same log monitor/detection pipeline.
+   - Block that IP from the dashboard → refresh `https://<vulnweb-domain>/` → "Access
+     Forbidden" page — confirms `BLOCKLIST_API_URL` enforcement.
+   - `https://<core-domain>/lab/` should now 404 (vuln-web is no longer mounted there).
+
+Reverting to Option A later is just: delete the `vulnweb` service, set `ENABLE_LAB=true`
+back on `core`, redeploy `core`. Nothing about `core`'s own image or entrypoint changes
+between A and B — only whether vuln-web is bundled inside it or not.
+
 
 
 ## 1. Create the project and datastores
@@ -112,6 +192,8 @@ worker/beat in background → `exec gunicorn`.
 
 ## Turning the `/lab` demo off without touching the API
 
+(Option A only — if you're on Option B, just remove the standalone `vulnweb` service instead.)
+
 Set `ENABLE_LAB` = `false` as a variable on the `core` service and redeploy (just a
 restart — no rebuild needed) to take vuln-web's `/lab/*` endpoints offline entirely.
 `railway/core/wsgi.py` then never even imports vuln-web's code (its unsafe `/cmd`,
@@ -167,12 +249,81 @@ logging/enforcement, backend's `/auth/register` rate limit, audit log IP) now go
 through this helper. **Requires redeploying `core`** (it's a code change, not a
 variable) to take effect.
 
+## Resetting demo state / running one-off commands
+
+Railway's dashboard (Build/Deploy Logs) is history you can scroll, not something you
+"reset" — but the actual *state* that makes a demo look messy (access.log, blocked-IP/
+rate-limit JSON, incidents in Postgres, an IP you got blocked while testing) can be
+cleared. Use the [Railway CLI](https://docs.railway.com/guides/cli):
+
+```bash
+npm i -g @railway/cli
+railway login
+railway link                 # pick this project, then the "core" service
+```
+
+**Open a real shell inside the running `core` container** (equivalent to `docker exec` locally):
+
+```bash
+railway ssh -s core
+```
+
+From that shell:
+
+```bash
+# Wipe the shared log + reset blocked-IP / rate-limit state to empty
+> /app/shared/access.log
+python -c "import json; json.dump({'blocked': [], 'updated_at': ''}, open('/app/shared/blocked_ips.json', 'w'))"
+python -c "import json; json.dump({'rate_limited': [], 'limits': {}, 'updated_at': ''}, open('/app/shared/rate_limited.json', 'w'))"
+
+# Re-run the seeder (idempotent — safe to run again, e.g. after clearing detection rules)
+python -c "from app import create_app; from app.utils.seeder import seed_all; app=create_app(); app.app_context().push(); seed_all()"
+```
+
+Or run a single command without an interactive shell:
+
+```bash
+railway ssh -s core -- python -c "print('hello from inside the container')"
+```
+
+**Clear incidents from Postgres** (the dashboard's Incidents/Live Traffic list) — open a
+`psql` shell directly against the linked database:
+
+```bash
+railway connect Postgres
+```
+```sql
+TRUNCATE incidents, incident_logs, incident_explanations, incident_notes
+  RESTART IDENTITY CASCADE;
+```
+
+**Unblock your own IP** if you got yourself blocked while testing (via ZAP, curl, etc.)
+— either delete the row from Postgres's `blocked_ips` table via `railway connect
+Postgres`, or use the dashboard's own IP Management page (Incidentra → IP Management),
+which does this the "correct" way and re-syncs `/app/shared/blocked_ips.json`
+automatically (see `backend/app/core/response_manager.py::_write_blocked_ips_json`) —
+on Option B, `vulnweb` will pick this up on its next `BLOCKLIST_API_URL` poll (within
+`BLOCKLIST_CACHE_SECONDS`, default 3s), no redeploy needed.
+
+**Option B's `vulnweb` service** has no persistent state of its own worth resetting —
+its SQLite demo DB (`vuln.db`) lives on the container's own ephemeral filesystem, so
+"remove deployment" + redeploy (or just a normal redeploy) already gives you a clean
+slate. `railway ssh -s vulnweb` works the same way as `core` if you need a shell there.
+
 ## Known, accepted risk
 
-`vuln-web`'s lab pages (`/lab/cmd`, `/lab/files` upload) are genuinely exploitable, not
-simulated — anyone who finds the public Railway URL could run commands or upload files
-inside that container. Acceptable for a temporary capstone demo window; redeploy
-afterward to wipe state, or note this as a deliberate, acknowledged risk in your report.
+`vuln-web`'s lab pages (`/cmd`, `/files` upload — at `/lab/cmd` etc. on Option A, or at
+the domain root on Option B) are genuinely exploitable, not simulated — anyone who finds
+the public URL could run commands or upload files inside that container. Option B's own
+domain makes this marginally *more* discoverable (no `/lab` prefix hinting "this is a
+sub-feature of something else"), so treat it with the same caution. Acceptable for a
+temporary capstone demo window either way; redeploy afterward to wipe state, or note this
+as a deliberate, acknowledged risk in your report.
+
+On Option B, also double-check `INTERNAL_API_TOKEN` is set on **both** `core` and
+`vulnweb` before your demo — if it's missing on either side, `/api/internal/*` silently
+stays disabled (404/401), which quietly degrades to "no logs reach the dashboard, no
+blocks are enforced" rather than a loud failure.
 
 A Railway **Volume** mounted at `/app/shared` on the `core` service is optional —
 recommended so blocked-IP/rate-limit state survives restarts, but incidents themselves

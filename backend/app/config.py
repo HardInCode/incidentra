@@ -58,6 +58,11 @@ class BaseConfig:
     # IP Block duration (seconds)
     TEMP_BLOCK_DURATION = int(os.getenv('TEMP_BLOCK_DURATION', '86400'))  # 24 hours
 
+    # Shared secret for the /api/internal/* service-to-service endpoints — only needed
+    # when vuln-web is deployed as its own separate service/domain (see
+    # backend/app/api/internal.py). Empty by default = that API stays disabled.
+    INTERNAL_API_TOKEN = os.getenv('INTERNAL_API_TOKEN', '')
+
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True

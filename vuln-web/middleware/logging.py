@@ -1,14 +1,17 @@
 """
 VULN-WEB LOGGING — Combined Log + POST_DATA suffix for SOC detection.
-SIDANG Ctrl+F: log_request, POST_DATA
+SIDANG Ctrl+F: log_request, POST_DATA, LOG_INGEST_URL
 """
 import datetime
+import logging
 import os
 
 from flask import g, request
 
-from config import LOG_FILE
+from config import INTERNAL_API_TIMEOUT, INTERNAL_API_TOKEN, LOG_FILE, LOG_INGEST_URL
 from ip_utils import get_client_ip
+
+logger = logging.getLogger(__name__)
 
 
 def log_request(response):
@@ -35,9 +38,23 @@ def log_request(response):
         f'{response.status_code} {response.content_length or 0} '
         f'"-" "{request.user_agent.string}"{post_data}'
     )
-    log_dir = os.path.dirname(LOG_FILE)
-    if log_dir:
-        os.makedirs(log_dir, exist_ok=True)
-    with open(LOG_FILE, 'a', encoding='utf-8') as f:
-        f.write(log_line + '\n')
+    if LOG_INGEST_URL:
+        # Decoupled deployment (own domain, no shared volume) — push the line to the
+        # backend instead of appending to a local file it can no longer share.
+        try:
+            import requests
+            requests.post(
+                LOG_INGEST_URL,
+                json={'line': log_line},
+                headers={'X-Internal-Token': INTERNAL_API_TOKEN},
+                timeout=INTERNAL_API_TIMEOUT,
+            )
+        except Exception as e:
+            logger.warning(f'LOG_INGEST_URL push failed: {e}')
+    else:
+        log_dir = os.path.dirname(LOG_FILE)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        with open(LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(log_line + '\n')
     return response

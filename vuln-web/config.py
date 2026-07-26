@@ -21,3 +21,16 @@ VULN_PORT = int(os.getenv('VULN_PORT', 5050))
 VULN_UNSAFE_CMD = _env_bool('VULN_UNSAFE_CMD')
 VULN_UNSAFE_UPLOAD = _env_bool('VULN_UNSAFE_UPLOAD')
 CMD_TIMEOUT_SEC = int(os.getenv('VULN_CMD_TIMEOUT', 5))
+
+# --- Decoupled deployment (vuln-web as its own Railway service/domain) ---
+# Unset by default -> logging.py / security.py fall back to the local LOG_FILE /
+# BLOCKED_IPS_FILE / RATE_LIMITED_FILE above exactly as before (local Docker Compose,
+# and the merged railway/core /lab topology, are both untouched by these).
+# See railway/README.md, "Running vuln-web on its own domain".
+LOG_INGEST_URL = os.getenv('LOG_INGEST_URL', '')
+BLOCKLIST_API_URL = os.getenv('BLOCKLIST_API_URL', '')
+INTERNAL_API_TOKEN = os.getenv('INTERNAL_API_TOKEN', '')
+INTERNAL_API_TIMEOUT = float(os.getenv('INTERNAL_API_TIMEOUT', '2'))
+# How long a fetched blocklist is cached before security.py calls BLOCKLIST_API_URL again
+# — avoids one HTTP round-trip to `core` per request on the hot enforcement path.
+BLOCKLIST_CACHE_SECONDS = float(os.getenv('BLOCKLIST_CACHE_SECONDS', '3'))

@@ -72,6 +72,7 @@ def create_app(config_name=None):
     from app.api.audit import audit_bp
     from app.api.notifications import notifications_bp
     from app.api.users import users_bp
+    from app.api.internal import internal_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
@@ -88,6 +89,7 @@ def create_app(config_name=None):
     app.register_blueprint(ip_history_bp, url_prefix='/api/ip')
     app.register_blueprint(audit_bp, url_prefix='/api/audit')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(internal_bp, url_prefix='/api/internal')
 
     # Unauthenticated health check — Railway (and other PaaS) health probes hit this directly.
     @app.route('/api/health')

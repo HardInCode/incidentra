@@ -1,9 +1,11 @@
 """
-VULN-WEB ENFORCEMENT — reads blocked_ips.json / rate_limited.json (no PostgreSQL).
-SIDANG Ctrl+F: enforce_security → 403 blocked, 429 rate limited
+VULN-WEB ENFORCEMENT — reads blocked_ips.json / rate_limited.json (no PostgreSQL), or
+polls BLOCKLIST_API_URL when deployed as its own service/domain (see BLOCKLIST_API_URL
+below). SIDANG Ctrl+F: enforce_security → 403 blocked, 429 rate limited
 Written by: backend response_manager
 """
 import json
+import logging
 import os
 import time
 from collections import defaultdict
@@ -12,13 +14,19 @@ from flask import render_template_string, request
 
 from config import (
     BLOCKED_IPS_FILE,
+    BLOCKLIST_API_URL,
+    BLOCKLIST_CACHE_SECONDS,
+    INTERNAL_API_TIMEOUT,
+    INTERNAL_API_TOKEN,
     RATE_LIMIT_MAX,
     RATE_LIMIT_WINDOW,
     RATE_LIMITED_FILE,
 )
 from ip_utils import get_client_ip
 
+logger = logging.getLogger(__name__)
 _request_log: dict = defaultdict(list)
+_blocklist_cache: dict = {'data': None, 'fetched_at': 0.0}
 
 FORBIDDEN_HTML = """
 <!DOCTYPE html><html><head><title>403 Forbidden - Incidentra SOC</title>
@@ -51,6 +59,31 @@ def _load_json_file(path):
     return {}
 
 
+def _fetch_blocklist_remote():
+    """GET BLOCKLIST_API_URL (the backend's /api/internal/blocklist), cached for
+    BLOCKLIST_CACHE_SECONDS so the hot enforcement path isn't one HTTP round-trip per
+    request. Falls back to the last-known-good response (or empty) on error, so a
+    transient backend blip fails open rather than crashing every request."""
+    now = time.time()
+    if _blocklist_cache['data'] is not None and now - _blocklist_cache['fetched_at'] < BLOCKLIST_CACHE_SECONDS:
+        return _blocklist_cache['data']
+    try:
+        import requests
+        resp = requests.get(
+            BLOCKLIST_API_URL,
+            headers={'X-Internal-Token': INTERNAL_API_TOKEN},
+            timeout=INTERNAL_API_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        _blocklist_cache['data'] = data
+        _blocklist_cache['fetched_at'] = now
+        return data
+    except Exception as e:
+        logger.warning(f'BLOCKLIST_API_URL fetch failed: {e}')
+        return _blocklist_cache['data'] or {}
+
+
 def enforce_security():
     ip = get_client_ip(request)
     # endswith (not ==) so this still matches when mounted under a prefix
@@ -58,11 +91,17 @@ def enforce_security():
     if request.path.endswith('/api/status'):
         return None
 
-    blocked_data = _load_json_file(BLOCKED_IPS_FILE)
+    if BLOCKLIST_API_URL:
+        combined = _fetch_blocklist_remote()
+        blocked_data = {'blocked': combined.get('blocked', [])}
+        rate_data = {'rate_limited': combined.get('rate_limited', []), 'limits': combined.get('limits', {})}
+    else:
+        blocked_data = _load_json_file(BLOCKED_IPS_FILE)
+        rate_data = _load_json_file(RATE_LIMITED_FILE)
+
     if ip in blocked_data.get('blocked', []):
         return render_template_string(FORBIDDEN_HTML, ip=ip), 403
 
-    rate_data = _load_json_file(RATE_LIMITED_FILE)
     if ip in rate_data.get('rate_limited', []):
         limits = rate_data.get('limits') or {}
         override = limits.get(ip) if isinstance(limits, dict) else None
