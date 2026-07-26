@@ -3,6 +3,131 @@
 This folder contains **Railway-only** deployment files. They are additive — nothing here
 changes `docker-compose.yml` or local development, which keep working exactly as before.
 
+## Table of contents
+
+1. [Quick reference — services & where state lives](#quick-reference--services--where-state-lives)
+2. [One-time setup: CLI + SSH (Windows)](#one-time-setup-cli--ssh-windows)
+3. [Generate secret values](#generate-secret-values)
+4. [Two ways to deploy vuln-web (Option A vs B)](#two-ways-to-deploy-vuln-web)
+5. [Initial deploy — step by step](#1-create-the-project-and-datastores)
+6. [Validate deployment](#4-validate)
+7. [Full demo reset (Postgres + Redis + files)](#full-demo-reset-postgres--redis--files)
+8. [Day-to-day commands cheat sheet](#day-to-day-commands-cheat-sheet)
+9. [Troubleshooting (Windows)](#troubleshooting-windows)
+10. [Turn lab off / pause credits / client IP fix / risks](#turning-the-lab-demo-off-without-touching-the-api)
+
+---
+
+## Quick reference — services & where state lives
+
+
+| Railway service             | Role                                                   | Persists?                 |
+| --------------------------- | ------------------------------------------------------ | ------------------------- |
+| **Postgres**                | Incidents, users, rules, `blocked_ips` table           | ✅ Yes (volume)            |
+| **Redis** (`/0`)            | Escalation tier, rate-limit cache, block cache         | ✅ Yes (TTL up to 30 days) |
+| **Redis** (`/1`, `/2`)      | Celery broker + results                                | Transient                 |
+| **core**                    | Backend API + log monitor + Celery + (Option A) `/lab` | Container filesystem      |
+| **frontend**                | React static site                                      | Stateless                 |
+| **vulnweb** (Option B only) | Standalone vulnerable demo site                        | SQLite ephemeral          |
+
+
+**What each store holds (important for reset):**
+
+
+| Store               | Examples                                                                                     | Cleared how                             |
+| ------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Postgres**        | `incidents`, `blocked_ips`, users, rules                                                     | `railway connect Postgres` → SQL        |
+| **Redis db `/0`**   | `escalation_count:IP`, `escalation_severity:IP`, `blocked:IP`, `ratelimit:IP`, `bf:IP:/path` | SSH into `core` → `flushdb` (see below) |
+| **Files in `core`** | `/app/shared/access.log`, `blocked_ips.json`, `rate_limited.json`                            | SSH into `core` → truncate files        |
+
+
+Unblocking an IP via the dashboard removes it from Postgres + syncs JSON, but `**escalation_*` keys in Redis stay** (by design — repeat-offender tier). For a truly fresh demo, reset all three stores.
+
+---
+
+## One-time setup: CLI + SSH (Windows)
+
+Do this **once** on your dev machine. After that you only need the [day-to-day commands](#day-to-day-commands-cheat-sheet).
+
+### 1. Install & link Railway CLI
+
+```powershell
+npm i -g @railway/cli
+railway login          # opens browser — sign in
+railway link           # pick: workspace → project → environment → service "core"
+```
+
+### 2. Generate SSH key (for shell access into containers)
+
+```powershell
+ssh-keygen -t ed25519 -C "your@email.com" -f "$env:USERPROFILE\.ssh\railway_ed25519"
+```
+
+Press Enter twice for empty passphrase (simplest for demo).
+
+Show the public key:
+
+```powershell
+Get-Content "$env:USERPROFILE\.ssh\railway_ed25519.pub"
+```
+
+Copy the whole line (`ssh-ed25519 AAAA...`).
+
+### 3. Upload public key to Railway
+
+Dashboard → **Workspace Settings** → **SSH Keys** → **Add SSH Key** → paste → Save.
+
+URL: [railway.com/workspace/ssh-keys](https://railway.com/workspace/ssh-keys)
+
+### 4. Trust Railway host (first connect only)
+
+First time you SSH, type `**yes**` when asked about `ssh.railway.com` fingerprint. This is saved to `~/.ssh/known_hosts` and won't ask again.
+
+Optional pre-trust:
+
+```powershell
+ssh-keyscan ssh.railway.com >> "$env:USERPROFILE\.ssh\known_hosts" 2>$null
+```
+
+### 5. Connect (always use `-i` on Windows)
+
+```powershell
+railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519"
+```
+
+Without `-i`, the CLI may say "No SSH keys registered" even though your key is on Railway — it just can't find the right local key file.
+
+Optional PowerShell alias (add to your profile):
+
+```powershell
+function railway-core { railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519" @args }
+# then: railway-core
+```
+
+**Note:** `ssh-agent` / `Start-Service ssh-agent` often fails on Windows without Administrator. You do **not** need ssh-agent if you always pass `-i`.
+
+---
+
+## Generate secret values
+
+For `SECRET_KEY`, `INTERNAL_API_TOKEN` (Option B), etc.:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+
+| Variable              | Where                               | Notes                                          |
+| --------------------- | ----------------------------------- | ---------------------------------------------- |
+| `SECRET_KEY`          | `core` only                         | JWT signing                                    |
+| `INTERNAL_API_TOKEN`  | `core` **and** `vulnweb` (Option B) | **Must be identical** on both services         |
+| `DEMO_ADMIN_PASSWORD` | `core` only                         | Or leave blank → auto-generated in deploy logs |
+
+
+Never commit these to git.
+
+---
+
 ## Why this layout
 
 Locally, `backend`, `celery_worker`, and `vuln_web` share a Docker volume for
@@ -24,13 +149,15 @@ worker/beat in background → `exec gunicorn`.
 
 ## Two ways to deploy vuln-web
 
-| | **Option A — merged `/lab`** (default, steps below) | **Option B — separate domain** |
-|---|---|---|
-| Domain | Same domain as `core`, path `/lab/*` | Its own distinct Railway domain, no path prefix |
-| Services | 4 total (`core` bundles vuln-web) | 5 total (`core` + standalone `vulnweb`) |
-| Shared state transport | Same container filesystem (no network hop) | HTTP, over `backend/app/api/internal.py` |
-| Setup effort | Lower (nothing extra) | Higher (2 extra variables + own service) |
-| Looks like, in a demo | One SOC app with a `/lab` sub-path | Two independent sites: a "target website" and a separate "SOC dashboard" |
+
+|                        | **Option A — merged** `/lab` (default, steps below) | **Option B — separate domain**                                           |
+| ---------------------- | --------------------------------------------------- | ------------------------------------------------------------------------ |
+| Domain                 | Same domain as `core`, path `/lab/*`                | Its own distinct Railway domain, no path prefix                          |
+| Services               | 4 total (`core` bundles vuln-web)                   | 5 total (`core` + standalone `vulnweb`)                                  |
+| Shared state transport | Same container filesystem (no network hop)          | HTTP, over `backend/app/api/internal.py`                                 |
+| Setup effort           | Lower (nothing extra)                               | Higher (2 extra variables + own service)                                 |
+| Looks like, in a demo  | One SOC app with a `/lab` sub-path                  | Two independent sites: a "target website" and a separate "SOC dashboard" |
+
 
 Both options run the **exact same detection engine, unmodified**: a raw HTTP request
 hits an intentionally vulnerable Flask route in vuln-web, gets appended as one line to
@@ -51,12 +178,12 @@ a platform doesn't offer a feature (here: cross-service shared volumes) that a
 single-host `docker-compose` setup gets "for free". Frame it in your report as:
 
 - **Local Docker Compose**: simplest topology for development — one Docker volume
-  (`vuln_logs`) shared by `backend`, `vuln_web`, and `celery_worker` containers.
+(`vuln_logs`) shared by `backend`, `vuln_web`, and `celery_worker` containers.
 - **Production (Railway)**: PaaS platforms typically don't support a volume mounted by
-  more than one service, so state exchange is re-architected around the same
-  boundary that any real microservice split would use — an authenticated internal HTTP
-  API (`POST /api/internal/logs`, `GET /api/internal/blocklist`) — while the detection
-  logic itself, and the local Docker setup, are **completely unchanged**.
+more than one service, so state exchange is re-architected around the same
+boundary that any real microservice split would use — an authenticated internal HTTP
+API (`POST /api/internal/logs`, `GET /api/internal/blocklist`) — while the detection
+logic itself, and the local Docker setup, are **completely unchanged**.
 
 This is a legitimate, deliberate architecture decision to point out in your
 report/sidang, not a shortcut — it's the same "log shipping" pattern real SOC/observability
@@ -69,49 +196,93 @@ Everything below is **additive** on top of Option A's steps (1 and 2) further do
 follow those first for `Postgres`, `Redis`, and `core`, except set `ENABLE_LAB=false` on
 `core` (vuln-web no longer lives inside it), then come back here.
 
-1. **On `core`'s Variables tab**, add:
-   - `INTERNAL_API_TOKEN` = *(generate a random 32+ char value — this is the shared
-     secret between `core` and the new `vulnweb` service)*
-   - `ENABLE_LAB` = `false` *(vuln-web is no longer mounted inside `core`; it's its own
-     service now)*
+1. **On** `core`**'s Variables tab**, add:
+  - `INTERNAL_API_TOKEN` = *(generate a random 32+ char value — this is the shared
+   secret between* `core` *and the new* `vulnweb` *service)*
+  - `ENABLE_LAB` = `false` *(vuln-web is no longer mounted inside* `core`*; it's its own
+  service now)*
 2. **+ Create** → **GitHub Repo** → same repo again. Rename the service to `vulnweb`.
 3. Service → **Settings**:
-   - **Root Directory**: leave **blank** (must stay the repo root, same reason as
-     `core` — the Dockerfile's `COPY vuln-web/ ...` needs that build context).
-   - **Build** → set `RAILWAY_DOCKERFILE_PATH` = `railway/vulnweb/Dockerfile`.
-   - **Networking**: **Generate Domain** — this is vuln-web's own, independent public URL.
+  - **Root Directory**: leave **blank** (must stay the repo root, same reason as
+   `core` — the Dockerfile's `COPY vuln-web/ ...` needs that build context).
+  - **Build** → set `RAILWAY_DOCKERFILE_PATH` = `railway/vulnweb/Dockerfile`.
+  - **Networking**: **Generate Domain** — this is vuln-web's own, independent public URL.
 4. Service → **Variables** tab → add:
-   - `LOG_INGEST_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/logs`
-   - `BLOCKLIST_API_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/blocklist`
-   - `INTERNAL_API_TOKEN` = *(same exact value you set on `core` in step 1)*
-   - `VULN_UNSAFE_CMD` = `1`, `VULN_UNSAFE_UPLOAD` = `1` *(needed for the command-injection
-     / file-upload labs to actually work — same as Option A's baked-in defaults)*
-   - `RATE_LIMIT_MAX_REQUESTS` = `10`, `RATE_LIMIT_WINDOW` = `60` *(cosmetic — only shown
-     on vuln-web's own 429 page; real enforcement now comes from `core` via
-     `BLOCKLIST_API_URL`)*
+  - `LOG_INGEST_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/logs`
+  - `BLOCKLIST_API_URL` = `https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api/internal/blocklist`
+  - `INTERNAL_API_TOKEN` = *(same exact value you set on* `core` *in step 1)*
+  - `VULN_UNSAFE_CMD` = `1`, `VULN_UNSAFE_UPLOAD` = `1` *(needed for the command-injection
+  / file-upload labs to actually work — same as Option A's baked-in defaults)*
+  - `RATE_LIMIT_MAX_REQUESTS` = `10`, `RATE_LIMIT_WINDOW` = `60` *(cosmetic — only shown
+  on vuln-web's own 429 page; real enforcement now comes from* `core` *via*
+  `BLOCKLIST_API_URL`*)*
 5. Deploy. Validate:
-   - `https://<vulnweb-domain>/` → vuln-web homepage renders, **on its own domain**.
-   - Trigger an attack (e.g. submit `/forms` without the CSRF token) → within a couple
-     seconds an incident appears on the dashboard, exactly like Option A — confirms
-     `LOG_INGEST_URL` → `/api/internal/logs` → the same log monitor/detection pipeline.
-   - Block that IP from the dashboard → refresh `https://<vulnweb-domain>/` → "Access
-     Forbidden" page — confirms `BLOCKLIST_API_URL` enforcement.
-   - `https://<core-domain>/lab/` should now 404 (vuln-web is no longer mounted there).
+  - `https://<vulnweb-domain>/` → vuln-web homepage renders, **on its own domain**.
+  - Trigger an attack (e.g. submit `/forms` without the CSRF token) → within a couple
+  seconds an incident appears on the dashboard, exactly like Option A — confirms
+  `LOG_INGEST_URL` → `/api/internal/logs` → the same log monitor/detection pipeline.
+  - Block that IP from the dashboard → refresh `https://<vulnweb-domain>/` → "Access
+  Forbidden" page — confirms `BLOCKLIST_API_URL` enforcement.
+  - `https://<core-domain>/lab/` should now 404 (vuln-web is no longer mounted there).
 
 Reverting to Option A later is just: delete the `vulnweb` service, set `ENABLE_LAB=true`
 back on `core`, redeploy `core`. Nothing about `core`'s own image or entrypoint changes
 between A and B — only whether vuln-web is bundled inside it or not.
 
+---
+
+## Deployment checklist (summary)
+
+Follow this order so nothing is missed. Details in each section below.
+
+### A. Push code to GitHub
+
+```powershell
+git add .
+git commit -m "your message"
+git push origin main
+```
+
+Railway auto-redeploys linked services on push. Key commits for this project:
 
 
-## 1. Create the project and datastores
+| Commit / topic              | What it adds                                                       |
+| --------------------------- | ------------------------------------------------------------------ |
+| Railway Deployment          | `railway/core/*`, merged `/lab` topology, health check             |
+| Railway Deployment 2        | `get_client_ip()` fix for real client IP behind Railway proxy      |
+| Railway Deployment vuln-web | Option B: `railway/vulnweb/*`, `/api/internal/*` HTTP log shipping |
+
+
+### B. Railway dashboard — create services (first time)
+
+- [ ] **Empty project** → add **PostgreSQL** + **Redis** plugins
+- [ ] `**core**` service — repo root, `RAILWAY_DOCKERFILE_PATH=railway/core/Dockerfile`, all env vars, healthcheck `/api/health`, Generate Domain
+- [ ] `**frontend**` service — root dir `frontend`, `REACT_APP_API_URL=https://${{core.RAILWAY_PUBLIC_DOMAIN}}/api`, Generate Domain
+- [ ] Back on `**core**`: set `CORS_ORIGINS=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}` → redeploy
+
+### C. Option B only — separate vuln-web domain
+
+- [ ] On `**core**`: `ENABLE_LAB=false`, `INTERNAL_API_TOKEN=<generated secret>`
+- [ ] Create `**vulnweb**` service — `RAILWAY_DOCKERFILE_PATH=railway/vulnweb/Dockerfile`, Generate Domain
+- [ ] On `**vulnweb**`: `LOG_INGEST_URL`, `BLOCKLIST_API_URL`, same `INTERNAL_API_TOKEN`, `VULN_UNSAFE_CMD=1`, `VULN_UNSAFE_UPLOAD=1`
+
+### D. One-time on your PC (CLI + SSH)
+
+- [ ] `npm i -g @railway/cli` → `railway login` → `railway link` (pick `core`)
+- [ ] `ssh-keygen` → upload `.pub` to Railway Workspace SSH Keys
+- [ ] Test: `railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519"`
+
+### E. Before each demo
+
+- [ ] Services running (not "removed deployment")
+- [ ] [Full demo reset](#full-demo-reset-postgres--redis--files) if previous testing left data
+
+---
 
 1. Railway dashboard → **New Project** → **Empty Project** (so you can wire things up
   before the first deploy).
 2. **+ Create** → **Database** → **Add PostgreSQL**.
 3. **+ Create** → **Database** → **Add Redis**.
-
-
 
 ## 2. Create the "core" service (backend API + `/lab` + workers)
 
@@ -155,8 +326,6 @@ between A and B — only whether vuln-web is bundled inside it or not.
 5. Deploy. Watch the build + deploy logs for migration/seed/Celery/log-monitor startup
   messages (from `railway/core/entrypoint.sh`).
 
-
-
 ## 3. Create the "frontend" service
 
 1. **+ Create** → **GitHub Repo** → same repo again. Rename the service to `frontend`.
@@ -173,8 +342,6 @@ between A and B — only whether vuln-web is bundled inside it or not.
 5. Go back to the **core** service's Variables and set `CORS_ORIGINS` (step 2) now that
   `frontend`'s domain exists, then redeploy `core`.
 
-
-
 ## 4. Validate
 
 1. `core` service logs show migrations + seed succeeding, and both
@@ -187,8 +354,6 @@ between A and B — only whether vuln-web is bundled inside it or not.
 5. Block an IP from the dashboard → confirm `https://<core-domain>/lab/...` returns the
   "Access Forbidden" page for that IP (confirms the shared-state fix works without a
    Docker volume).
-
-
 
 ## Turning the `/lab` demo off without touching the API
 
@@ -211,20 +376,20 @@ Railway has no single "pause project" button, but two real options per service
 (Settings → Deploy, or the Deployments tab):
 
 - **Remove the active deployment** (Deployments tab → active deployment's `...` menu →
-  **Remove**, or `railway down` via CLI). This fully stops the service and its resource
-  usage/billing while keeping all variables and config intact — redeploy anytime from
-  the same menu.
+**Remove**, or `railway down` via CLI). This fully stops the service and its resource
+usage/billing while keeping all variables and config intact — redeploy anytime from
+the same menu.
 - **Serverless** (Settings → Deploy → toggle **Serverless**) auto-sleeps a service after
-  10 minutes with no *outbound* traffic and auto-wakes on the next request (small
-  cold-start delay, occasional first-request 502). This works well for `frontend`
-  (static nginx has no background outbound traffic), but **won't reliably sleep `core`**
-  — its Celery worker/beat keep an open connection to Redis, which counts as continuous
-  outbound traffic and prevents Railway from ever considering it inactive. Use "Remove
-  deployment" for `core` instead when you want to pause it.
+10 minutes with no *outbound* traffic and auto-wakes on the next request (small
+cold-start delay, occasional first-request 502). This works well for `frontend`
+(static nginx has no background outbound traffic), but **won't reliably sleep** `core`
+— its Celery worker/beat keep an open connection to Redis, which counts as continuous
+outbound traffic and prevents Railway from ever considering it inactive. Use "Remove
+deployment" for `core` instead when you want to pause it.
 - Postgres/Redis plugins can also be paused via "Remove deployment" — their volumes
-  (and data) are untouched, only the running instance stops. Fine to do between work
-  sessions; just remember to redeploy `core` (and it) before your next demo, in that
-  order (Postgres/Redis need to be up first).
+(and data) are untouched, only the running instance stops. Fine to do between work
+sessions; just remember to redeploy `core` (and it) before your next demo, in that
+order (Postgres/Redis need to be up first).
 
 ## Client IP behind Railway's edge proxy
 
@@ -246,69 +411,154 @@ then `request.remote_addr` as a last resort (this last case is what still runs l
 under Docker Compose, since there's no reverse proxy there — zero behavior change).
 Every place that used `request.remote_addr` for a security decision (vuln-web's
 logging/enforcement, backend's `/auth/register` rate limit, audit log IP) now goes
-through this helper. **Requires redeploying `core`** (it's a code change, not a
+through this helper. **Requires redeploying** `core` (it's a code change, not a
 variable) to take effect.
 
-## Resetting demo state / running one-off commands
+## Full demo reset (Postgres + Redis + files)
 
-Railway's dashboard (Build/Deploy Logs) is history you can scroll, not something you
-"reset" — but the actual *state* that makes a demo look messy (access.log, blocked-IP/
-rate-limit JSON, incidents in Postgres, an IP you got blocked while testing) can be
-cleared. Use the [Railway CLI](https://docs.railway.com/guides/cli):
+Use this before a fresh demo/presentation when ZAP testing left incidents, blocks, and
+escalation tiers behind. **All four steps** — skipping Redis leaves "offense #2" labels
+even after Postgres is clean.
 
-```bash
-npm i -g @railway/cli
-railway login
-railway link                 # pick this project, then the "core" service
-```
+### Step 1 — Postgres: clear incidents & blocked IPs
 
-**Open a real shell inside the running `core` container** (equivalent to `docker exec` locally):
+From your project folder (PowerShell):
 
-```bash
-railway ssh -s core
-```
-
-From that shell:
-
-```bash
-# Wipe the shared log + reset blocked-IP / rate-limit state to empty
-> /app/shared/access.log
-python -c "import json; json.dump({'blocked': [], 'updated_at': ''}, open('/app/shared/blocked_ips.json', 'w'))"
-python -c "import json; json.dump({'rate_limited': [], 'limits': {}, 'updated_at': ''}, open('/app/shared/rate_limited.json', 'w'))"
-
-# Re-run the seeder (idempotent — safe to run again, e.g. after clearing detection rules)
-python -c "from app import create_app; from app.utils.seeder import seed_all; app=create_app(); app.app_context().push(); seed_all()"
-```
-
-Or run a single command without an interactive shell:
-
-```bash
-railway ssh -s core -- python -c "print('hello from inside the container')"
-```
-
-**Clear incidents from Postgres** (the dashboard's Incidents/Live Traffic list) — open a
-`psql` shell directly against the linked database:
-
-```bash
+```powershell
 railway connect Postgres
 ```
+
+At the `railway=#` prompt (this is **psql**, not the Linux shell):
+
 ```sql
 TRUNCATE incidents, incident_logs, incident_explanations, incident_notes
   RESTART IDENTITY CASCADE;
+DELETE FROM blocked_ips;
+\q
 ```
 
-**Unblock your own IP** if you got yourself blocked while testing (via ZAP, curl, etc.)
-— either delete the row from Postgres's `blocked_ips` table via `railway connect
-Postgres`, or use the dashboard's own IP Management page (Incidentra → IP Management),
-which does this the "correct" way and re-syncs `/app/shared/blocked_ips.json`
-automatically (see `backend/app/core/response_manager.py::_write_blocked_ips_json`) —
-on Option B, `vulnweb` will pick this up on its next `BLOCKLIST_API_URL` poll (within
-`BLOCKLIST_CACHE_SECONDS`, default 3s), no redeploy needed.
+Success looks like: `TRUNCATE TABLE` then back to PowerShell.
 
-**Option B's `vulnweb` service** has no persistent state of its own worth resetting —
-its SQLite demo DB (`vuln.db`) lives on the container's own ephemeral filesystem, so
-"remove deployment" + redeploy (or just a normal redeploy) already gives you a clean
-slate. `railway ssh -s vulnweb` works the same way as `core` if you need a shell there.
+### Step 2 — Redis: clear escalation / rate-limit / block cache
+
+`railway connect Redis` often **fails on Windows** (`Unrecognized option ... '-u'`).
+Use the SSH workaround instead:
+
+```powershell
+railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519"
+```
+
+Inside the container (`root@...:/app#`):
+
+```bash
+python -c "
+import os, redis
+r = redis.from_url(os.environ['REDIS_URL'])
+before = r.dbsize()
+r.flushdb()
+print(f'Redis db 0 flushed ({before} keys deleted, {r.dbsize()} left)')
+"
+exit
+```
+
+This removes keys like `escalation_count:IP`, `escalation_severity:IP`, `blocked:IP`,
+`ratelimit:IP`, `bf:IP:/path`.
+
+**Alternative (no SSH):** Dashboard → **Redis** → **Data** → search `escalation_` → delete
+each key via ⋮ menu. Slower but works.
+
+### Step 3 — Files in `core`: clear log + JSON enforcement state
+
+SSH into `core` again (or stay in the same session before `exit`):
+
+```bash
+> /app/shared/access.log
+truncate -s 0 /app/shared/access.log
+python -c "import json; json.dump({'blocked': [], 'updated_at': ''}, open('/app/shared/blocked_ips.json', 'w'))"
+python -c "import json; json.dump({'rate_limited': [], 'limits': {}, 'updated_at': ''}, open('/app/shared/rate_limited.json', 'w'))"
+```
+
+cek:
+
+```bash
+wc -c /app/shared/access.log
+cat /app/shared/blocked_ips.json
+```
+
+### Step 4 — Verify
+
+- Dashboard → Incidents: empty
+- Dashboard → IP Management: empty
+- Redis → Data: no `escalation_*` keys (or very few)
+- Hit vuln-web / run ZAP again → fresh incidents with your real IP (not `100.64.0.x`)
+
+### Optional — re-seed detection rules
+
+If you also wiped rules or want defaults back (inside `core` SSH):
+
+```bash
+python -c "from app import create_app; from app.utils.seeder import seed_all; app=create_app(); app.app_context().push(); seed_all()"
+```
+
+---
+
+## Day-to-day commands cheat sheet
+
+
+| Task                | Command                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| Link project (once) | `railway link`                                                          |
+| SSH into `core`     | `railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519"`        |
+| Postgres shell      | `railway connect Postgres`                                              |
+| Stream deploy logs  | `railway logs -s core`                                                  |
+| Full demo reset     | Steps 1–3 in [Full demo reset](#full-demo-reset-postgres--redis--files) |
+
+
+**What SSH is for:** optional maintenance only (reset files, run scripts, flush Redis).
+Deploy, env vars, and normal app use do **not** require SSH.
+
+---
+
+## Troubleshooting (Windows)
+
+
+| Symptom                                              | Cause                                           | Fix                                                     |
+| ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------- |
+| `No SSH keys found`                                  | No key in agent / wrong default key             | Always use `-i "$env:USERPROFILE\.ssh\railway_ed25519"` |
+| `No SSH keys registered with Railway` (without `-i`) | CLI can't find local key                        | Same — use `-i` flag                                    |
+| `Are you sure you want to continue connecting?`      | First SSH to Railway                            | Type `**yes**` once                                     |
+| `Connection closed` immediately                      | `core` deployment stopped/removed               | Redeploy `core` in dashboard                            |
+| `RESTART: command not found` in shell                | Pasted SQL into **Linux shell** instead of psql | Use `railway connect Postgres` for SQL                  |
+| `railway connect Redis` → `-u` error                 | Windows `redis-cli` too old for URL/TLS         | Use SSH + Python `flushdb` (Step 2 above)               |
+| One-liner `railway ssh -- python -c "..."` fails     | PowerShell mangles quotes                       | Use interactive SSH shell instead                       |
+| `Start-Service ssh-agent` Access denied              | Needs Administrator                             | Skip agent; use `-i`                                    |
+| Incidents show IP `100.64.0.x`                       | Old deploy before X-Real-IP fix                 | Redeploy `core` with latest code; reset state           |
+| Option B: no incidents from vuln-web                 | `INTERNAL_API_TOKEN` missing/mismatch           | Set **same token** on `core` and `vulnweb`              |
+| Option B: blocks don't apply on vuln-web             | `BLOCKLIST_API_URL` wrong or token missing      | Check vars; redeploy `vulnweb`                          |
+
+
+---
+
+## Resetting demo state / running one-off commands (legacy section)
+
+See [Full demo reset](#full-demo-reset-postgres--redis--files) above for the complete
+checklist. Quick file-only reset (does **not** clear Postgres or Redis):
+
+```powershell
+railway ssh -s core -i "$env:USERPROFILE\.ssh\railway_ed25519"
+```
+
+```bash
+> /app/shared/access.log
+python -c "import json; json.dump({'blocked': [], 'updated_at': ''}, open('/app/shared/blocked_ips.json', 'w'))"
+python -c "import json; json.dump({'rate_limited': [], 'limits': {}, 'updated_at': ''}, open('/app/shared/rate_limited.json', 'w'))"
+exit
+```
+
+**Unblock your own IP** without full reset — use dashboard **IP Management** (recommended).
+On Option B, `vulnweb` picks up the change within ~3s via `BLOCKLIST_API_URL`.
+
+**Option B's** `vulnweb` **service** — redeploy for a clean SQLite lab DB; no shared files to reset.
 
 ## Known, accepted risk
 
