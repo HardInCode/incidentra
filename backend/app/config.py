@@ -31,7 +31,7 @@ class BaseConfig:
 
     # Groq AI
     GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-    GROQ_MODEL = os.getenv('GROQ_MODEL', 'meta-llama/llama-4-scout-17b-16e-instruct')
+    GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b')
 
     # AbuseIPDB
     ABUSEIPDB_API_KEY = os.getenv('ABUSEIPDB_API_KEY', '')

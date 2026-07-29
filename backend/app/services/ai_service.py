@@ -22,15 +22,14 @@ def _strip_think_tags(text: str) -> str:
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Fallback model chain — tries primary then falls through automatically.
-# Primary: llama-4-scout (30K tpm, 500K tpd — best free-tier limits)
-# Removed (deprecated by Groq, decommissioned Aug 16 2026):
-#   llama-3.3-70b-versatile, llama-3.1-8b-instant, llama-guard-4-12b
+# Order: quality first, then high daily-quota models as last resort (Jul 2026 limits).
+# Decommissioned: llama-4-scout-17b, qwen3-32b (Jul 17). Deprecated Aug 16: llama-3.1-8b-instant.
 GROQ_FALLBACK_MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'openai/gpt-oss-120b',
-    'qwen/qwen3-32b',
-    'qwen/qwen3.6-27b',
-    'openai/gpt-oss-20b',
+    'openai/gpt-oss-120b',       # primary — Groq's recommended replacement
+    'qwen/qwen3.6-27b',          # strong alternative
+    'openai/gpt-oss-20b',        # lighter, same family
+    'llama-3.1-8b-instant',      # 14.4K RPD — best free-tier volume until Aug 16
+    'allam-2-7b',                # 7K RPD — active last-resort
 ]
 
 

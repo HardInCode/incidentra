@@ -461,7 +461,7 @@
     "labModeTitle": "Detection Lab Mode",
     "labModeLabel": "Use only active rules from Detection Rules (disable OWASP baseline)",
     "labModeHint": "Default OFF for production-style demos. When ON, attacks are detected only if they match an active rule in the UI — useful to prove custom regex (e.g. lorem ipsum SQLi). AI assistant is unchanged.",
-    "groqTestHint": "This model is used for both the Chatbot and AI Incident Analysis. The selected model is tried first, then the system automatically falls back to the next model in the list if it fails. Deprecated models (llama-3.3-70b-versatile, llama-3.1-8b-instant) have been removed."
+    "groqTestHint": "This model powers the Chatbot and AI Incident Analysis. Your selection is tried first, then the system automatically falls back through four backup models. llama-3.1-8b-instant remains as a high daily-quota fallback (14.4K/day) until Aug 2026."
   },
   "ipHistory": {
     "title": "IP History",

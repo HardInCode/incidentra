@@ -23,14 +23,13 @@ import {
   playNotificationSound,
 } from '../utils/notificationSound';
 
-// Current Groq models (non-deprecated as of July 2026).
-// llama-3.3-70b-versatile and llama-3.1-8b-instant removed — deprecated Aug 16 2026.
+// Groq models — 5-model chain (quality → high daily quota fallback). Sync with ai_service.py.
 const GROQ_MODELS = [
-  'meta-llama/llama-4-scout-17b-16e-instruct',
   'openai/gpt-oss-120b',
-  'qwen/qwen3-32b',
   'qwen/qwen3.6-27b',
   'openai/gpt-oss-20b',
+  'llama-3.1-8b-instant', // deprecated Aug 16 2026 — kept for 14.4K RPD sidang buffer
+  'allam-2-7b',
 ];
 
 function ConfigBadge({ configured }) {

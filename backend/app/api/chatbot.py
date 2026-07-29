@@ -15,15 +15,13 @@ def _check_auth():
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Fallback model chain — tries primary then falls through automatically.
-# Removed (deprecated by Groq, decommissioned Aug 16 2026):
-#   llama-3.3-70b-versatile, llama-3.1-8b-instant
+# Fallback model chain — keep in sync with ai_service.GROQ_FALLBACK_MODELS.
 GROQ_MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
     'openai/gpt-oss-120b',
-    'qwen/qwen3-32b',
     'qwen/qwen3.6-27b',
     'openai/gpt-oss-20b',
+    'llama-3.1-8b-instant',
+    'allam-2-7b',
 ]
 
 # In-memory conversation history per session (last 10 messages)
