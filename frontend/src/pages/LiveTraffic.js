@@ -11,11 +11,13 @@ import { getRecentTraffic } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLogTime, parseNginxLogTime } from '../utils/locale';
 
+import { brandCyan } from '../theme';
+
 const TAG_COLORS = {
   attack: '#ff4444',
   suspicious: '#ffaa00',
   blocked: '#ff6d00',
-  normal: '#00d4aa',
+  normal: brandCyan.main,
 };
 
 const TAG_ICONS = {
@@ -26,7 +28,7 @@ const TAG_ICONS = {
 };
 
 const METHOD_COLORS = {
-  GET: '#00d4aa',
+  GET: brandCyan.main,
   POST: '#7c4dff',
   DELETE: '#ff4444',
   PUT: '#ffaa00',
@@ -35,7 +37,7 @@ const METHOD_COLORS = {
 function getStatusColor(status) {
   if (status >= 500) return '#ff4444';
   if (status >= 400) return '#ffaa00';
-  return '#00d4aa';
+  return brandCyan.main;
 }
 
 export default function LiveTraffic() {
@@ -112,7 +114,7 @@ export default function LiveTraffic() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={() => setPaused(!paused)} sx={{ color: paused ? '#ffaa00' : '#00d4aa' }} title={paused ? t('traffic.resume') : t('traffic.pause')}>
+          <IconButton onClick={() => setPaused(!paused)} sx={{ color: paused ? '#ffaa00' : brandCyan.main }} title={paused ? t('traffic.resume') : t('traffic.pause')}>
             {paused ? <PlayArrow /> : <Pause />}
           </IconButton>
           <IconButton onClick={fetchTraffic} sx={{ color: 'primary.main' }} title={t('common.refresh')}>
@@ -128,7 +130,7 @@ export default function LiveTraffic() {
             width: 10,
             height: 10,
             borderRadius: '50%',
-            bgcolor: paused ? '#ffaa00' : '#00d4aa',
+            bgcolor: paused ? '#ffaa00' : brandCyan.main,
             animation: paused ? 'none' : 'pulse 1.5s ease-in-out infinite',
             '@keyframes pulse': {
               '0%, 100%': { opacity: 1 },

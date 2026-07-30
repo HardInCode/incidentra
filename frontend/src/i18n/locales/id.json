@@ -102,7 +102,12 @@
     "severityTrend": "Tren Tingkat (7 Hari)",
     "attackTypes": "Tipe Serangan",
     "topIps": "IP Penyerang Teratas",
-    "incidentCount": "{{count}} insiden"
+    "incidentCount": "{{count}} insiden",
+    "attackOrigins": "Asal Serangan (7 Hari)",
+    "attackOriginsHint": "Negara sumber dari enrichment threat intel AbuseIPDB",
+    "attackOriginsEmpty": "Belum ada data geografis. Atur kunci API AbuseIPDB di Settings dan picu insiden dari IP publik (simulasi default: 45.33.32.156).",
+    "attackOriginsNoGeo": "{{count}} insiden 7 hari terakhir tanpa negara — IP lokal/privat dilewati AbuseIPDB.",
+    "topCountries": "Negara Teratas"
   },
   "incidents": {
     "title": "Insiden",

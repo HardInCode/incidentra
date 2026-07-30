@@ -102,7 +102,12 @@
     "severityTrend": "Severity Trend (7 Days)",
     "attackTypes": "Attack Types",
     "topIps": "Top Attacking IPs",
-    "incidentCount": "{{count}} incidents"
+    "incidentCount": "{{count}} incidents",
+    "attackOrigins": "Attack Origins (7 Days)",
+    "attackOriginsHint": "Geographic source countries from AbuseIPDB threat intel enrichment",
+    "attackOriginsEmpty": "No geographic data yet. Set your AbuseIPDB API key in Settings and trigger incidents from public IPs (simulate uses 45.33.32.156 by default).",
+    "attackOriginsNoGeo": "{{count}} incidents in the last 7 days have no country — private/local IPs are skipped by AbuseIPDB.",
+    "topCountries": "Top Countries"
   },
   "incidents": {
     "title": "Incidents",

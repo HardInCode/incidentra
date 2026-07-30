@@ -13,6 +13,7 @@ import { getIncident, updateIncidentStatus, addIncidentNote, triggerExplanation,
 import { getFlagEmoji } from '../utils/country';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
+import { brandCyan, brandAlpha } from '../theme';
 import { formatLocaleDate } from '../utils/locale';
 import { SeverityChip, StatusChip, AttackTypeChip } from '../components/shared/Chips';
 import { useChatbotContext } from '../context/ChatbotContext';
@@ -24,7 +25,7 @@ function InfoRow({ label, value, mono = false }) {
       <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem', minWidth: 140, flexShrink: 0, pt: 0.1 }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: '0.875rem', fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-all', color: mono ? '#00d4aa' : 'text.primary' }}>
+      <Typography sx={{ fontSize: '0.875rem', fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-all', color: mono ? brandCyan.main : 'text.primary' }}>
         {value || '—'}
       </Typography>
     </Box>
@@ -57,7 +58,7 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
   }
 
   return (
-    <Card sx={{ border: '1px solid rgba(0,212,170,0.25)', background: 'rgba(0,212,170,0.04)' }}>
+    <Card sx={{ border: `1px solid ${brandAlpha(0.25)}`, background: brandAlpha(0.04) }}>
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <AutoAwesome sx={{ color: '#7c4dff' }} />
@@ -84,8 +85,8 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
           </Tooltip>
         </Box>
 
-        <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: '3px solid #00d4aa' }}>
-          <Typography variant="body2" sx={{ color: '#00d4aa', fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: `3px solid ${brandCyan.main}` }}>
+          <Typography variant="body2" sx={{ color: brandCyan.main, fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
             {t('incidentDetail.summary')}
           </Typography>
           <Typography variant="body1"><InlineContent text={explanation.ai_summary} /></Typography>
@@ -116,7 +117,7 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Shield sx={{ fontSize: 16, color: '#8892a4' }} />
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {t('incidentDetail.mitre')} <span style={{ color: '#00d4aa', fontFamily: 'monospace' }}>{explanation.mitre_technique}</span>
+              {t('incidentDetail.mitre')} <span style={{ color: brandCyan.main, fontFamily: 'monospace' }}>{explanation.mitre_technique}</span>
             </Typography>
           </Box>
         )}
@@ -236,7 +237,7 @@ export default function IncidentDetail() {
   const getAbuseColor = (score) => {
     if (score >= 75) return { bg: 'rgba(255,68,68,0.15)', color: '#ff4444', border: '#ff444433' };
     if (score >= 25) return { bg: 'rgba(255,170,0,0.15)', color: '#ffaa00', border: '#ffaa0033' };
-    return { bg: 'rgba(0,212,170,0.15)', color: '#00d4aa', border: '#00d4aa33' };
+    return { bg: brandAlpha(0.15), color: brandCyan.main, border: `${brandCyan.main}33` };
   };
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
@@ -348,7 +349,7 @@ export default function IncidentDetail() {
                     </IconButton>
                   </Tooltip>
                 </Box>
-                <Box sx={{ bgcolor: 'rgba(0,0,0,0.4)', borderRadius: 2, p: 2, fontFamily: 'monospace', fontSize: '0.78rem', color: '#00d4aa', wordBreak: 'break-all', maxHeight: 200, overflow: 'auto' }}>
+                <Box sx={{ bgcolor: 'rgba(0,0,0,0.4)', borderRadius: 2, p: 2, fontFamily: 'monospace', fontSize: '0.78rem', color: brandCyan.main, wordBreak: 'break-all', maxHeight: 200, overflow: 'auto' }}>
                   {incident.raw_payload}
                 </Box>
               </CardContent>
@@ -386,7 +387,7 @@ export default function IncidentDetail() {
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2 }}>{t('incidentDetail.automatedActions')}</Typography>
                 {incident.logs.map(log => (
-                  <Box key={log.id} sx={{ mb: 1.5, pl: 2, borderLeft: '2px solid rgba(0,212,170,0.3)' }}>
+                  <Box key={log.id} sx={{ mb: 1.5, pl: 2, borderLeft: `2px solid ${brandAlpha(0.3)}` }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
                       {log.action_taken.replace(/_/g, ' ')}
                     </Typography>

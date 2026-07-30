@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
-  Box, Grid, Card, CardContent, CardActionArea, Typography, CircularProgress,
+  Box, Grid, Card, CardContent, Typography, CircularProgress,
   Chip, Button, IconButton, Tooltip, LinearProgress, useTheme,
 } from '@mui/material';
 import {
@@ -14,11 +14,13 @@ import {
   Legend, Filler,
 } from 'chart.js';
 import { getDashboardStats, getLogStatus } from '../services/api';
-import { iconSize } from '../theme';
+import { iconSize, brandCyan } from '../theme';
 import { SeverityChip, AttackTypeChip } from '../components/shared/Chips';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate, formatChartDay } from '../utils/locale';
+
+const AttackOriginsGlobe = React.lazy(() => import('../components/dashboard/AttackOriginsGlobe'));
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, ChartTooltip, Legend, Filler);
 
@@ -56,11 +58,15 @@ function StatCard({ title, value, icon, color, subtitle, onClick, clickHint }) {
     return <Card sx={{ height: '100%' }}>{body}</Card>;
   }
 
+  // CardActionArea hover overlay can get stuck after scroll-without-mousemove
+  // (classic MUI bug) — plain clickable Card avoids the fade/disappear glitch.
   return (
-    <Tooltip title={clickHint || ''} placement="top">
+    <Tooltip title={clickHint || ''} placement="top" enterDelay={400}>
       <Card
+        onClick={onClick}
         sx={{
           height: '100%',
+          cursor: 'pointer',
           transition: 'border-color 0.2s, box-shadow 0.2s',
           border: '1px solid transparent',
           '&:hover': {
@@ -69,9 +75,7 @@ function StatCard({ title, value, icon, color, subtitle, onClick, clickHint }) {
           },
         }}
       >
-        <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
-          {body}
-        </CardActionArea>
+        {body}
       </Card>
     </Tooltip>
   );
@@ -199,7 +203,7 @@ export default function Dashboard() {
     datasets: [{
       label: 'Incidents',
       data: timelineCounts,
-      ...linePointStyle(timelineCounts, '#00d4aa', { fill: true }),
+      ...linePointStyle(timelineCounts, brandCyan.main, { fill: true }),
     }],
   };
 
@@ -296,7 +300,7 @@ export default function Dashboard() {
             title={t('dashboard.totalIncidents')}
             value={stats?.total_incidents}
             icon={<Security />}
-            color="#00d4aa"
+            color={brandCyan.main}
             subtitle={t('dashboard.allTime')}
             onClick={() => navigate('/incidents/all')}
             clickHint={t('dashboard.goAllIncidents')}
@@ -399,16 +403,39 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* Attack breakdown + Top IPs */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+      {/* Attack origins globe */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12}>
           <Card>
             <CardContent>
+              <Suspense fallback={(
+                <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress color="primary" size={32} />
+                </Box>
+              )}
+              >
+                <AttackOriginsGlobe
+                  countries={stats?.top_countries}
+                  geoEnriched7d={stats?.geo_enriched_7d}
+                  last7d={stats?.last_7d}
+                />
+              </Suspense>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Attack breakdown + Top IPs — equal-height row */}
+      <Grid container spacing={2} alignItems="stretch">
+        <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" sx={{ mb: 2 }}>{t('dashboard.attackTypes')}</Typography>
-              <Box sx={{ height: 200 }}>
+              <Box sx={{ flex: 1, minHeight: 200 }}>
                 <Bar data={attackData} options={{
                   ...chartDefaults,
                   indexAxis: 'y',
+                  maintainAspectRatio: false,
                   scales: {
                     x: countScale(tickColor, gridColor, attackCounts),
                     y: { grid: { display: false }, ticks: { color: tickColor } },
@@ -418,16 +445,17 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+        <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6">{t('dashboard.topIps')}</Typography>
                 <Button size="small" onClick={() => navigate('/incidents')} sx={{ color: 'primary.main' }}>
                   {t('common.viewAll')}
                 </Button>
               </Box>
-              {stats?.top_attacking_ips?.slice(0, 6).map((item, i) => (
+              <Box sx={{ flex: 1 }}>
+              {stats?.top_attacking_ips?.slice(0, 6).map((item) => (
                 <Box key={item.ip} sx={{ mb: 1.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#ff6d00' }}>
@@ -444,6 +472,7 @@ export default function Dashboard() {
                   />
                 </Box>
               ))}
+              </Box>
             </CardContent>
           </Card>
         </Grid>

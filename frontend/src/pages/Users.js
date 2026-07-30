@@ -17,6 +17,7 @@ import { AccountStatusChip } from '../components/shared/Chips';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
+import { brandCyan } from '../theme';
 
 const dialogContentSx = {
   display: 'flex',
@@ -251,7 +252,7 @@ export default function Users() {
                   <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                     {user.status === 'pending' && (
                       <Tooltip title={t('users.approve')}>
-                        <IconButton size="small" onClick={() => openManage(user)} sx={{ color: '#00a884', mr: 0.5 }}>
+                        <IconButton size="small" onClick={() => openManage(user)} sx={{ color: brandCyan.light, mr: 0.5 }}>
                           <CheckCircle sx={{ fontSize: 18 }} />
                         </IconButton>
                       </Tooltip>
@@ -263,7 +264,7 @@ export default function Users() {
                             size="small"
                             disabled={isSelf(user)}
                             onClick={() => (user.status === 'suspended' ? handleQuickStatus(user, 'active') : handleQuickStatus(user, 'suspended'))}
-                            sx={{ color: user.status === 'suspended' ? '#00a884' : '#ff9800', mr: 0.5 }}
+                            sx={{ color: user.status === 'suspended' ? brandCyan.light : '#ff9800', mr: 0.5 }}
                           >
                             {user.status === 'suspended' ? <CheckCircle sx={{ fontSize: 18 }} /> : <Block sx={{ fontSize: 18 }} />}
                           </IconButton>

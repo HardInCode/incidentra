@@ -2,6 +2,20 @@ import { createTheme } from '@mui/material';
 
 export const THEME_STORAGE_KEY = 'incidentra-theme';
 
+/** Vivid cyan — primary brand accent (replaces former teal #00d4aa). */
+export const brandCyan = {
+  main: '#00c7d4',
+  dark: '#00a3ad',
+  light: '#00a8b3',
+  rgb: '0, 199, 212',
+  rgbLight: '0, 168, 179',
+};
+
+export function brandAlpha(alpha, isDark = true) {
+  const rgb = isDark ? brandCyan.rgb : brandCyan.rgbLight;
+  return `rgba(${rgb}, ${alpha})`;
+}
+
 export const severityColors = {
   critical: '#ff1744',
   high: '#ff6d00',
@@ -79,8 +93,8 @@ export function getSemanticTokens(isDark) {
       color: isDark ? '#ff6d00' : '#e65100',
     },
     navActive: {
-      bg: isDark ? 'rgba(0,212,170,0.12)' : 'rgba(0,168,132,0.1)',
-      border: isDark ? 'rgba(0,212,170,0.25)' : 'rgba(0,168,132,0.35)',
+      bg: isDark ? brandAlpha(0.12, true) : brandAlpha(0.1, false),
+      border: isDark ? brandAlpha(0.25, true) : brandAlpha(0.35, false),
     },
     navHover: {
       bg: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
@@ -91,9 +105,9 @@ export function getSemanticTokens(isDark) {
       borderColor: isDark ? 'rgba(255,109,0,0.3)' : 'rgba(255,109,0,0.35)',
     },
     chipAnalyst: {
-      color: isDark ? '#00d4aa' : '#00a884',
-      bg: isDark ? 'rgba(0,212,170,0.1)' : 'rgba(0,168,132,0.1)',
-      borderColor: isDark ? 'rgba(0,212,170,0.25)' : 'rgba(0,168,132,0.3)',
+      color: isDark ? brandCyan.main : brandCyan.light,
+      bg: isDark ? brandAlpha(0.1, true) : brandAlpha(0.1, false),
+      borderColor: isDark ? brandAlpha(0.25, true) : brandAlpha(0.3, false),
     },
     accountStatus: {
       pending:   { color: isDark ? '#ffd600' : '#b45309', bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.18)' },
@@ -113,8 +127,8 @@ export function getSemanticTokens(isDark) {
       false_positive: { color: isDark ? '#8892a4' : '#5f6b7a', bg: isDark ? 'rgba(136,146,164,0.12)' : 'rgba(158,158,158,0.15)' },
     },
     attackType: {
-      color: isDark ? '#00d4aa' : '#00a884',
-      border: isDark ? 'rgba(0,212,170,0.3)' : 'rgba(0,168,132,0.35)',
+      color: isDark ? brandCyan.main : brandCyan.light,
+      border: isDark ? brandAlpha(0.3, true) : brandAlpha(0.35, false),
     },
     surfaceMuted: {
       bg: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
@@ -194,7 +208,9 @@ export function createAppTheme(mode = 'dark') {
     palette: {
       mode,
       primary: {
-        main: isDark ? '#00d4aa' : '#00a884',
+        main: isDark ? brandCyan.main : brandCyan.light,
+        dark: brandCyan.dark,
+        light: brandCyan.main,
         contrastText: isDark ? '#0a0e1a' : '#ffffff',
       },
       secondary: { main: '#7c4dff' },

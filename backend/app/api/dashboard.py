@@ -92,6 +92,24 @@ def get_stats():
         Incident.source_ip, func.count(Incident.id).label('count')
     ).group_by(Incident.source_ip).order_by(func.count(Incident.id).desc()).limit(10).all()
 
+    # Top source countries (AbuseIPDB enrichment → incident.country_code)
+    top_countries = db.session.query(
+        Incident.country_code,
+        func.count(Incident.id).label('count'),
+    ).filter(
+        Incident.created_at >= last_7d,
+        Incident.country_code.isnot(None),
+        Incident.country_code != '',
+    ).group_by(Incident.country_code).order_by(
+        func.count(Incident.id).desc()
+    ).limit(20).all()
+
+    geo_enriched_7d = db.session.query(func.count(Incident.id)).filter(
+        Incident.created_at >= last_7d,
+        Incident.country_code.isnot(None),
+        Incident.country_code != '',
+    ).scalar() or 0
+
     # Mean Time to Resolve (MTTR) in minutes
     resolved = Incident.query.filter(
         Incident.status == IncidentStatus.RESOLVED,
@@ -118,6 +136,8 @@ def get_stats():
         'timeline': timeline,
         'severity_timeline': severity_timeline,
         'top_attacking_ips': [{'ip': ip, 'count': c} for ip, c in top_ips],
+        'top_countries': [{'code': code, 'count': c} for code, c in top_countries],
+        'geo_enriched_7d': geo_enriched_7d,
         'system_status': _get_system_status(),
     })
 

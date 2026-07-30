@@ -7,7 +7,7 @@ import {
 import {
   Search, ArrowUpward, ArrowDownward, FilterList, ExpandMore, ExpandLess,
 } from '@mui/icons-material';
-import { iconSize } from '../../theme';
+import { iconSize, brandCyan, brandAlpha } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function FilterBar({
@@ -76,8 +76,8 @@ export default function FilterBar({
               py: 0.5,
               '&.Mui-selected': {
                 color: 'primary.main',
-                bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,212,170,0.1)' : 'rgba(0,168,132,0.12)',
-                borderColor: theme.palette.mode === 'dark' ? 'rgba(0,212,170,0.3)' : 'rgba(0,168,132,0.35)',
+                bgcolor: brandAlpha(0.1, theme.palette.mode === 'dark'),
+                borderColor: brandAlpha(0.3, theme.palette.mode === 'dark'),
               },
             },
           }}

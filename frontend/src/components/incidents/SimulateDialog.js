@@ -9,6 +9,7 @@ import { injectLog } from '../../services/api';
 import { toast } from 'react-toastify';
 
 import { SIMULATE_ATTACK_TYPES } from '../../constants/attackTypes';
+import { brandCyan, brandAlpha } from '../../theme';
 
 const SEVERITY_COLORS = { Critical: '#ff1744', High: '#ff6d00', Medium: '#ffd600' };
 
@@ -76,13 +77,13 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
             />
             <FormControlLabel
               value="inject"
-              control={<Radio size="small" sx={{ color: '#00d4aa', '&.Mui-checked': { color: '#00d4aa' } }} />}
+              control={<Radio size="small" sx={{ color: brandCyan.main, '&.Mui-checked': { color: brandCyan.main } }} />}
               label={
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Terminal sx={{ fontSize: 16, color: '#00d4aa' }} />
+                    <Terminal sx={{ fontSize: 16, color: brandCyan.main }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>Mode B — Log Injection</Typography>
-                    <Chip label="Realistic" size="small" sx={{ bgcolor: 'rgba(0,212,170,0.12)', color: '#00d4aa', fontSize: '0.65rem' }} />
+                    <Chip label="Realistic" size="small" sx={{ bgcolor: brandAlpha(0.12), color: brandCyan.main, fontSize: '0.65rem' }} />
                   </Box>
                   <Typography variant="caption" sx={{ color: 'text.secondary', pl: 3, display: 'block' }}>
                     Writes to access.log and runs the full detection pipeline immediately. Change IP if you see a duplicate warning.

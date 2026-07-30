@@ -17,6 +17,7 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 
 import { ATTACK_TYPES } from '../constants/attackTypes';
+import { brandCyan, brandAlpha } from '../theme';
 
 const DEFAULT_PAYLOAD = "' OR 1=1--";
 const EXAMPLE_LOG_LINE = '192.168.1.50 - - [15/May/2026:10:30:00 +0000] "GET /search?q=\'+OR+1=1+UNION+SELECT+username,password+FROM+users-- HTTP/1.1" 200 512 "-" "sqlmap/1.7"';
@@ -175,7 +176,7 @@ export function DetectionRules() {
               variant="outlined"
               startIcon={<Add />}
               onClick={() => { setEditRule(null); setDialogOpen(true); }}
-              sx={{ borderColor: 'rgba(0,212,170,0.4)', color: 'primary.main' }}
+              sx={{ borderColor: brandAlpha(0.4), color: 'primary.main' }}
             >
               {t('rules.addRule')}
             </Button>
@@ -294,7 +295,7 @@ export function DetectionRules() {
                   <TableCell sx={{ fontWeight: 600 }}>{rule.rule_name}</TableCell>
                   <TableCell>
                     <Chip label={rule.attack_type.replace(/_/g, ' ')} size="small" variant="outlined"
-                      sx={{ color: '#00d4aa', borderColor: 'rgba(0,212,170,0.3)', fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                      sx={{ color: brandCyan.main, borderColor: brandAlpha(0.3), fontFamily: 'monospace', fontSize: '0.7rem' }} />
                   </TableCell>
                   <TableCell>
                     <Chip label={t(`severity.${rule.severity_level}`)} size="small"
@@ -306,7 +307,7 @@ export function DetectionRules() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip label={rule.match_count || 0} size="small" sx={{ bgcolor: 'rgba(0,212,170,0.1)', color: 'primary.main' }} />
+                    <Chip label={rule.match_count || 0} size="small" sx={{ bgcolor: brandAlpha(0.1), color: 'primary.main' }} />
                   </TableCell>
                   <TableCell align="center">
                     {/* Toggle hanya berfungsi jika admin, analyst hanya lihat */}
@@ -321,7 +322,7 @@ export function DetectionRules() {
                   {/* REVISI 3B: Actions hanya untuk admin */}
                   {isAdmin && (
                     <TableCell align="center">
-                      <Tooltip title={t('rules.edit')}><IconButton size="small" onClick={() => openEdit(rule)}><Edit sx={{ fontSize: 16, color: '#00d4aa' }} /></IconButton></Tooltip>
+                      <Tooltip title={t('rules.edit')}><IconButton size="small" onClick={() => openEdit(rule)}><Edit sx={{ fontSize: 16, color: brandCyan.main }} /></IconButton></Tooltip>
                       <Tooltip title={t('rules.delete')}><IconButton size="small" onClick={() => handleDelete(rule.id)}><Delete sx={{ fontSize: 16, color: '#ff4444' }} /></IconButton></Tooltip>
                     </TableCell>
                   )}
