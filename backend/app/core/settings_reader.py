@@ -1,7 +1,7 @@
 """
 Runtime settings: AppSetting (PostgreSQL) first, then environment variables.
 
-Sidang / Ctrl+F anchors:
+Ctrl+F anchors:
   - Lab mode toggle key: DETECTION_LAB_MODE_UI_ONLY
   - Brute-force threshold: BRUTE_FORCE_THRESHOLD
   - Rate-limit window: RATE_LIMIT_WINDOW

@@ -1,6 +1,6 @@
 """
 LOG MONITOR — tail access.log → parse → detect → incident → block.
-SIDANG Ctrl+F: ingest_log_lines, _process_log_line, start_monitor
+Ctrl+F: ingest_log_lines, _process_log_line, start_monitor
 See: log_parser.parse_log_line, detection_engine.DetectionEngine.analyze, response_manager.respond
 """
 import threading

@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ─── OWASP BASELINE PATTERNS (hardcoded, not AI) ─────────────────────────────
-# SIDANG / Ctrl+F: search "OWASP_BASELINE_PATTERNS" or "DETECTION_PATTERNS"
+# Ctrl+F: search "OWASP_BASELINE_PATTERNS" or "DETECTION_PATTERNS"
 # File: backend/app/core/detection_engine.py
 # These regexes are merged after DB rules UNLESS Settings → Lab mode (UI rules only).
 # AI explanations are separate: backend/app/services/ai_service.py (Groq fallback).

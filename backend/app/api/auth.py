@@ -1,3 +1,8 @@
+"""
+LOGIN & SELF-REGISTRATION — JWT issue on login, pending-approval signup, anti-spam.
+Ctrl+F: login, register, _make_token, _register_rate_limited, LOGIN_ERROR_CODES
+Token verified per-request in: app/api/auth_middleware.py (verify_token)
+"""
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -14,11 +19,12 @@ auth_bp = Blueprint('auth', __name__)
 REGISTER_RATE_LIMIT = 5  # max attempts per IP per hour
 REGISTER_RATE_WINDOW = 3600  # seconds
 
-# Messages kept separate from generic "Invalid credentials" — these are account-state
-# rejections (not a hint about whether the username/password itself was wrong).
-STATUS_MESSAGES = {
-    'pending': 'Akun menunggu approval admin. Silakan hubungi administrator.',
-    'suspended': 'Akun Anda disuspend. Silakan hubungi administrator.',
+# Machine-readable error codes returned in JSON { "error": "<code>" }.
+# Frontend maps these to i18n keys (en.json / id.json) so messages follow app language.
+# Never put user-facing prose here — only stable codes.
+LOGIN_ERROR_CODES = {
+    'pending': 'account_pending',
+    'suspended': 'account_suspended',
 }
 
 
@@ -48,20 +54,23 @@ def _register_rate_limited(ip):
     return attempts > REGISTER_RATE_LIMIT
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST'])  # POST /api/auth/login — called from frontend api.js → login()
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(username=data.get('username')).first()
-    # Generic error for missing user / wrong password — never reveal which one failed.
-    if not user or not check_password_hash(user.password_hash, data.get('password', '')):
-        return jsonify({'error': 'Invalid credentials'}), 401
-    if user.status in STATUS_MESSAGES:
-        return jsonify({'error': STATUS_MESSAGES[user.status]}), 403
-    if not user.is_active:
-        return jsonify({'error': 'Akun tidak aktif. Silakan hubungi administrator.'}), 403
-    token = _make_token(user.id, user.username, user.role)
-    log_audit('auth.login', user={'user_id': user.id, 'username': user.username, 'role': user.role})
-    return jsonify({'token': token, 'user': user.to_dict()})
+    data = request.get_json()  # JSON body { username, password } from axios (Login.js)
+    user = User.query.filter_by(username=data.get('username')).first()  # SQLAlchemy: SELECT FROM users WHERE username = ... LIMIT 1
+
+    if not user or not check_password_hash(user.password_hash, data.get('password', '')):  # werkzeug: compare plain password vs hash in DB
+        return jsonify({'error': 'invalid_credentials'}), 401  # same error for wrong user OR wrong password (security)
+
+    if user.status in LOGIN_ERROR_CODES:  # pending / suspended — error code → i18n on frontend
+        return jsonify({'error': LOGIN_ERROR_CODES[user.status]}), 403
+
+    if not user.is_active:  # admin deactivated account
+        return jsonify({'error': 'account_inactive'}), 403
+
+    token = _make_token(user.id, user.username, user.role)  # JWT 24h, signed with SECRET_KEY
+    log_audit('auth.login', user={'user_id': user.id, 'username': user.username, 'role': user.role})  # audit trail row
+    return jsonify({'token': token, 'user': user.to_dict()})  # frontend: res.data.token → localStorage → dashboard
 
 
 @auth_bp.route('/users', methods=['GET'])
@@ -81,7 +90,7 @@ def register():
     an admin approves them via the User Management panel (see app/api/users.py)."""
     ip = get_client_ip(request)
     if _register_rate_limited(ip):
-        return jsonify({'error': 'Too many registration attempts. Please try again later.'}), 429
+        return jsonify({'error': 'register_rate_limited'}), 429
 
     data = request.get_json() or {}
     username = (data.get('username') or '').strip()
@@ -89,13 +98,13 @@ def register():
     password = data.get('password') or ''
 
     if not username or not email or not password:
-        return jsonify({'error': 'username, email and password are required'}), 400
+        return jsonify({'error': 'register_fields_required'}), 400
     if len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        return jsonify({'error': 'register_password_too_short'}), 400
     if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'Username already exists'}), 409
+        return jsonify({'error': 'username_exists'}), 409
     if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already registered'}), 409
+        return jsonify({'error': 'email_exists'}), 409
 
     user = User(
         username=username,
@@ -117,6 +126,6 @@ def register():
     )
 
     return jsonify({
-        'message': 'Registration submitted. An administrator must approve your account before you can log in.',
+        'message': 'registered',
         'user': user.to_dict(),
     }), 201

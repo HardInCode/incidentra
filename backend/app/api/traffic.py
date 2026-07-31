@@ -1,6 +1,6 @@
 """
 LIVE TRAFFIC API — display-only tags (Attack/Normal/Blocked); NOT the detection engine.
-SIDANG Ctrl+F: ATTACK_KEYWORDS, TRAFFIC_ATTACK_PATTERNS, _parse_line, get_recent_traffic
+Ctrl+F: ATTACK_KEYWORDS, TRAFFIC_ATTACK_PATTERNS, _parse_line, get_recent_traffic
 Incidents: detection_engine.analyze (separate pipeline)
 """
 import re

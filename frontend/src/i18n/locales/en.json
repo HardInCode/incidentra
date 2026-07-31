@@ -545,6 +545,14 @@
     "passwordMismatch": "Passwords do not match.",
     "passwordTooShort": "Password must be at least 8 characters.",
     "registerSuccess": "Registration submitted. An administrator must approve your account before you can log in.",
-    "registerFailed": "Registration failed. Please try again."
+    "registerFailed": "Registration failed. Please try again.",
+    "accountPending": "Your account is awaiting administrator approval. Please contact an administrator.",
+    "accountSuspended": "Your account has been suspended. Please contact an administrator.",
+    "accountInactive": "Your account is inactive. Please contact an administrator.",
+    "registerRateLimited": "Too many registration attempts. Please try again later.",
+    "registerFieldsRequired": "Username, email, and password are required.",
+    "registerPasswordTooShortServer": "Password must be at least 8 characters.",
+    "usernameExists": "Username already exists.",
+    "emailExists": "Email already registered."
   }
 }

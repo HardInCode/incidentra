@@ -1,6 +1,6 @@
 """
 RESPONSE MANAGER — severity → monitor / rate_limit / escalating_block.
-SIDANG Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit
+Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit
 
 Escalation logic (configurable in Settings):
   HIGH:     1st → 1h, 2nd → 24h, 3rd+ → 7d + Repeat Offender flag

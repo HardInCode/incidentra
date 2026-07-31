@@ -1,6 +1,6 @@
 """
 LOG PARSER — NCSA Combined Log + vuln-web POST_DATA suffix.
-SIDANG Ctrl+F: parse_log_line, LogTailer, POST_DATA_PATTERN
+Ctrl+F: parse_log_line, LogTailer, POST_DATA_PATTERN
 """
 import re
 import time

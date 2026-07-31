@@ -1,4 +1,4 @@
-/** SOC shell — sidebar nav, NotificationBell, main content. SIDANG: Layout, nav.ipManagement */
+/** SOC shell — sidebar nav, NotificationBell, main content. Ctrl+F: Layout, nav.ipManagement */
 import React, { useState } from 'react';
 import {
   Box, Drawer, List, ListItem, ListItemIcon,

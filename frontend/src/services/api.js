@@ -1,23 +1,30 @@
 /**
  * SOC REST client — JWT from localStorage.
- * SIDANG: rules CRUD, settings, traffic, incidents, blocked IPs.
+ * Ctrl+F: rules CRUD, settings, traffic, incidents, blocked IPs.
  */
+//api.js is the API client for the application, it is used to send the requests to the backend and receive the responses
+
+//import the axios library
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'; //process.env.REACT_APP_API_URL is the base URL of the API, default to http://localhost:5000/api
 
+
+//create a new axios instance
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 
+// intercept the request to add the authorization header
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('incidentra_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
+// intercept the response to handle the error
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -91,7 +98,7 @@ export const injectLog = (data) => api.post('/detection/inject-log', data);
 export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
 // Auth
-export const login = (username, password) => api.post('/auth/login', { username, password });
+export const login = (username, password) => api.post('/auth/login', { username, password }); //send the username and password to the backend
 export const register = (data) => api.post('/auth/register', data);
 export const getUsers = () => api.get('/auth/users');
 

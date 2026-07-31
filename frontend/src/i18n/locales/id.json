@@ -544,6 +544,14 @@
     "passwordMismatch": "Kata sandi tidak cocok.",
     "passwordTooShort": "Kata sandi minimal 8 karakter.",
     "registerSuccess": "Pendaftaran berhasil dikirim. Administrator harus menyetujui akun Anda sebelum bisa login.",
-    "registerFailed": "Pendaftaran gagal. Silakan coba lagi."
+    "registerFailed": "Pendaftaran gagal. Silakan coba lagi.",
+    "accountPending": "Akun menunggu approval admin. Silakan hubungi administrator.",
+    "accountSuspended": "Akun Anda disuspend. Silakan hubungi administrator.",
+    "accountInactive": "Akun tidak aktif. Silakan hubungi administrator.",
+    "registerRateLimited": "Terlalu banyak percobaan daftar. Silakan coba lagi nanti.",
+    "registerFieldsRequired": "Username, email, dan password wajib diisi.",
+    "registerPasswordTooShortServer": "Kata sandi minimal 8 karakter.",
+    "usernameExists": "Username sudah digunakan.",
+    "emailExists": "Email sudah terdaftar."
   }
 }

@@ -1,89 +1,126 @@
-import React, { useState } from 'react';
-import { Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link } from '@mui/material';
-import { login, register } from '../services/api';
-import { useLanguage } from '../context/LanguageContext';
+/**
+ * LOGIN & SELF-REGISTRATION PAGE — calls POST /api/auth/login and /api/auth/register.
+ * Ctrl+F: handleLogin, handleRegister, mode (login/register toggle)
+ * Backend counterpart: backend/app/api/auth.py
+ */
+//Login.js is the login page component, it is used to login to the application
 
+import React, { useState } from 'react';                                                                              //import the necessary components from the React library
+import { Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link } from '@mui/material'; //import the necessary components from the MUI library
+import { login, register } from '../services/api';                                                                    //import the login and register functions from the api.js file
+import { useLanguage } from '../context/LanguageContext';                                                             //import the useLanguage hook from the LanguageContext.js file
+
+// Maps backend auth error codes (auth.py) → i18n keys — so alerts follow app language (en/id)
+const AUTH_ERROR_I18N = {
+  invalid_credentials: 'login.invalidCredentials',
+  account_pending: 'login.accountPending',
+  account_suspended: 'login.accountSuspended',
+  account_inactive: 'login.accountInactive',
+  register_rate_limited: 'login.registerRateLimited',
+  register_fields_required: 'login.registerFieldsRequired',
+  register_password_too_short: 'login.registerPasswordTooShortServer',
+  username_exists: 'login.usernameExists',
+  email_exists: 'login.emailExists',
+};
+
+function translateAuthError(err, t, fallbackKey) {
+  const code = err.response?.data?.error;
+  const i18nKey = code && AUTH_ERROR_I18N[code];
+  if (i18nKey) return t(i18nKey);
+  return t(fallbackKey);
+}
+
+//Login component def, it is used to login to the application
 export default function Login({ onLogin }) {
-  const { t } = useLanguage();
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
+  const { t } = useLanguage();                              //use the useLanguage hook to get the translation function
+  const [mode, setMode] = useState('login');                // 'login' | 'register'
+  const [loading, setLoading] = useState(false);            // loading state to show the loading spinner
+  const [error, setError] = useState('');                   // error state to show the error message
+  const [info, setInfo] = useState('');                     // info state to show the info message
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  //login states to store the username and password
+  const [username, setUsername] = useState(''); 
+  const [password, setPassword] = useState(''); 
 
+  //register states to store the register username, email, password and confirm password
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
 
+  //clearError function to clear the error message
   const clearError = () => {
     if (error) setError('');
   };
 
+  //switchMode function to switch the mode between login and register
   const switchMode = (next) => {
     setMode(next);
     setError('');
     setInfo('');
   };
-
+ 
+  // Login Function, send username and password to the backend
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    e.preventDefault();                 //e is the form submission event, prevent the default form submission behavior (page reload)
+    setLoading(true);                   // set loading to true to show the loading spinner
     try {
-      const res = await login(username, password);
-      setError('');
-      onLogin(res.data.token);
+      // send the username and password to the backend
+      const res = await login(username, password);            // use the login function from the api.js file and wait for the response
+      setError('');                                           // clear the error
+      onLogin(res.data.token);                                // call the onLogin function with the token from the backend response (res.data.token is the token from the backend response backend/app/api/auth.py)
     } catch (err) {
-      setError(err.response?.data?.error || t('login.invalidCredentials'));
+      setError(translateAuthError(err, t, 'login.invalidCredentials'));
     } finally {
-      setLoading(false);
+      setLoading(false);                                      // set loading to false to hide the loading spinner
     }
   };
 
+  // Register Function, send register username, email, password and confirm password to the backend
   const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (regPassword !== regConfirm) {
-      setError(t('login.passwordMismatch'));
-      return;
+    e.preventDefault();                       //e is the form submission event, prevent the default form submission behavior (page reload)
+    setError('');                             // clear the error
+    if (regPassword !== regConfirm) {         // check if the password and confirm password are the same
+      setError(t('login.passwordMismatch'));  // set the error to the error message from the language context (frontend/src/context/LanguageContext.js)
+      return;                                 // return to stop the function execution
     }
-    if (regPassword.length < 8) {
-      setError(t('login.passwordTooShort'));
-      return;
+    if (regPassword.length < 8) {             // check if the password is less than 8 characters
+      setError(t('login.passwordTooShort'));  // set the error to the error message from the language context (frontend/src/context/LanguageContext.js)
+      return;                                 // return to stop the function execution
     }
-    setLoading(true);
+    setLoading(true);                         // set loading to true to show the loading spinner
     try {
-      await register({ username: regUsername, email: regEmail, password: regPassword });
-      setInfo(t('login.registerSuccess'));
-      setRegUsername('');
-      setRegEmail('');
-      setRegPassword('');
-      setRegConfirm('');
-      setMode('login');
+      // send the register username, email, password and confirm password to the backend
+      await register({ username: regUsername, email: regEmail, password: regPassword }); // use the register function from the api.js file and wait for the response
+      setInfo(t('login.registerSuccess'));      // set the info to the success message from the language context (frontend/src/context/LanguageContext.js)
+      setRegUsername('');                       // clear the register username
+      setRegEmail('');                          // clear the register email
+      setRegPassword('');                       // clear the register password
+      setRegConfirm('');                        // clear the register confirm password
+      setMode('login');                         // set the mode to login
     } catch (err) {
-      setError(err.response?.data?.error || t('login.registerFailed'));
+      setError(translateAuthError(err, t, 'login.registerFailed'));
     } finally {
-      setLoading(false);
+      setLoading(false);                         // set loading to false to hide the loading spinner
     }
   };
 
+  // return the login page component
   return (
     <Box sx={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: 'background.default',
+      minHeight: '100vh',                        // set the minimum height to 100vh
+      display: 'flex',                           // display the box as a flex container
+      alignItems: 'center',                      // align the items to the center
+      justifyContent: 'center',                  // justify the content to the center
+      bgcolor: 'background.default',             // set the background color to the default background color
     }}>
-      <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Box
+      <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}> // set the width to 100% and the maximum width to 420 and the margin to 2
+        <CardContent sx={{ p: 4 }}>                       // set the padding to 4
+          <Box sx={{ textAlign: 'center', mb: 4 }}>       // set the text align to center and the margin bottom to 4
+            <Box                                          // set the box as an image  
               component="img"
-              src="/icons/incidentra.png"
-              alt={t('brand.full')}
+              src="/icons/incidentra.png"                 // set the image source to the incidentra logo
+              alt={t('brand.full')}                      
               sx={{ width: 64, height: 64, borderRadius: 3, mb: 2, objectFit: 'contain' }}
             />
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>{t('login.title')}</Typography>
@@ -92,29 +129,29 @@ export default function Login({ onLogin }) {
             </Typography>
           </Box>
 
-          {error && (
+          {error && (                                    // if there is an error, show the error message
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-              {error}
+              {error}                                        // show the error message
             </Alert>
           )}
-          {info && (
+          {info && (                                      // if there is an info, show the info message
             <Alert severity="success" sx={{ mb: 2 }} onClose={() => setInfo('')}>
-              {info}
+              {info}                                        // show the info message
             </Alert>
           )}
 
-          {mode === 'login' ? (
+          {mode === 'login' ? (                               // if the mode is login, show the login form
             <>
-              <form onSubmit={handleLogin}>
+              <form onSubmit={handleLogin}>                    // onSubmit is the form submission event, call the handleLogin function
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
-                    fullWidth label={t('login.username')}
-                    value={username}
-                    onChange={e => { setUsername(e.target.value); clearError(); }}
-                    autoComplete="username"
+                    fullWidth label={t('login.username')}        // set the label to the username
+                    value={username}                             // set the value to the username
+                    onChange={e => { setUsername(e.target.value); clearError(); }}  // onChange is the change event, call the setUsername function and clear the error
+                    autoComplete="username"                                         // autoComplete is the autocomplete attribute, set the autocomplete to username
                   />
                   <TextField
-                    fullWidth label={t('login.password')}
+                    fullWidth label={t('login.password')}        
                     type="password"
                     value={password}
                     onChange={e => { setPassword(e.target.value); clearError(); }}
@@ -126,10 +163,10 @@ export default function Login({ onLogin }) {
                     variant="contained"
                     color="primary"
                     size="large"
-                    disabled={loading || !username || !password}
+                    disabled={loading || !username || !password}        // disable the button if the loading is true or the username or password is empty
                     sx={{ mt: 1, py: 1.5, fontWeight: 700 }}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')} // show the loading spinner if the loading is true, otherwise show the sign in button
                   </Button>
                 </Box>
               </form>
@@ -151,7 +188,7 @@ export default function Login({ onLogin }) {
             </>
           ) : (
             <>
-              <form onSubmit={handleRegister}>
+              <form onSubmit={handleRegister}>                    // onSubmit is the form submission event, call the handleRegister function
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     fullWidth label={t('login.username')}

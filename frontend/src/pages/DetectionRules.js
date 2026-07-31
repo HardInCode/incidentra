@@ -1,5 +1,5 @@
 // Detection Rules UI — CRUD + sandbox test (/api/detection/test).
-// Info icon (hover): lab mode vs OWASP baseline. SIDANG: DetectionRules, rules.py, detection_engine.
+// Info icon (hover): lab mode vs OWASP baseline. Ctrl+F: DetectionRules, rules.py, detection_engine.
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {

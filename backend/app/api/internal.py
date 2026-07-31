@@ -1,6 +1,6 @@
 """
 INTERNAL SERVICE-TO-SERVICE API — decoupled vuln-web log/state transport.
-SIDANG Ctrl+F: ingest_logs, get_blocklist, X-Internal-Token
+Ctrl+F: ingest_logs, get_blocklist, X-Internal-Token
 
 Only exists for the "separate domain" deployment topology (see railway/README.md,
 "Running vuln-web on its own domain"), where vuln-web runs as its own standalone

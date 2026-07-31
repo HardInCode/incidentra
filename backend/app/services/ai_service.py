@@ -1,6 +1,6 @@
 """
 AI ANALYST ONLY — Groq explanations for incidents (does NOT detect attacks).
-SIDANG Ctrl+F: _call_groq_with_fallback, generate_explanation_task, _save_fallback_explanation
+Ctrl+F: _call_groq_with_fallback, generate_explanation_task, _save_fallback_explanation
 Detection regex: detection_engine.DETECTION_PATTERNS (separate)
 """
 import os

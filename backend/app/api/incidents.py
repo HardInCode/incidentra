@@ -1,6 +1,6 @@
 """
 INCIDENTS API — list/detail, status, notes, AI explanation trigger, simulate/export.
-SIDANG Ctrl+F: trigger_explanation, simulate
+Ctrl+F: trigger_explanation, simulate
 """
 from flask import Blueprint, request, jsonify
 import logging
