@@ -4,7 +4,7 @@
  */
 //api.js is the API client for the application, it is used to send the requests to the backend and receive the responses
 
-//import the axios library
+//import the axios library for making the requests to the backend
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'; //process.env.REACT_APP_API_URL is the base URL of the API, default to http://localhost:5000/api
@@ -98,9 +98,9 @@ export const injectLog = (data) => api.post('/detection/inject-log', data);
 export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
 // Auth
-export const login = (username, password) => api.post('/auth/login', { username, password }); //send the username and password to the backend
-export const register = (data) => api.post('/auth/register', data);
-export const getUsers = () => api.get('/auth/users');
+export const login = (username, password) => api.post('/auth/login', { username, password }); //send the username and password to the backend/api/auth.py
+export const register = (data) => api.post('/auth/register', data);                           //send the register data to the backend/api/auth.py
+export const getUsers = () => api.get('/auth/users');                                         //get the users from the backend/api/auth.py
 
 // User Management (admin only)
 export const listUsers = (params) => api.get('/users/', { params });

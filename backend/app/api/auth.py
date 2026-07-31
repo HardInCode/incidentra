@@ -4,7 +4,7 @@ Ctrl+F: login, register, _make_token, _register_rate_limited, LOGIN_ERROR_CODES
 Token verified per-request in: app/api/auth_middleware.py (verify_token)
 """
 from flask import Blueprint, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash   #werkzeug is a library for hashing and verifying passwords scrypt algorithm (memory-hard with salt random for each password)
 import jwt
 import os
 from datetime import datetime, timedelta
@@ -56,21 +56,18 @@ def _register_rate_limited(ip):
 
 @auth_bp.route('/login', methods=['POST'])  # POST /api/auth/login — called from frontend api.js → login()
 def login():
-    data = request.get_json()  # JSON body { username, password } from axios (Login.js)
-    user = User.query.filter_by(username=data.get('username')).first()  # SQLAlchemy: SELECT FROM users WHERE username = ... LIMIT 1
-
-    if not user or not check_password_hash(user.password_hash, data.get('password', '')):  # werkzeug: compare plain password vs hash in DB
-        return jsonify({'error': 'invalid_credentials'}), 401  # same error for wrong user OR wrong password (security)
-
-    if user.status in LOGIN_ERROR_CODES:  # pending / suspended — error code → i18n on frontend
+    data = request.get_json()                                                              # JSON body { username, password } from Login.js and api.js (axios)
+    user = User.query.filter_by(username=data.get('username')).first()                     # SQLAlchemy: SELECT FROM users WHERE username = ... LIMIT 1
+    if not user or not check_password_hash(user.password_hash, data.get('password', '')):  # werkzeug: compare plain password vs hash in DB 
+        return jsonify({'error': 'invalid_credentials'}), 401                              # same error for wrong user OR wrong password (security)
+    if user.status in LOGIN_ERROR_CODES:                                                   # pending / suspended — error code → i18n on frontend
         return jsonify({'error': LOGIN_ERROR_CODES[user.status]}), 403
-
     if not user.is_active:  # admin deactivated account
         return jsonify({'error': 'account_inactive'}), 403
-
-    token = _make_token(user.id, user.username, user.role)  # JWT 24h, signed with SECRET_KEY
+        
+    token = _make_token(user.id, user.username, user.role)                                            # JWT 24h, signed with SECRET_KEY
     log_audit('auth.login', user={'user_id': user.id, 'username': user.username, 'role': user.role})  # audit trail row
-    return jsonify({'token': token, 'user': user.to_dict()})  # frontend: res.data.token → localStorage → dashboard
+    return jsonify({'token': token, 'user': user.to_dict()})                                          # frontend: res.data.token → localStorage → dashboard (api.js)
 
 
 @auth_bp.route('/users', methods=['GET'])

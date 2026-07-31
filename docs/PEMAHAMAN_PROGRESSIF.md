@@ -1,4 +1,4 @@
-# PEMAHAMAN INCIDENTRA — HULU KE HILIR
+# PEMAHAMAN INCIDENTRA — HULU KE HILIR FILE BY FILE
 
 > **Cara pakai file ini** (baca ini dulu sebelum isi apapun):
 > 1. Jalankan aplikasinya (`docker compose up`), buka browser.
@@ -40,17 +40,34 @@
 
 **Alur (isi sendiri sambil klik-klik):**
 
-1.
-2.
-3.
+ 
+1. klik login menggunakan admin credentials yang sudah di seed, berhasil masuk
+2. klik login menggunakan username yang tidak terdaftar, tidak berhasil masuk 
+3. register harus menggunakan 2 persyaratan password, sama dengan confirmation field & 8 char length
+4. saat berhasil registrasi harus approval admin terlebih dahulu.
+
 
 **Pemahaman saya:**
 
--
+1. Login memanggil function handleLogin untuk mengirim request `POST` login ke backend melalui `api.js`
+2. Register melakukan hal yang mirip dengan login, yaitu melalu perantara file `api.js` dia mengirim request ke backend untuk registrasi menggunakan function handleRegister 
+3. File `api.js` menggunakan library axios untuk melakukan proses request atau pemanggilan ke backend yang urlnya bisa di set file ENV Frontend dengan fallback URL yang bisa di set di file api.js langsung.
+4. Endpoint restAPI yang berupa url prefix sebagai blueprint yang berasal dari `backend/app/__init__.py` file tersebut mengimport setiap file blueprint di dalam folder `backend/app/api` lalu melakukan `register_blueprint`, tidak semua file di dalam `backend/app/api` adalah blueprint, ada sebagian cuma helper
+5. route `/login` berasal dari file `auth.py` itu sendiri `@auth_bp.route('/login', methods=['POST'])` lalu front end memanggilnya melalui `api.js`.
+
+kesimpulan:
+
+1. User submit form → handleLogin / handleRegister di Login.js
+2. Panggil login() / register() di api.js (axios)
+3. Request ke http://localhost:5000/api + path (ENV atau fallback)
+4. Flask: blueprint prefix /api/auth (__init__.py) + route /login (auth.py) = /api/auth/login
+5. Backend proses → balikin JSON → frontend simpan token / tampilkan pesan
+
+Frontend React memanggil backend Flask lewat axios di api.js. Base URL di-set via environment variable dengan fallback localhost:5000/api. Backend memakai Flask Blueprint — prefix /api/auth diregister di app factory, route /login didefinisikan di auth.py, sehingga endpoint penuh menjadi POST /api/auth/login.
 
 **Pertanyaan saya:**
 
-- Q1.
+- Q1. Apakah sudah cukup aman secara keamanan? mengingat web SOC adalah web keamanan pasti akan ditanyai mengenai hal ini, implementasi keamanan web SOC itu sendiri.
 
 **Jawaban:**
 
@@ -70,7 +87,7 @@
 
 **Alur:**
 
-1.
+1. Setelah berhasil login 
 
 **Pemahaman saya:**
 
@@ -297,6 +314,8 @@
 **Alur:**
 
 1.
+2.
+3.
 
 **Pemahaman saya:**
 
