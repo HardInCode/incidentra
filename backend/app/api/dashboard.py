@@ -1,3 +1,8 @@
+"""
+SOC Dashboard API — aggregated stats from PostgreSQL for the React dashboard.
+Ctrl+F: get_stats, log_status, _get_system_status
+Frontend: api.js getDashboardStats(), getLogStatus() → Dashboard.js fetchStats(), checkLogStatus()
+"""
 from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 from sqlalchemy import func
@@ -42,15 +47,15 @@ def _check_auth():
     return verify_token()
 
 
-@dashboard_bp.route('/stats', methods=['GET'])
+@dashboard_bp.route('/stats', methods=['GET'])  # GET /api/dashboard/stats — called from Dashboard.js → getDashboardStats()
 def get_stats():
-    now = datetime.utcnow()
-    last_24h = now - timedelta(hours=24)
-    last_7d = now - timedelta(days=7)
+    now = datetime.utcnow()                          # get the current time
+    last_24h = now - timedelta(hours=24)             # get the last 24 hours
+    last_7d = now - timedelta(days=7)                # get the last 7 days
 
-    total = Incident.query.count()
-    last_24h_count = Incident.query.filter(Incident.created_at >= last_24h).count()
-    last_7d_count = Incident.query.filter(Incident.created_at >= last_7d).count()
+    total = Incident.query.count()                                                            # get the total number of incidents (All time incidents card)
+    last_24h_count = Incident.query.filter(Incident.created_at >= last_24h).count()           # get the number of incidents in the last 24 hours (Last 24h incidents card)
+    last_7d_count = Incident.query.filter(Incident.created_at >= last_7d).count()             # JSON field last_7d — globe subtitle
     open_count = Incident.query.filter(Incident.status == IncidentStatus.NEW).count()
     resolved_count = Incident.query.filter(Incident.status == IncidentStatus.RESOLVED).count()
     blocked_ips = BlockedIP.query.filter_by(is_whitelist=False).count()
@@ -142,7 +147,7 @@ def get_stats():
     })
 
 
-@dashboard_bp.route('/log-status', methods=['GET'])
+@dashboard_bp.route('/log-status', methods=['GET'])  # GET /api/dashboard/log-status — stale=true if no log in 60s
 def log_status():
     """Return when the last log entry was received — for frontend warning banner."""
     from app.core.log_monitor import get_last_log_received_at, get_log_file_last_activity

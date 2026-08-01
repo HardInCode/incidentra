@@ -28,6 +28,8 @@ LOGIN_ERROR_CODES = {
 }
 
 
+
+# _make_token function to generate the token for the user
 def _make_token(user_id, username, role):
     payload = {
         'user_id': user_id,
@@ -38,20 +40,19 @@ def _make_token(user_id, username, role):
     return jwt.encode(payload, os.getenv('SECRET_KEY', 'incidentra-secret'), algorithm='HS256')
 
 
-def _register_rate_limited(ip):
-    """Max REGISTER_RATE_LIMIT attempts per IP per REGISTER_RATE_WINDOW seconds.
-    Reuses the same Redis sliding-window pattern as BruteForceTracker (detection_engine.py).
-    Fails open (allows the request) if Redis is unavailable, consistent with other Redis usage
-    in this codebase (e.g. get_redis_client() callers in blocked_ips.py).
-    """
-    from app.core.detection_engine import get_redis_client, BruteForceTracker
+
+# Rate limiting function to prevent spamming the Incidentra register endpoint by using Redis
+def _register_rate_limited(ip):  # anti-spam register: max 5 attempts per IP per hour (Redis)
+    from app.core.detection_engine import get_redis_client, BruteForceTracker  # reuse BruteForceTracker sliding-window (same as detection)
     tracker = BruteForceTracker(
-        redis_client=get_redis_client(),
-        window_seconds=REGISTER_RATE_WINDOW,
-        threshold=REGISTER_RATE_LIMIT,
+        redis_client=get_redis_client(),       # Redis key per IP; fails open if Redis down (allows request)
+        window_seconds=REGISTER_RATE_WINDOW,   # 3600s = 1 hour window
+        threshold=REGISTER_RATE_LIMIT,         # 5 attempts before block
     )
-    attempts = tracker.record_attempt(ip, '/auth/register')
-    return attempts > REGISTER_RATE_LIMIT
+    attempts = tracker.record_attempt(ip, '/auth/register')  # increment counter, return count in window
+    return attempts > REGISTER_RATE_LIMIT                    # True → register() returns 429 register_rate_limited
+
+
 
 
 @auth_bp.route('/login', methods=['POST'])  # POST /api/auth/login — called from frontend api.js → login()
@@ -70,33 +71,35 @@ def login():
     return jsonify({'token': token, 'user': user.to_dict()})                                          # frontend: res.data.token → localStorage → dashboard (api.js)
 
 
-@auth_bp.route('/users', methods=['GET'])
-def list_users():
-    err = verify_token()
+
+
+@auth_bp.route('/users', methods=['GET'])                               # GET /api/auth/users — dropdown assign incident (IncidentDetail.js → getUsers())
+def list_users():                                                       # NOT User Management page (that is GET /api/users/ in users.py)
+    err = verify_token()                                                # JWT required — auth_middleware.py decodes Bearer token
     if err:
         return err
-    if request.current_user.get('role') not in ('admin', 'analyst'):
+    if request.current_user.get('role') not in ('admin', 'analyst'):    # RBAC: viewer cannot list users
         return jsonify({'error': 'Admin or Analyst access required'}), 403
-    users = User.query.filter_by(is_active=True, status='active').order_by(User.username).all()
-    return jsonify([u.to_dict() for u in users])
+    users = User.query.filter_by(is_active=True, status='active').order_by(User.username).all()  # only approved active accounts
+    return jsonify([u.to_dict() for u in users])                        # [{ id, username, role, ... }] — no password_hash (users.py)
 
 
-@auth_bp.route('/register', methods=['POST'])
-def register():
-    """Self-registration. New accounts start as status=pending / role=None — no access until
-    an admin approves them via the User Management panel (see app/api/users.py)."""
-    ip = get_client_ip(request)
-    if _register_rate_limited(ip):
+
+
+@auth_bp.route('/register', methods=['POST'])                   # POST /api/auth/register — Login.js handleRegister → api.js register()
+def register():                                                 # self-signup; account starts pending until admin approves (users.py User Management)
+    ip = get_client_ip(request)                                 # real client IP (proxy-aware via utils/net.py)
+    if _register_rate_limited(ip):                              # Redis anti-spam — max 5/hour per IP
         return jsonify({'error': 'register_rate_limited'}), 429
 
-    data = request.get_json() or {}
+    data = request.get_json() or {}                             # { username, email, password, confirmPassword } — confirmPassword validated frontend only
     username = (data.get('username') or '').strip()
     email = (data.get('email') or '').strip()
     password = data.get('password') or ''
 
     if not username or not email or not password:
         return jsonify({'error': 'register_fields_required'}), 400
-    if len(password) < 8:
+    if len(password) < 8:  # min length policy (frontend mirrors this)
         return jsonify({'error': 'register_password_too_short'}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'username_exists'}), 409
@@ -106,23 +109,23 @@ def register():
     user = User(
         username=username,
         email=email,
-        password_hash=generate_password_hash(password),
-        role=None,
-        status='pending',
+        password_hash=generate_password_hash(password),          # werkzeug scrypt — never store plain password
+        role=None,                                               # no role until admin assigns (admin/analyst/viewer)
+        status='pending',                                        # cannot login — login() returns account_pending until approved
     )
     db.session.add(user)
-    db.session.commit()
+    db.session.commit()  # INSERT INTO users
 
-    log_audit(
+    log_audit(  # audit_log table — who registered, from which IP
         'auth.register',
         resource_type='user',
         resource_id=user.id,
-        user={'user_id': None, 'username': username, 'role': None},
+        user={'user_id': None, 'username': username, 'role': None},  # not logged in yet
         details={'status': 'pending'},
         ip_address=ip,
     )
 
     return jsonify({
-        'message': 'registered',
-        'user': user.to_dict(),
+        'message': 'registered',  # frontend maps to i18n success message
+        'user': user.to_dict(),  # no token issued — must wait admin approval then login
     }), 201

@@ -1,3 +1,6 @@
+/**
+ * REACT ENTRY — mounts App into #root from public/index.html
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -7,4 +10,4 @@ import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<React.StrictMode><App /></React.StrictMode>);
+root.render(<React.StrictMode><App /></React.StrictMode>); // render the App component to the root element

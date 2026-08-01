@@ -41,10 +41,10 @@ api.interceptors.response.use(
   }
 );
 
-// Dashboard
-export const getDashboardStats = () => api.get('/dashboard/stats');
+// Dashboard — called from Dashboard.js
+export const getDashboardStats = () => api.get('/dashboard/stats');       // → dashboard.py get_stats()
 export const getRecentIncidents = () => api.get('/dashboard/recent-incidents');
-export const getLogStatus = () => api.get('/dashboard/log-status');
+export const getLogStatus = () => api.get('/dashboard/log-status');     // → dashboard.py log_status() — banner "No logs in 60s"
 export const getNotificationsSummary = (sinceId = 0) =>
   api.get('/notifications/summary', { params: { since_id: sinceId } });
 
@@ -100,7 +100,7 @@ export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 // Auth
 export const login = (username, password) => api.post('/auth/login', { username, password }); //send the username and password to the backend/api/auth.py
 export const register = (data) => api.post('/auth/register', data);                           //send the register data to the backend/api/auth.py
-export const getUsers = () => api.get('/auth/users');                                         //get the users from the backend/api/auth.py
+export const getUsers = () => api.get('/auth/users');                                         // GET /api/auth/users — dropdown assign incident (IncidentDetail.js → getUsers())
 
 // User Management (admin only)
 export const listUsers = (params) => api.get('/users/', { params });

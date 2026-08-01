@@ -3,8 +3,6 @@
  * Ctrl+F: handleLogin, handleRegister, mode (login/register toggle)
  * Backend counterpart: backend/app/api/auth.py
  */
-//Login.js is the login page component, it is used to login to the application
-
 import React, { useState } from 'react';                                                                              //import the necessary components from the React library
 import { Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link } from '@mui/material'; //import the necessary components from the MUI library
 import { login, register } from '../services/api';                                                                    //import the login and register functions from the api.js file
@@ -68,7 +66,7 @@ export default function Login({ onLogin }) {
       // send the username and password to the backend
       const res = await login(username, password);            // use the login function from the api.js file and wait for the response
       setError('');                                           // clear the error
-      onLogin(res.data.token);                                // call the onLogin function with the token from the backend response (res.data.token is the token from the backend response backend/app/api/auth.py)
+      onLogin(res.data.token);                                // prop onLogin = App.js handleLogin(token) → localStorage + isAuthenticated (from App.js)
     } catch (err) {
       setError(translateAuthError(err, t, 'login.invalidCredentials'));
     } finally {
@@ -76,7 +74,7 @@ export default function Login({ onLogin }) {
     }
   };
 
-  // Register Function, send register username, email, password and confirm password to the backend
+  // Register — confirmPassword validated here only; backend receives username, email, password
   const handleRegister = async (e) => {
     e.preventDefault();                       //e is the form submission event, prevent the default form submission behavior (page reload)
     setError('');                             // clear the error
@@ -90,8 +88,7 @@ export default function Login({ onLogin }) {
     }
     setLoading(true);                         // set loading to true to show the loading spinner
     try {
-      // send the register username, email, password and confirm password to the backend
-      await register({ username: regUsername, email: regEmail, password: regPassword }); // use the register function from the api.js file and wait for the response
+      await register({ username: regUsername, email: regEmail, password: regPassword }); // POST /api/auth/register — confirmPassword frontend-only
       setInfo(t('login.registerSuccess'));      // set the info to the success message from the language context (frontend/src/context/LanguageContext.js)
       setRegUsername('');                       // clear the register username
       setRegEmail('');                          // clear the register email
@@ -114,13 +111,13 @@ export default function Login({ onLogin }) {
       justifyContent: 'center',                  // justify the content to the center
       bgcolor: 'background.default',             // set the background color to the default background color
     }}>
-      <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}> // set the width to 100% and the maximum width to 420 and the margin to 2
-        <CardContent sx={{ p: 4 }}>                       // set the padding to 4
-          <Box sx={{ textAlign: 'center', mb: 4 }}>       // set the text align to center and the margin bottom to 4
-            <Box                                          // set the box as an image  
+      <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Box
               component="img"
-              src="/icons/incidentra.png"                 // set the image source to the incidentra logo
-              alt={t('brand.full')}                      
+              src="/icons/incidentra.png"
+              alt={t('brand.full')}
               sx={{ width: 64, height: 64, borderRadius: 3, mb: 2, objectFit: 'contain' }}
             />
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>{t('login.title')}</Typography>
@@ -129,20 +126,20 @@ export default function Login({ onLogin }) {
             </Typography>
           </Box>
 
-          {error && (                                    // if there is an error, show the error message
+          {error && (
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-              {error}                                        // show the error message
+              {error}
             </Alert>
           )}
-          {info && (                                      // if there is an info, show the info message
+          {info && (
             <Alert severity="success" sx={{ mb: 2 }} onClose={() => setInfo('')}>
-              {info}                                        // show the info message
+              {info}
             </Alert>
           )}
 
-          {mode === 'login' ? (                               // if the mode is login, show the login form
+          {mode === 'login' ? (
             <>
-              <form onSubmit={handleLogin}>                    // onSubmit is the form submission event, call the handleLogin function
+              <form onSubmit={handleLogin}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     fullWidth label={t('login.username')}        // set the label to the username
@@ -166,7 +163,7 @@ export default function Login({ onLogin }) {
                     disabled={loading || !username || !password}        // disable the button if the loading is true or the username or password is empty
                     sx={{ mt: 1, py: 1.5, fontWeight: 700 }}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')} // show the loading spinner if the loading is true, otherwise show the sign in button
+                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')}
                   </Button>
                 </Box>
               </form>
@@ -188,7 +185,7 @@ export default function Login({ onLogin }) {
             </>
           ) : (
             <>
-              <form onSubmit={handleRegister}>                    // onSubmit is the form submission event, call the handleRegister function
+              <form onSubmit={handleRegister}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     fullWidth label={t('login.username')}
