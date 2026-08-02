@@ -1,30 +1,30 @@
 /**
- * SOC REST client — JWT from localStorage.
- * Ctrl+F: rules CRUD, settings, traffic, incidents, blocked IPs.
+ * SOC REST client — axios wrapper + JWT dari localStorage.
+ * Ctrl+F: login, getDashboardStats, interceptors
+ *
+ * Alur login:
+ *   Login.js → login() → POST /auth/login → auth.py
+ * Alur dashboard:
+ *   Dashboard.js → getDashboardStats() → GET /dashboard/stats → dashboard.py
  */
-//api.js is the API client for the application, it is used to send the requests to the backend and receive the responses
-
-//import the axios library for making the requests to the backend
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'; //process.env.REACT_APP_API_URL is the base URL of the API, default to http://localhost:5000/api
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-
-//create a new axios instance
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// intercept the request to add the authorization header
+// ─── Request interceptor: tempel Bearer token ke setiap request ───
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('incidentra_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// intercept the response to handle the error
+// ─── Response interceptor: 401 → logout (kecuali saat login — biar Alert error tetap tampil) ───
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -32,7 +32,6 @@ api.interceptors.response.use(
     const url = err.config?.url || '';
     const isLoginAttempt = url.includes('/auth/login');
 
-    // Wrong password on login returns 401 — do not hard-redirect (that reloads the page and clears the error Alert).
     if (status === 401 && !isLoginAttempt) {
       localStorage.removeItem('incidentra_token');
       window.location.href = '/login';
@@ -41,10 +40,10 @@ api.interceptors.response.use(
   }
 );
 
-// Dashboard — called from Dashboard.js
-export const getDashboardStats = () => api.get('/dashboard/stats');       // → dashboard.py get_stats()
+// ─── Dashboard (Dashboard.js) ───
+export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getRecentIncidents = () => api.get('/dashboard/recent-incidents');
-export const getLogStatus = () => api.get('/dashboard/log-status');     // → dashboard.py log_status() — banner "No logs in 60s"
+export const getLogStatus = () => api.get('/dashboard/log-status');
 export const getNotificationsSummary = (sinceId = 0) =>
   api.get('/notifications/summary', { params: { since_id: sinceId } });
 
@@ -97,10 +96,10 @@ export const injectLog = (data) => api.post('/detection/inject-log', data);
 // Chatbot
 export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
-// Auth
-export const login = (username, password) => api.post('/auth/login', { username, password }); //send the username and password to the backend/api/auth.py
-export const register = (data) => api.post('/auth/register', data);                           //send the register data to the backend/api/auth.py
-export const getUsers = () => api.get('/auth/users');                                         // GET /api/auth/users — dropdown assign incident (IncidentDetail.js → getUsers())
+// ─── Auth (Login.js) ───
+export const login = (username, password) => api.post('/auth/login', { username, password });
+export const register = (data) => api.post('/auth/register', data);
+export const getUsers = () => api.get('/auth/users');
 
 // User Management (admin only)
 export const listUsers = (params) => api.get('/users/', { params });

@@ -1,7 +1,7 @@
 """
 VULN-WEB ENFORCEMENT — reads blocked_ips.json / rate_limited.json (no PostgreSQL), or
 polls BLOCKLIST_API_URL when deployed as its own service/domain (see BLOCKLIST_API_URL
-below). SIDANG Ctrl+F: enforce_security → 403 blocked, 429 rate limited
+below). Ctrl+F: enforce_security → 403 blocked, 429 rate limited
 Written by: backend response_manager
 """
 import json
@@ -83,7 +83,7 @@ def _fetch_blocklist_remote():
         logger.warning(f'BLOCKLIST_API_URL fetch failed: {e}')
         return _blocklist_cache['data'] or {}
 
-
+# Function to enforce security
 def enforce_security():
     ip = get_client_ip(request)
     # endswith (not ==) so this still matches when mounted under a prefix
@@ -91,6 +91,7 @@ def enforce_security():
     if request.path.endswith('/api/status'):
         return None
 
+    # take blocklist from backend if BLOCKLIST_API_URL is set
     if BLOCKLIST_API_URL:
         combined = _fetch_blocklist_remote()
         blocked_data = {'blocked': combined.get('blocked', [])}

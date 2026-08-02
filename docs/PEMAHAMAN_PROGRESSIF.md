@@ -15,7 +15,7 @@
 
 - [x] 1. Login & Self-Registration
 - [~] 2. Dashboard — flow + CHART 1 OK; widget lain cukup "Dashboard lite" (lihat Section 2)
-- [ ] 3. Log Ingestion → Detection (dari access.log sampai jadi Incident)
+- [~] 3. Log Ingestion → Detection — **vuln-web + parse_log_line selesai**; backend sisa log_monitor + detection_engine
 - [ ] 4. Automated Response (block/rate-limit/escalation)
 - [ ] 5. Incident Detail + AI Explanation (Groq)
 - [ ] 6. IP Management (Blocked/Rate Limited/Whitelist)
@@ -88,7 +88,7 @@ Frontend React memanggil backend Flask lewat axios di api.js. Base URL di-set vi
 - **A1.** Cukup untuk capstone SME dengan catatan berikut:
   - **Password:** disimpan sebagai hash scrypt (Werkzeug `generate_password_hash` / `check_password_hash`), tidak plain text di DB.
   - **Login:** error unified `invalid_credentials` (username salah = password salah) — anti user enumeration.
-  - **JWT:** HS256, signed `SECRET_KEY`, expire 24 jam; setiap API call diverifikasi `verify_token()` + cek status user live di DB (pending/suspended ditolak meski token masih ada).
+  - **JWT:** HS256, signed `SECRET_KEY`, expire 24 jam; setiap API call diverifikasi `verify_token()` dari helper `backend/app/api/auth_middleware.py` + cek status user live di DB (pending/suspended ditolak meski token masih ada).
   - **Register:** rate limit Redis 5/jam per IP; password min 8 char; akun pending sampai admin approve + assign role.
   - **Transport:** production wajib HTTPS — payload login terlihat di DevTools browser user sendiri (normal), bukan celah remote.
   - **Keterbatasan scope:** belum 2FA, belum refresh-token rotation — acceptable untuk capstone; bisa disebut sebagai future work di sidang.
@@ -210,13 +210,13 @@ flowchart LR
 
 **Alur langkah demi langkah (isi centang besok):**
 
-1. [ ] Attacker kirim request ke vuln-web (contoh SQLi di query/form)
-2. [ ] `logging.py` `log_request()` — setelah response, format baris NCSA Combined Log
-3. [ ] Kalau POST: append `POST_DATA:key=val&...` supaya detection bisa baca body (bukan cuma URL)
-4. [ ] Docker: tulis ke `/app/logs/access.log` (vuln-web) = `/app/watched_logs/access.log` (backend) via volume `vuln_logs`
+1. [x] Attacker kirim request ke vuln-web (contoh SQLi di query/form)
+2. [x] `logging.py` `log_request()` — setelah response, format baris NCSA Combined Log
+3. [x] Kalau POST: append `POST_DATA:key=val&...` supaya detection bisa baca body (bukan cuma URL)
+4. [x] Docker: tulis ke `/app/logs/access.log` (vuln-web) = `/app/watched_logs/access.log` (backend) via volume `vuln_logs` (2 container, 1 disk shared — bukan 1 service)
 5. [ ] `docker_log_monitor.py` → `start_monitor()` → `LogTailer` poll file tiap ~1 detik
 6. [ ] Baris baru → `_process_log_line(line, ...)`
-7. [ ] `parse_log_line()` — regex `NGINX_PATTERN` + strip/merge `POST_DATA` ke field `query`
+7. [x] `parse_log_line()` — regex `NGINX_PATTERN` + strip/merge `POST_DATA` ke field `query` (Langkah A–D)
 8. [ ] `DetectionEngine.analyze(entry)` — gabung string `method path query user_agent`, match regex DB + baseline OWASP
 9. [ ] Kalau match → threat dict (`attack_type`, `severity`, `matched_text`, …); kalau tidak → return `None`, selesai
 10. [ ] Dedup: skip jika IP+attack_type sama sudah ada incident dalam **5 menit** (kecuali waiver unblock)
@@ -266,26 +266,80 @@ flowchart LR
 | SCANNER | UA/tool scanner | medium |
 | BRUTE_FORCE | threshold POST login | high |
 
-**Pemahaman saya:**
+**Shared volume (Docker) — bukan 1 service barengan:**
 
-*(isi besok — copy template di bawah, hapus yang tidak perlu)*
+```
+vuln_web container          backend container
+/app/logs/access.log   ←→   /app/watched_logs/access.log
+         └──── volume vuln_logs (disk shared) ────┘
+```
 
-1. Serangan tidak langsung masuk DB — harus lewat **baris log** dulu.
-2. vuln-web sengaja log **POST body** sebagai `POST_DATA:` karena banyak attack di form, bukan URL.
-3. Backend tidak hook ke vuln-web — hanya **baca file** (Docker shared volume) atau terima push (`internal.py` di deploy terpisah).
-4. Satu baris log = satu putaran: parse → analyze → (optional) incident.
-5. Detection = **regex + rule DB**, bukan AI. AI cuma explain incident manual (Section 5).
-6. Dedup 5 menit = anti spam incident identik dari IP yang sama.
-7. Setelah incident dibuat, `respond()` jalan — lanjut Section 4.
+6 service = 6 container terpisah. Volume = folder disk yang di-mount ke 2+ container (path di dalam container boleh beda, file sama).
 
-**Latihan besok (~1–2 jam):**
+**Pemahaman saya — vuln-web (selesai):**
 
-1. [ ] `docker compose up` — buka vuln-web `:5050`, kirim SQLi sederhana (`' OR 1=1--`)
+1. `app.py` membuat Flask app vuln-web. Tidak berisi route handler — handler ada di `routes/*.py`, didaftarkan lewat `register_blueprints(app)` dari `routes/__init__.py`.
+2. Setiap HTTP request: `@app.before_request` → `enforce_security()` (cek block/rate-limit); route handler di `routes/*.py`; `@app.after_request` → `log_request(response)`.
+3. `enforce_security()` (`security.py`) baca blocklist dari JSON file (`blocked_ips.json`, `rate_limited.json`) yang **ditulis backend** ke shared volume. Match IP → 403/429. Railway terpisah: `_fetch_blocklist_remote()` GET ke `/api/internal/blocklist`.
+4. `get_client_ip(request)` dari **`vuln-web/ip_utils.py`** (bukan backend). Prioritas: `X-Real-IP` → `X-Forwarded-For` (IP pertama) → `remote_addr` (Docker lokal).
+5. `log_request(response)` (`logging.py`): **`request`** (Flask global) untuk method, path, form POST → `POST_DATA:`; **`response`** (parameter dari after_request) untuk status code & content length — POST_DATA bukan dari response object.
+6. Langkah logging: kumpulkan POST body → (opsional) `g.log_extra` → susun baris NCSA → append ke `access.log` (Docker/manual) atau push `LOG_INGEST_URL` (Railway).
+7. GET attack payload ada di URL (query string), sudah tercatat di log tanpa `POST_DATA`. POST attack sering butuh suffix `POST_DATA:`.
+
+**Pemahaman saya — backend (Log Parsing):**
+1.  `Logging.py` menyimpan isi body request ke `POST_DATA:` karena Nginx access log standar TIDAK menyertakan body, setelah itu disusun menjadi format NCSA yang disimpan ke shared volume vuln_logs.
+2. Setelah itu `parse_log_line()` `log_parser.py` mengambil 1 baris log string lalu memisahkan suffix `POST_DATA` dan menyisakan NCSA murni tanpa (`POST_DATA`).
+3. Pemisahan data dilakukan dengan cara pencocokan regex pattern `POST_DATA_PATTERN` dan `NGINX_PATTERN` dengan string line. 
+4. Next, data dipecah path vs query string URL (untuk GET attack), library urllib dipakai untuk memecah `/search?q=%3Cscript%3E` menjadi `/search` & `q=%3Cscript%3E` serta diterjemahkan menggunakan library stdlib; decode `%3C → <, %3E → >, %20 atau + → spasi`
+5. **Langkah D:** POST attack — URL tidak punya `?` jadi `query` kosong setelah Langkah C; isi body dari `post_data` (hasil potong `POST_DATA:`) digabung ke `query` → detection scan field `query`.
+6. Return dict `{ ip, method, path, query, user_agent, status_code, raw }` — parser **tidak** deteksi serangan; hanya string → dict.
+
+**Langkah A–D `parse_log_line` (ringkas):**
+
+| Langkah | Apa | Contoh |
+|---|---|---|
+| A | Potong suffix `POST_DATA:...` | `post_data` = isi body form |
+| B | Regex NCSA → ip, method, path, status, ua | `"POST /login HTTP/1.1"` |
+| C | `urlparse` + `unquote_plus` (GET) | `%3Cscript%3E` → `<script>` |
+| D | `query += post_data` (POST) | `query` = `username=hello&password=` |
+
+**Contoh GET XSS:** `full_path='/search?q=%3Cscript%3E...'` → setelah C: `path='/search'`, `query='q=<script>...'`
+
+**Contoh POST login (Burp):** `full_path='/login'` → C: `query=''` → D: `query='username=hello&password='`
+
+**Catatan baris 51 — `' ' + m.group(1)` (spasi di dalam petik memang sengaja):**
+
+- Regex `POST_DATA_PATTERN` hanya menangkap isi **setelah** teks `POST_DATA:` → `group(1)` = `username=hello&password=` (tanpa spasi di depan).
+- Di log asli ada spasi **sebelum** kata `POST_DATA:` (antara `"Mozilla..."` dan `POST_DATA:`).
+- `' '` = string Python berisi **1 karakter spasi** — ditambah di depan isi body supaya saat digabung ke `query` ada pemisah kalau URL sudah punya query string.
+- Baris 75 `.strip()` buang spasi ujung — kalau `query` kosong, hasil akhir tetap `username=hello&password=` (tanpa spasi depan).
+
+**Hubungan logging.py ↔ log_parser.py (tidak saling import):**
+
+```
+logging.py: request.form → string ' POST_DATA:username=hello&password=' → access.log
+log_parser.py: baca string → POST_DATA_PATTERN → dict
+```
+
+
+
+
+**Pemahaman saya — backend (belum dipelajari detail):**
+
+1. Serangan tidak langsung masuk DB — harus lewat baris log dulu.
+2. Backend tidak hook ke vuln-web — tail file shared volume atau terima push (`internal.py`).
+3. Satu baris log = parse → analyze → (optional) incident → respond.
+4. Detection = regex + rule DB, bukan AI.
+5. Dedup 5 menit = anti spam incident identik dari IP yang sama.
+
+**Latihan (~1–2 jam):**
+
+1. [x] `docker compose up` — buka vuln-web `:5050`, kirim SQLi (`' OR 1=1--`)
 2. [ ] `docker compose logs backend` — cari `[THREAT] SQL_INJECTION from ...`
 3. [ ] Buka Incidentra UI → Incidents — row baru muncul?
 4. [ ] Dashboard → angka `last_24h` naik?
-5. [ ] Buka `access.log` di volume / tail log — lihat format `POST_DATA:`
-6. [ ] Trace 1 baris: copy log line → baca `parse_log_line` → baca `analyze` — cocok?
+5. [x] Tail log volume — lihat format `POST_DATA:` (`docker compose exec vuln_web tail access.log`)
+6. [ ] Trace 1 baris: copy log line → `parse_log_line` → `analyze`
 
 **Pertanyaan sidang (draft — centang kalau sudah bisa jawab):**
 
@@ -297,11 +351,11 @@ flowchart LR
 
 **Jawaban:**
 
-- A1. *(kosong — isi setelah latihan atau tanya ke AI)*
-- A2.
-- A3.
-- A4.
-- A5.
+- **A1.** Banyak attack (SQLi login, upload shell) ada di **body POST**, bukan URL. Tanpa `POST_DATA`, log cuma path `/login` — detection tidak lihat payload. GET attack tetap terdeteksi dari query string di URL log.
+- **A2.** Detection engine = regex/rule di `detection_engine.py`, jalan otomatis per baris log. AI Groq = explain incident **manual** on-demand (`POST /api/incidents/{id}/explain`), bukan deteksi.
+- **A3.** Log monitor idle >60s → `GET /log-status` return `stale: true` → banner kuning di Dashboard. Pipeline ingestion mati; incident baru tidak terbuat.
+- **A4.** Volume `vuln_logs` di-mount ke vuln-web (`/app/logs`) dan backend (`/app/watched_logs`) — file `access.log` sama. Backend `LogTailer` tail file itu.
+- **A5.** Tanpa dedup, 1 attacker kirim 100 request SQLi = 100 incident identik. Dedup 5 menit (IP + attack_type sama) = 1 incident per window.
 
 **One-liner sidang (hafalkan):**
 
@@ -516,3 +570,5 @@ flowchart LR
 |---|---|---|
 | 2026-08-01 | Dokumentasi pemahaman Login + Dashboard CHART 1; komentar Ctrl+F di Dashboard.js | `docs/PEMAHAMAN_PROGRESSIF.md`, `Dashboard.js` |
 | 2026-08-01 | Kerangka Section 3 Log Ingestion → Detection (diagram, alur 14 langkah, latihan besok) | `docs/PEMAHAMAN_PROGRESSIF.md` |
+| 2026-08-02 | Perbaikan Pemahaman Section 3 (vuln-web selesai, shared volume, koreksi ip_utils/request vs response) | `docs/PEMAHAMAN_PROGRESSIF.md`, `vuln-web/middleware/logging.py` |
+| 2026-08-03 | parse_log_line Langkah A–D selesai; komentar blok logging.py + log_parser.py + Login/Dashboard; catatan spasi baris 51 | `log_parser.py`, `logging.py`, `Login.js`, `Dashboard.js`, `auth.py`, `dashboard.py`, `PEMAHAMAN_PROGRESSIF.md` |

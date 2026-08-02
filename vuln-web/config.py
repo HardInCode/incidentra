@@ -1,13 +1,16 @@
 """vuln-web configuration from environment."""
 import os
 
+# config file for vuln-web
 
-def _env_bool(key: str, default: str = '0') -> bool:
+def _env_bool(key: str, default: str = '0') -> bool: # function to convert environment variable to boolean
     return os.getenv(key, default).strip().lower() in ('1', 'true', 'yes')
 
-
+# database path
 DB_PATH = os.getenv('VULN_DB_PATH', 'vuln.db')
+# blocked ips file
 BLOCKED_IPS_FILE = os.getenv('BLOCKED_IPS_JSON', 'logs/blocked_ips.json')
+# rate limited file
 RATE_LIMITED_FILE = os.getenv('RATE_LIMITED_JSON', 'logs/rate_limited.json')
 RATE_LIMIT_MAX = int(os.getenv('RATE_LIMIT_MAX_REQUESTS', 10))
 RATE_LIMIT_WINDOW = int(os.getenv('RATE_LIMIT_WINDOW', 60))

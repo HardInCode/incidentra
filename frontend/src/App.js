@@ -1,7 +1,12 @@
 /**
  * APP ROOT — auth state, React Router, Layout wrapper.
  * Ctrl+F: handleLogin, handleLogout, isAuthenticated, AppRoutes
- * Flow: index.js → App → Login (onLogin prop) or Layout + pages
+ *
+ * Alur login (hulu → hilir):
+ *   Login.js onLogin(token) → handleLogin → localStorage + setIsAuthenticated(true)
+ *   → Navigate ke "/" → Dashboard
+ *
+ * Refresh page: useEffect baca token dari localStorage → tetap login
  */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -34,7 +39,6 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
       <CssBaseline />
       <Router>
         <Routes>
-          {/* authenticated → redirect / ; else show Login — onLogin prop = handleLogin from App() */}
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/" /> : <Login onLogin={onLogin} />
           } />
@@ -42,7 +46,6 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
             isAuthenticated
               ? (
                 <>
-                  {/* ChatbotProvider = shared incidentContext; ChatbotWidget = floating UI */}
                   <ChatbotProvider>
                     <Layout onLogout={onLogout}>
                       <Routes>
@@ -67,7 +70,6 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
           } />
         </Routes>
       </Router>
-      {/* react-toastify popups (toast.success etc.) — not the NotificationBell */}
       <ToastContainer position="top-right" theme={mode === 'dark' ? 'dark' : 'light'} autoClose={3000} limit={3} />
     </>
   );
@@ -76,17 +78,19 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Restore session setelah refresh browser
   useEffect(() => {
-    const token = localStorage.getItem('incidentra_token'); // restore session on refresh
+    const token = localStorage.getItem('incidentra_token');
     if (token) setIsAuthenticated(true);
   }, []);
 
-  const handleLogin = (token) => {                    // called via onLogin prop from Login.js
+  // Dipanggil Login.js via prop onLogin setelah POST /auth/login sukses
+  const handleLogin = (token) => {
     localStorage.setItem('incidentra_token', token);
-    setIsAuthenticated(true);                         // triggers Navigate to "/" → Dashboard
+    setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {                        // passed to Layout + SessionTimeoutWarning (not Login.js)
+  const handleLogout = () => {
     localStorage.removeItem('incidentra_token');
     setIsAuthenticated(false);
   };
@@ -96,7 +100,7 @@ function App() {
       <ThemeProvider>
         <AppRoutes
           isAuthenticated={isAuthenticated}
-          onLogin={handleLogin}   // prop name onLogin → actual function handleLogin
+          onLogin={handleLogin}
           onLogout={handleLogout}
         />
       </ThemeProvider>

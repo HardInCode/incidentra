@@ -1,13 +1,19 @@
 """
 SOC Dashboard API — aggregated stats from PostgreSQL for the React dashboard.
 Ctrl+F: get_stats, log_status, _get_system_status
-Frontend: api.js getDashboardStats(), getLogStatus() → Dashboard.js fetchStats(), checkLogStatus()
+
+Alur data (hulu → hilir):
+  Dashboard.js fetchStats → api.js GET /dashboard/stats → get_stats() di sini
+  → JSON stats.* → KPI cards + Chart.js + Globe di frontend
+
+Semua route butuh JWT — before_request verify_token()
 """
 from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from app import db
 from app.models import Incident, BlockedIP, SeverityLevel, IncidentStatus
+from app.api.auth_middleware import verify_token
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -40,40 +46,42 @@ def _fill_severity_timeline(rows, days):
             })
     return filled
 
-from app.api.auth_middleware import verify_token
 
 @dashboard_bp.before_request
 def _check_auth():
     return verify_token()
 
 
-@dashboard_bp.route('/stats', methods=['GET'])  # GET /api/dashboard/stats — called from Dashboard.js → getDashboardStats()
+@dashboard_bp.route('/stats', methods=['GET'])
 def get_stats():
-    now = datetime.utcnow()                          # get the current time
-    last_24h = now - timedelta(hours=24)             # get the last 24 hours
-    last_7d = now - timedelta(days=7)                # get the last 7 days
+    """GET /api/dashboard/stats — satu API untuk seluruh Dashboard."""
+    now = datetime.utcnow()
+    last_24h = now - timedelta(hours=24)
+    last_7d = now - timedelta(days=7)
 
-    total = Incident.query.count()                                                            # get the total number of incidents (All time incidents card)
-    last_24h_count = Incident.query.filter(Incident.created_at >= last_24h).count()           # get the number of incidents in the last 24 hours (Last 24h incidents card)
-    last_7d_count = Incident.query.filter(Incident.created_at >= last_7d).count()             # JSON field last_7d — globe subtitle
+    # ─── KPI cards (4 angka di atas dashboard) ───
+    total = Incident.query.count()                                                    # → stats.total_incidents
+    last_24h_count = Incident.query.filter(Incident.created_at >= last_24h).count()   # → stats.last_24h
+    last_7d_count = Incident.query.filter(Incident.created_at >= last_7d).count()     # → stats.last_7d (globe)
     open_count = Incident.query.filter(Incident.status == IncidentStatus.NEW).count()
     resolved_count = Incident.query.filter(Incident.status == IncidentStatus.RESOLVED).count()
-    blocked_ips = BlockedIP.query.filter_by(is_whitelist=False).count()
+    blocked_ips = BlockedIP.query.filter_by(is_whitelist=False).count()             # → stats.blocked_ips
     critical = Incident.query.filter(Incident.severity == SeverityLevel.CRITICAL).count()
     high = Incident.query.filter(Incident.severity == SeverityLevel.HIGH).count()
 
-    # Attack type breakdown
+    # ─── CHART 5 — Attack Types ───
     attack_breakdown = db.session.query(
         Incident.attack_type, func.count(Incident.id)
     ).group_by(Incident.attack_type).all()
 
-    # Severity breakdown
+    # ─── CHART 2 — By Severity ───
     severity_breakdown = db.session.query(
         Incident.severity, func.count(Incident.id)
     ).group_by(Incident.severity).all()
 
     chart_days = _last_n_calendar_days(7)
 
+    # ─── CHART 1 — Incident Timeline (7 days) ───
     timeline_raw = db.session.query(
         func.date(Incident.created_at).label('date'),
         func.count(Incident.id).label('count')
@@ -81,6 +89,7 @@ def get_stats():
         Incident.created_at >= last_7d
     ).group_by(func.date(Incident.created_at)).order_by('date').all()
 
+    # ─── CHART 3 — Severity Trend ───
     severity_timeline_raw = db.session.query(
         func.date(Incident.created_at).label('date'),
         Incident.severity,
@@ -92,12 +101,12 @@ def get_stats():
     timeline = _fill_timeline(timeline_raw, chart_days)
     severity_timeline = _fill_severity_timeline(severity_timeline_raw, chart_days)
 
-    # Top attacking IPs
+    # ─── Top Attacking IPs (list kanan bawah) ───
     top_ips = db.session.query(
         Incident.source_ip, func.count(Incident.id).label('count')
     ).group_by(Incident.source_ip).order_by(func.count(Incident.id).desc()).limit(10).all()
 
-    # Top source countries (AbuseIPDB enrichment → incident.country_code)
+    # ─── Globe — Attack Origins (AbuseIPDB → incident.country_code) ───
     top_countries = db.session.query(
         Incident.country_code,
         func.count(Incident.id).label('count'),
@@ -115,7 +124,7 @@ def get_stats():
         Incident.country_code != '',
     ).scalar() or 0
 
-    # Mean Time to Resolve (MTTR) in minutes
+    # ─── MTTR card ───
     resolved = Incident.query.filter(
         Incident.status == IncidentStatus.RESOLVED,
         Incident.resolved_at.isnot(None)
@@ -147,9 +156,9 @@ def get_stats():
     })
 
 
-@dashboard_bp.route('/log-status', methods=['GET'])  # GET /api/dashboard/log-status — stale=true if no log in 60s
+@dashboard_bp.route('/log-status', methods=['GET'])
 def log_status():
-    """Return when the last log entry was received — for frontend warning banner."""
+    """GET /api/dashboard/log-status — stale=true jika tidak ada log > 60 detik."""
     from app.core.log_monitor import get_last_log_received_at, get_log_file_last_activity
     from app.core.detection_engine import get_redis_client
 
@@ -174,6 +183,8 @@ def log_status():
         'seconds_since_last_log': seconds_since,
         'stale': stale,
     })
+
+
 @dashboard_bp.route("/recent-incidents", methods=["GET"])
 def recent_incidents():
     incidents = Incident.query.order_by(Incident.created_at.desc()).limit(10).all()
@@ -181,7 +192,7 @@ def recent_incidents():
 
 
 def _get_system_status():
-    """Return system status indicator."""
+    """Banner hijau/kuning/merah — berdasarkan incident NEW critical/high."""
     critical_new = Incident.query.filter(
         Incident.severity == SeverityLevel.CRITICAL,
         Incident.status == IncidentStatus.NEW

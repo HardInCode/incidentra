@@ -1,6 +1,6 @@
 """
 VULN-WEB — target lab shop (Flask). NOT production.
-SIDANG Ctrl+F: enforce_security (before_request), log_request (after_request)
+Ctrl+F: enforce_security (before_request), log_request (after_request)
 Hooks: middleware/security.py, middleware/logging.py
 """
 import os
@@ -16,20 +16,20 @@ from config import VULN_PORT, VULN_UNSAFE_CMD, VULN_UNSAFE_UPLOAD
 from db import init_db
 from middleware.logging import log_request
 from middleware.security import enforce_security
-from routes import register_blueprints
+from routes import register_blueprints # import register_blueprints function from routes/__init__.py
 
-
-def create_app():
+# create flask app vuln-web
+def create_app(): 
     app = Flask(__name__)
     app.secret_key = os.getenv('VULN_SECRET_KEY', 'incidentra-lab-dev-only')
 
     @app.before_request
     def _enforce():
-        return enforce_security()
+        return enforce_security() # enforce_security function from middleware/security.py dipanggil sebelum request untuk cek blockingan atau rate limiting
 
     @app.after_request
     def _log(response):
-        return log_request(response)
+        return log_request(response) # log_request function from middleware/logging.py for logging request
 
     @app.context_processor
     def inject_globals():
@@ -47,12 +47,12 @@ def create_app():
         except (TypeError, ValueError):
             return value
 
-    register_blueprints(app)
+    register_blueprints(app) # call register blueprints from routes/__init__.py dipasangkan dengan FLask app
     return app
 
-
+# call create_app function to create flask app vuln-web
 app = create_app()
-
+# run flask app vuln-web
 if __name__ == '__main__':
-    init_db()
-    app.run(host='0.0.0.0', port=VULN_PORT, debug=False)
+    init_db() # initialize database
+    app.run(host='0.0.0.0', port=VULN_PORT, debug=False) # run flask app vuln-web

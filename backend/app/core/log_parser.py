@@ -1,51 +1,76 @@
 """
 LOG PARSER — NCSA Combined Log + vuln-web POST_DATA suffix.
 Ctrl+F: parse_log_line, LogTailer, POST_DATA_PATTERN
+
+Hubungan dengan vuln-web (TIDAK import logging.py — hanya baca string log):
+  logging.py menulis  →  "...Mozilla/5.0" POST_DATA:username=hello&password="
+  parse_log_line baca →  dict { ip, method, path, query, user_agent, ... }
+
+POST_DATA: = teks literal di log (bukan variable Python). Parser cari dengan regex.
 """
 import re
 import time
 import os
 import logging
 from typing import Optional, Generator
-from urllib.parse import urlparse, unquote_plus
+from urllib.parse import urlparse, unquote_plus  # stdlib Python — bukan file project
 
 logger = logging.getLogger(__name__)
 
-# Combined Log Format: IP - user [time] "METHOD /path HTTP/1.1" status size "referer" "ua"
-# Optional suffix: POST_DATA:key=val&... (vuln-web logs POST body for detection engine)
+# Regex baris NCSA standar (tanpa suffix POST_DATA).
+# Named groups yang diambil: ip, time, method, path, status, size, ua
+# Contoh match: 172.19.0.1 - - [...] "POST /login HTTP/1.1" 200 3144 "-" "Mozilla/5.0"
 NGINX_PATTERN = re.compile(
     r'(?P<ip>[\d\.a-fA-F:]+)\s+-\s+-\s+\[(?P<time>[^\]]+)\]\s+'
     r'"(?P<method>\w+)\s+(?P<path>[^\s"]*)\s+HTTP/[\d\.]+"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+)\s+"[^"]*"\s+"(?P<ua>[^"]*)"'
 )
+
+# Regex suffix custom dari vuln-web/middleware/logging.py baris 32.
+# Mencari teks persis " POST_DATA:" + sisa baris (isi form POST).
+# Contoh: ' POST_DATA:username=hello&password=' → group(1) = 'username=hello&password='
 POST_DATA_PATTERN = re.compile(r'\s+POST_DATA:(.+)$')
 
 
 def parse_log_line(line: str) -> Optional[dict]:
-    """Parse a single Nginx/Apache combined log line. Appends POST_DATA to query for detection."""
+    """Urai 1 baris log (string) → dict untuk detection engine.
+
+    Input:  line — 1 baris dari access.log atau LOG_INGEST_URL
+    Output: dict jika format cocok, None jika baris kosong / tidak match
+    """
     line = line.strip()
     if not line:
         return None
 
+    # ─── Langkah A: pisah suffix POST_DATA (jika ada) ───
+    # GET attack: biasanya tidak ada POST_DATA → post_data tetap ''
+    # POST attack: potong suffix, simpan isinya untuk digabung ke query nanti
     post_data = ''
     m = POST_DATA_PATTERN.search(line)
     if m:
-        post_data = ' ' + m.group(1)
-        line = line[: m.start()]
+        post_data = ' ' + m.group(1)   # isi body: "username=hello&password="
+        line = line[: m.start()]       # sisa = baris NCSA murni (tanpa POST_DATA)
 
+    # ─── Langkah B: parse baris NCSA dengan regex ───
     match = NGINX_PATTERN.match(line)
     if not match:
         return None
 
+    # ─── Langkah C: pecah path vs query string URL (untuk GET attack) ───
+    # full_path dari log = "/login" atau "/search?q=%3Cscript%3E"
+    # urlparse + unquote_plus = stdlib; decode %3C → <, %3E → >, %20 atau + → spasi, pisah path dari ?query= (menggunakan library urllib untuk memisahkan url dan query contoh /search & q=%3Cscript%3E)
     full_path = match.group('path')
     try:
         parsed = urlparse(full_path)
-        path = unquote_plus(parsed.path)
-        query = unquote_plus(parsed.query)
+        path = unquote_plus(parsed.path)    # '/search'
+        query = unquote_plus(parsed.query)  # 'q=<script>...' (GET payload ada di sini)
     except Exception:
         path = full_path
         query = ''
 
+    # ─── Langkah D: gabung body POST ke query (untuk POST attack) ───
+    # POST /login → query URL kosong; payload dari POST_DATA masuk ke query
+    # Detection engine scan: method + path + query + user_agent
     if post_data:
         query = (query + post_data).strip()
 
@@ -53,21 +78,25 @@ def parse_log_line(line: str) -> Optional[dict]:
         'ip': match.group('ip'),
         'method': match.group('method'),
         'path': path,
-        'query': query,
+        'query': query,                          # GET: dari URL | POST: dari POST_DATA suffix
         'user_agent': match.group('ua'),
         'status_code': int(match.group('status')),
-        'raw': line + (post_data if post_data else ''),
+        'raw': line + (post_data if post_data else ''),  # baris log utuh (audit/debug)
     }
 
 
 class LogTailer:
-    """Tail a log file in real-time, resuming from where left off."""
+    """Baca baris baru dari file log secara real-time (dipakai log_monitor.py).
+
+    Cara kerja singkat: buka file → ingat posisi byte → loop tiap poll_interval detik
+    → baca hanya baris baru → yield ke pemanggil → parse_log_line(line).
+    """
 
     def __init__(self, filepath: str, poll_interval: float = 1.0):
         self.filepath = filepath
         self.poll_interval = poll_interval
-        self._pos = 0
-        self._inode = None
+        self._pos = 0       # posisi byte terakhir yang sudah dibaca
+        self._inode = None  # ID file — deteksi log rotation (file diganti baru)
 
     def _get_inode(self):
         try:
@@ -76,11 +105,11 @@ class LogTailer:
             return None
 
     def tail(self) -> Generator[str, None, None]:
-        """Yield new lines as they appear."""
-        # Seek to end on first open
+        """Yield baris log baru satu per satu."""
+        # Mulai dari akhir file — jangan re-parse log lama saat startup
         try:
             with open(self.filepath, 'r', encoding='utf-8', errors='replace') as f:
-                f.seek(0, 2)  # End of file
+                f.seek(0, 2)
                 self._pos = f.tell()
                 self._inode = self._get_inode()
         except FileNotFoundError:
@@ -89,14 +118,14 @@ class LogTailer:
         while True:
             current_inode = self._get_inode()
             if current_inode != self._inode:
-                # Log rotation
+                # File log diganti (rotation) — baca dari awal file baru
                 self._pos = 0
                 self._inode = current_inode
             else:
-                # Cek jika file terpotong (truncated)
                 try:
                     size = os.stat(self.filepath).st_size
                     if size < self._pos:
+                        # File di-truncate — reset posisi
                         logger.info(f"Log file truncated (size {size} < pos {self._pos}). Resetting position.")
                         self._pos = 0
                 except Exception:
@@ -117,7 +146,7 @@ class LogTailer:
 
 
 class SimulatedLogFeeder:
-    """Feeds test log lines for demo/dev without a real log file."""
+    """Log palsu untuk demo/dev tanpa vuln-web — dipakai jika tidak ada file log."""
 
     SAMPLE_ATTACKS = [
         '192.168.1.100 - - [01/Jan/2026:10:00:01 +0000] "GET /login?user=admin\'%20OR%201=1-- HTTP/1.1" 200 512 "-" "Mozilla/5.0"',

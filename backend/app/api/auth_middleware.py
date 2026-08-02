@@ -3,6 +3,7 @@ import os
 from functools import wraps
 from flask import request, jsonify
 
+# Helper function to verify JWT token
 
 def verify_token():
     """
