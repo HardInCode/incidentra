@@ -58,7 +58,9 @@ ENV FLASK_APP=run.py \
     VULN_DB_PATH=/app/vulnweb/vuln.db \
     VULN_SAFE_FILES_DIR=/app/vulnweb/safe_files \
     VULN_UNSAFE_CMD=1 \
-    VULN_UNSAFE_UPLOAD=1
+    VULN_UNSAFE_UPLOAD=1 \
+    USE_SIMULATED_LOGS=false \
+    DEMO_MODE=false
 
 EXPOSE 8080
 

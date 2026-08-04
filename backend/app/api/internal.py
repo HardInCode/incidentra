@@ -42,9 +42,12 @@ def _check_internal_token():
 @internal_bp.route('/logs', methods=['POST'])
 def ingest_logs():
     """Append raw access-log line(s) pushed by a decoupled vuln-web service to the
-    same file this backend's log monitor tails — it picks them up exactly as if they'd
-    been written locally (identical to the shared-volume behavior, different transport)."""
-    from app.core.log_monitor import resolve_web_log_path
+    same file this backend's log monitor tails, then run the full detection pipeline
+    immediately (same as POST /api/detection/inject-log — do not rely on tailer alone)."""
+    from flask import current_app
+    from app import db
+    from app.core.detection_engine import get_redis_client
+    from app.core.log_monitor import resolve_web_log_path, ingest_log_lines
 
     data = request.get_json(silent=True) or {}
     lines = data.get('lines')
@@ -65,7 +68,10 @@ def ingest_logs():
     except Exception as e:
         return jsonify({'error': f'Could not write to log file: {e}'}), 500
 
-    return jsonify({'received': len(lines)})
+    app = current_app._get_current_object()
+    created_ids = ingest_log_lines(lines, app, db, get_redis_client())
+
+    return jsonify({'received': len(lines), 'incidents_created': len(created_ids)})
 
 
 @internal_bp.route('/blocklist', methods=['GET'])

@@ -62,7 +62,7 @@ def log_request(response):
     #   "-" "Mozilla/5.0" POST_DATA:username=hello&password=
     log_line = (
         f'{get_client_ip(request)} - - '                                          # IP client
-        f'[{datetime.datetime.utcnow().strftime("%d/%b/%Y:%H:%M:%S +0000")}] '   # timestamp UTC
+        f'[{datetime.datetime.utcnow().strftime("%d/%b/%Y:%H:%M:%S +0000")}] '    # timestamp UTC
         f'"{request.method} {request.full_path.rstrip("?")} HTTP/1.1" '           # method + path (tanpa body!)
         f'{response.status_code} {response.content_length or 0} '                 # status + ukuran response
         f'"-" "{request.user_agent.string}"{post_data}'                           # referer + UA + suffix POST
