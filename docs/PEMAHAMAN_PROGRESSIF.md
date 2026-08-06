@@ -10,17 +10,19 @@
 > 7. Setelah satu section beres dan kamu paham, lanjut ke section berikutnya. Tidak perlu urut kalau ada yang lebih penasaran duluan.
 >
 > **Kenapa formatnya begini:** supaya kamu yang mengarahkan (kamu yang tahu bagian mana yang masih buram), saya cuma menjawab presisi — bukan saya yang mendikte alur pemahamanmu.
+>
+> **Kalau minta "rapihkan":** yang dilakukan = perbaiki struktur (heading, checklist, koreksi salah), **bukan** meringkas catatan kamu. Tabel/diagram hanya **suplemen** di bawah poin nomor kamu — bukan pengganti.
 
 **Status pengerjaan** (update manual, centang kalau section sudah "klik" di kepala):
 
 - [x] 1. Login & Self-Registration
 - [~] 2. Dashboard — flow + CHART 1 OK; widget lain cukup "Dashboard lite" (lihat Section 2)
-- [~] 3. Log Ingestion → Detection — **vuln-web + parse_log_line selesai**; backend sisa log_monitor + detection_engine
+- [~] 3. Log Ingestion → Detection — **vuln-web + log_parser + log_monitor selesai**; sisa **`detection_engine.analyze()`** (Section 3) + **`respond()`** (Section 4)
 - [ ] 4. Automated Response (block/rate-limit/escalation)
-- [ ] 5. Incident Detail + AI Explanation (Groq)
+- [ ] 5. Incident Detail + AI Explanation (Groq) — fix parser Groq sudah di kode; belum isi pemahaman
 - [ ] 6. IP Management (Blocked/Rate Limited/Whitelist)
 - [ ] 7. Detection Rules CRUD + rules_dirty reload
-- [ ] 8. Notifications (Email/Telegram) + AbuseIPDB
+- [~] 8. Notifications + AbuseIPDB — AbuseIPDB baris 196–214 log_monitor sudah dipahami; notifikasi email/Telegram belum
 - [ ] 9. Settings + User Management (RBAC) + Audit Log
 - [ ] 10. Docker Compose — bagaimana 6 service saling terhubung
 
@@ -175,7 +177,7 @@ Frontend React memanggil backend Flask lewat axios di api.js. Base URL di-set vi
 
 ## 3. Log Ingestion → Detection
 
-> **Status:** kerangka siap — isi "Pemahaman saya" besok sambil demo. Ini **jantung sidang**; Section 4 (response) lanjutan langsung dari sini.
+> **Status:** vuln-web ✅ | log_parser ✅ | log_monitor ✅ | **`analyze()` berikutnya** → Section 4 `respond()`
 
 **Files terlibat:**
 
@@ -208,22 +210,24 @@ flowchart LR
   F -->|None| J[abaikan — traffic normal]
 ```
 
-**Alur langkah demi langkah (isi centang besok):**
+> **Status Section 3:** vuln-web ✅ | `log_parser.py` (LogTailer + parse_log_line) ✅ | `log_monitor.py` ✅ | `detection_engine.analyze()` ⬜ berikutnya
+
+**Alur langkah demi langkah:**
 
 1. [x] Attacker kirim request ke vuln-web (contoh SQLi di query/form)
 2. [x] `logging.py` `log_request()` — setelah response, format baris NCSA Combined Log
 3. [x] Kalau POST: append `POST_DATA:key=val&...` supaya detection bisa baca body (bukan cuma URL)
-4. [x] Docker: tulis ke `/app/logs/access.log` (vuln-web) = `/app/watched_logs/access.log` (backend) via volume `vuln_logs` (2 container, 1 disk shared — bukan 1 service)
-5. [ ] `docker_log_monitor.py` → `start_monitor()` → `LogTailer` poll file tiap ~1 detik
-6. [ ] Baris baru → `_process_log_line(line, ...)`
+4. [x] Docker: tulis ke `/app/logs/access.log` (vuln-web) = `/app/watched_logs/access.log` (backend) via volume `vuln_logs`
+5. [x] `docker_log_monitor.py` → `start_monitor()` → `LogTailer` poll file tiap ~1 detik
+6. [x] Baris baru → `_process_log_line(line, ...)`
 7. [x] `parse_log_line()` — regex `NGINX_PATTERN` + strip/merge `POST_DATA` ke field `query` (Langkah A–D)
 8. [ ] `DetectionEngine.analyze(entry)` — gabung string `method path query user_agent`, match regex DB + baseline OWASP
-9. [ ] Kalau match → threat dict (`attack_type`, `severity`, `matched_text`, …); kalau tidak → return `None`, selesai
-10. [ ] Dedup: skip jika IP+attack_type sama sudah ada incident dalam **5 menit** (kecuali waiver unblock)
-11. [ ] Buat row `Incident` di PostgreSQL, commit, `rule.match_count++` kalau rule DB aktif
-12. [ ] `responder.respond(threat, incident.id)` → **Section 4** (block / rate-limit)
-13. [ ] Background thread: AbuseIPDB reputation (kalau API key ada) — **bukan** AI; AI explain manual di UI
-14. [ ] Dashboard `/stats` baca tabel `incidents` → angka/chart berubah dari 0
+9. [ ] Kalau match → threat dict; kalau tidak → return `None`, selesai
+10. [x] Dedup: skip jika IP+attack_type sama sudah ada incident dalam **5 menit** (kecuali waiver unblock)
+11. [x] Buat row `Incident` di PostgreSQL, commit, `rule.match_count++` kalau rule DB aktif
+12. [~] `responder.respond(threat, incident.id)` → **Section 4** (tahu dipanggil; detail block belum)
+13. [x] Background thread AbuseIPDB (kalau API key ada) — **bukan** AI; lihat sub-bagian di bawah
+14. [~] Dashboard `/stats` baca tabel `incidents` → angka/chart berubah (konsep OK; latihan hands-on belum semua)
 
 **Mode log monitor (env):**
 
@@ -286,22 +290,48 @@ vuln_web container          backend container
 6. Langkah logging: kumpulkan POST body → (opsional) `g.log_extra` → susun baris NCSA → append ke `access.log` (Docker/manual) atau push `LOG_INGEST_URL` (Railway).
 7. GET attack payload ada di URL (query string), sudah tercatat di log tanpa `POST_DATA`. POST attack sering butuh suffix `POST_DATA:`.
 
-**Pemahaman saya — backend (Log Parsing):**
-1.  `Logging.py` menyimpan isi body request ke `POST_DATA:` karena Nginx access log standar TIDAK menyertakan body, setelah itu disusun menjadi format NCSA yang disimpan ke shared volume vuln_logs.
-2. Setelah itu `parse_log_line()` `log_parser.py` mengambil 1 baris log string lalu memisahkan suffix `POST_DATA` dan menyisakan NCSA murni tanpa (`POST_DATA`).
-3. Pemisahan data dilakukan dengan cara pencocokan regex pattern `POST_DATA_PATTERN` dan `NGINX_PATTERN` dengan string line. 
-4. Next, data dipecah path vs query string URL (untuk GET attack), library urllib dipakai untuk memecah `/search?q=%3Cscript%3E` menjadi `/search` & `q=%3Cscript%3E` serta diterjemahkan menggunakan library stdlib; decode `%3C → <, %3E → >, %20 atau + → spasi`
-5. **Langkah D:** POST attack — URL tidak punya `?` jadi `query` kosong setelah Langkah C; isi body dari `post_data` (hasil potong `POST_DATA:`) digabung ke `query` → detection scan field `query`.
-6. Return dict `{ ip, method, path, query, user_agent, status_code, raw }` — parser **tidak** deteksi serangan; hanya string → dict.
+**Pemahaman saya — backend (`log_parser.py`):**
 
-**Langkah A–D `parse_log_line` (ringkas):**
+**Kondisi sebelum file ini berjalan:**
+`logging.py` menyimpan isi body request ke suffix `POST_DATA:` karena Nginx access log standar TIDAK menyertakan body. Setelah itu disusun menjadi format NCSA yang disimpan ke shared volume `vuln_logs` (Docker) atau di-push lewat `LOG_INGEST_URL` (Railway).
+
+#### `LogTailer` — baca file real-time (dipakai di `start_monitor` → `feeder.tail()`)
+
+1. `LogTailer()` berfungsi untuk membaca file log secara real-time; outputnya berupa 1 baris log (string) per yield — input untuk `parse_log_line()`.
+2. `_get_inode(self)` mengecek apakah file masih file yang sama di disk, dengan cara cek unique ID (`st_ino`) pada filesystem — berguna kalau log di-rotate (file diganti).
+3. `tail(self)` generator: yield 1 baris log satu per satu ke loop `for line in feeder.tail()` di `_run()`.
+4. `f.seek(0, 2)` loncat ke akhir file (EOF) saat startup — skip log lama; hanya proses baris **baru** setelah backend restart.
+5. `self._pos` = bookmark byte — posisi terakhir sudah dibaca; supaya tidak baca ulang baris yang sama.
+6. Loop `while True` (background thread): bila file diganti (rotation) atau di-truncate (dikosongkan) → reset `self._pos = 0`.
+7. Alur baca: `f.seek(self._pos)` → `readlines()` ambil baris baru saja → update `_pos` → `yield line` → `_process_log_line(line)` di `log_monitor.py`.
+8. `time.sleep(self.poll_interval)` tunggu 1 detik sebelum cek lagi — hemat CPU (bukan busy-wait terus).
+
+**Referensi cepat (tabel — suplemen, bukan pengganti poin di atas):**
+
+| # | Bagian | Fungsi singkat |
+|---|---|---|
+| 1 | `__init__` | Path file + poll interval |
+| 2 | `_get_inode()` | Deteksi log rotation |
+| 3–8 | `tail()` | Loop baca baris baru → yield |
+
+> **Catatan:** `SimulatedLogFeeder` (class lain di file yang sama) hanya dipakai kalau `USE_SIMULATED_LOGS=true` — data hardcoded, bukan tail file nyata.
+
+#### `parse_log_line(line)` — string → dict
+
+1. `parse_log_line()` mengambil 1 baris log string, memisahkan suffix `POST_DATA`, menyisakan baris NCSA murni (tanpa suffix).
+2. Pemisahan pakai regex `POST_DATA_PATTERN` (suffix body) dan `NGINX_PATTERN` (baris NCSA standar).
+3. Data dipecah path vs query string URL (untuk GET attack): library `urllib` (`urlparse`, `unquote_plus`) memecah `/search?q=%3Cscript%3E` → `path='/search'`, `query='q=%3Cscript%3E'` lalu decode `%3C → <`, `%3E → >`, `%20`/`+` → spasi.
+4. **Langkah D (POST):** URL sering tidak punya `?` → setelah Langkah C `query` kosong; isi body dari `post_data` (hasil potong `POST_DATA:`) digabung ke `query` → detection engine scan field `query`.
+5. Return dict `{ ip, method, path, query, user_agent, status_code, raw }` — parser **tidak** deteksi serangan; hanya string → dict.
+
+**Langkah A–D (ringkas):**
 
 | Langkah | Apa | Contoh |
 |---|---|---|
 | A | Potong suffix `POST_DATA:...` | `post_data` = isi body form |
 | B | Regex NCSA → ip, method, path, status, ua | `"POST /login HTTP/1.1"` |
 | C | `urlparse` + `unquote_plus` (GET) | `%3Cscript%3E` → `<script>` |
-| D | `query += post_data` (POST) | `query` = `username=hello&password=` |
+| D | `query += post_data` (POST) | `query = username=hello&password=` |
 
 **Contoh GET XSS:** `full_path='/search?q=%3Cscript%3E...'` → setelah C: `path='/search'`, `query='q=<script>...'`
 
@@ -312,25 +342,98 @@ vuln_web container          backend container
 - Regex `POST_DATA_PATTERN` hanya menangkap isi **setelah** teks `POST_DATA:` → `group(1)` = `username=hello&password=` (tanpa spasi di depan).
 - Di log asli ada spasi **sebelum** kata `POST_DATA:` (antara `"Mozilla..."` dan `POST_DATA:`).
 - `' '` = string Python berisi **1 karakter spasi** — ditambah di depan isi body supaya saat digabung ke `query` ada pemisah kalau URL sudah punya query string.
-- Baris 75 `.strip()` buang spasi ujung — kalau `query` kosong, hasil akhir tetap `username=hello&password=` (tanpa spasi depan).
+- Baris `.strip()` buang spasi ujung — kalau `query` kosong, hasil akhir tetap `username=hello&password=` (tanpa spasi depan).
 
 **Hubungan logging.py ↔ log_parser.py (tidak saling import):**
 
 ```
-logging.py: request.form → string ' POST_DATA:username=hello&password=' → access.log
-log_parser.py: baca string → POST_DATA_PATTERN → dict
+logging.py:  request.form → string ' POST_DATA:username=hello&password=' → access.log
+log_parser.py: baca string → POST_DATA_PATTERN + NGINX_PATTERN → dict entry
 ```
 
+---
 
+**Pemahaman saya — backend (`log_monitor.py`):**
 
+#### `start_monitor()` & `_run()` — background thread
 
-**Pemahaman saya — backend (belum dipelajari detail):**
+1. `start_monitor()` dipanggil saat startup backend — dari `backend/run.py` (dev manual) atau `backend/docker_log_monitor.py` (Docker/Railway, proses terpisah dari Gunicorn).
+2. Variable module-level (`_monitor_thread`, `_running`, `last_log_received_at`) diubah pakai `global` supaya `stop_monitor()` bisa hentikan loop dari luar — bukan variable lokal function saja.
+3. `touch_last_log_received(redis_client)` mencatat waktu log terakhir diterima — di memori proses ini + (kalau ada) Redis key `log_monitor:last_received_at` untuk Dashboard banner stale.
+4. `_run()` adalah **inner function** — body thread background. Tanpa ini, loop `feeder.tail()` akan block `start_monitor()` dan Flask/Gunicorn tidak bisa lanjut serve API.
+5. `_run()` import lazy: `LogTailer` / `SimulatedLogFeeder` dari `log_parser.py`, `DetectionEngine` dari `detection_engine.py`, `ResponseManager` dari `response_manager.py`.
+6. Helper `resolve_web_log_path()` baca lokasi file log dari ENV `WEB_SERVER_LOG_PATH` (Docker: `/app/watched_logs/access.log`).
+7. `feeder = LogTailer(log_path)` — yield 1 baris log dari `access.log` (lihat pemahaman LogTailer di atas).
+8. `engine = DetectionEngine(redis_client=redis_client)` + `register_detection_engine(engine)` + `responder = ResponseManager(db=db, redis_client=redis_client, app=app)` dibuat **sekali** sebelum loop — tidak dibuat ulang per baris (hemat resource).
+9. Method crucial: `engine.analyze(entry)` → threat dict; `responder.respond(threat, incident.id)` → block/rate-limit.
+10. `with app.app_context():` — method bawaan Flask pada object `app` dari `create_app()` (`backend/app/__init__.py`). SQLAlchemy query butuh Flask context di background thread.
+11. Loop `for line in feeder.tail():` — `line` = string 1 baris log. Jika global `_running` di-set `False` (`stop_monitor()`), break keluar loop. Loop tidak selesai sendiri kecuali backend stop.
+12. Tiap iterasi: `_process_log_line(line, engine, responder, db, redis_client, app)`.
+13. `_monitor_thread = threading.Thread(target=_run, daemon=True, name='LogMonitor')` — `target=_run` = function yang dijalankan thread; `daemon=True` = mati otomatis kalau proses utama mati; `.start()` = baru di sini `_run()` mulai jalan (non-blocking).
+14. `start_monitor()` langsung return setelah `.start()` — **tidak** tunggu loop selesai.
+
+#### `_process_log_line()` — Parse → detect → dedup → incident → respond
+
+1. Proses lengkap terbuatnya incident dan response: `Parse → detect → dedup → incident → respond`.
+2. Import lazy: `parse_log_line()` dari `log_parser.py`; model PostgreSQL dari `app.models` (`Incident`, `DetectionRule`, enum severity/status).
+3. `touch_last_log_received(redis_client)` — catat "log terakhir diproses jam berapa". Dashboard baca via `get_last_log_received_at()` → banner kuning kalau stale >60s.
+4. `entry = parse_log_line(line)` — string → dict. `threat = engine.analyze(entry)` — dict → threat dict atau `None` (bukan threat → selesai, tidak INSERT). **Detail `analyze()` belum dipelajari — berikutnya.**
+5. **Dedup:** `skip_dedup = False` default (dedup **aktif**). Kalau `not skip_dedup`: query **SELECT** PostgreSQL — incident dengan IP + `attack_type` sama dalam 5 menit? Jika **sudah ada** → `return None` (**dedup skip**, bukan INSERT). Jika **belum ada** → lanjut INSERT. `skip_dedup = True` hanya setelah admin unblock IP (waiver Redis 1×, 10 menit) — untuk testing/demo.
+6. **Severity:** `sev_map` = jembatan string dari `analyze()` (mis. `'high'`) → enum SQLAlchemy `SeverityLevel.HIGH` untuk kolom DB. Default fallback: `MEDIUM`.
+7. **Detection rule:** `DetectionRule.query.filter_by(attack_type=..., is_active=True).first()`. Jika ketemu → isi `rule_id` + `match_count += 1`. **Jika tidak ketemu → `rule_id = None`, incident tetap dibuat** (match dari baseline OWASP di engine, bukan rule DB). *(Koreksi: bukan `return None`.)*
+8. Buat object `incident = Incident(...)` — isi dari `threat` dict: `source_ip`, `attack_type`, `severity`, `status=IncidentStatus.NEW`, `raw_payload`, `request_path`, `request_method`, `user_agent`, `response_code`, `rule_id`.
+9. `db.session.add(incident)` lalu `db.session.commit()` — **INSERT** ke PostgreSQL. Setelah commit, `incident.id` ada → KPI Dashboard bisa naik.
+10. `logger.info(f"[THREAT] ...")` — log backend untuk debugging (`docker compose logs backend`).
+11. `responder.respond(threat, incident.id)` — panggil block / rate-limit dari `response_manager.py` → **Section 4**.
+12. Urutan sengaja: buat incident **dulu**, baru block — supaya tiket tetap ada di SOC meskipun blocking gagal.
+13. **AbuseIPDB (opsional, baris 196–214):** jika `_get_setting('ABUSEIPDB_API_KEY')` diset → buat inner function `_rep_thread()`, jalankan di `threading.Thread` baru. Lihat sub-bagian di bawah.
+14. `return incident.id` — ID incident baru (dipakai `ingest_log_lines()` untuk kumpulkan list; loop monitor tidak pakai return value).
+
+#### AbuseIPDB + `threading.Thread` (baris 196–214)
+
+**Pemahaman saya:**
+
+1. Ini **bukan** core pipeline — kalau API key kosong, seluruh blok di-skip, langsung `return incident.id`. Deteksi + incident + block tetap jalan.
+2. **Thread** = pekerjaan paralel dalam 1 program Python (bukan proses baru, bukan Celery). Supaya HTTP ke AbuseIPDB (~1–10 detik) **tidak menghambat** loop baca log berikutnya.
+3. **Bukan Celery `.delay()`** — tidak masuk antrian Redis. Pola sama dengan notifikasi email di `response_manager._notify_async()`. Celery di project ini cuma cleanup block hourly.
+4. Inner function `_rep_thread(app_ref, inc_id, ip)` — body yang dijalankan thread.
+5. `with app_ref.app_context():` — thread baru tidak punya Flask context bawaan; SQLAlchemy butuh ini untuk `Incident.query.get()` + `commit()` di `_do_reputation_check`.
+6. `_do_reputation_check(inc_id, ip)` di `app/services/threat_intel_service.py` — GET AbuseIPDB → update field `country_code` dan `abuse_confidence_score` pada row incident **yang sudah ada** (bukan buat incident baru).
+7. `threading.Thread(target=_rep_thread, args=(app, incident.id, threat['ip']), daemon=True).start()`:
+   - `target` = function yang dijalankan
+   - `args` = `app` dari parameter `start_monitor`, `incident.id` baru dari commit, IP dari `threat`
+   - `daemon=True` = thread mati kalau proses utama restart
+   - `.start()` = jalankan non-blocking — caller **tidak tunggu** selesai
+8. Thread utama sudah `return incident.id` saat AbuseIPDB mungkin masih jalan — normal. Flag/country di UI bisa muncul beberapa detik kemudian setelah refresh.
+9. **Beda AI Groq:** AbuseIPDB = reputasi IP otomatis (opsional). AI Explain = analyst klik manual di UI (Section 5).
+
+**Diagram timing (suplemen visual — bukan pengganti poin di atas):**
+
+```
+Thread utama (_process_log_line)          Thread daemon (_rep_thread)
+├─ commit incident ✅                      ├─ app.app_context()
+├─ respond() block IP ✅                 ├─ _do_reputation_check()
+├─ Thread(...).start()  ───────────────►└─ UPDATE country_code, abuse_score
+└─ return incident.id  (tidak tunggu)
+```
+
+**Dedup — terminologi (suplemen):**
+
+- `skip_dedup = False` → dedup aktif → 100× SQLi sama (IP + type, 5 menit) = **1 incident**
+- `return None` di dedup = **dedup skip** (buang baris)
+- Query dedup = **SELECT**, bukan INSERT
+
+---
+
+**Ringkas konsep backend (Section 3):**
 
 1. Serangan tidak langsung masuk DB — harus lewat baris log dulu.
-2. Backend tidak hook ke vuln-web — tail file shared volume atau terima push (`internal.py`).
+2. Backend tidak hook ke vuln-web — tail shared file atau terima push (`internal.py` Railway).
 3. Satu baris log = parse → analyze → (optional) incident → respond.
-4. Detection = regex + rule DB, bukan AI.
-5. Dedup 5 menit = anti spam incident identik dari IP yang sama.
+4. Detection = regex + rule DB, **bukan** AI.
+5. Dedup 5 menit = anti spam 100 ticket identik.
+
+**Belum dipelajari detail:** `detection_engine.analyze()` (langkah 8–9 checklist).
 
 **Latihan (~1–2 jam):**
 
@@ -343,11 +446,12 @@ log_parser.py: baca string → POST_DATA_PATTERN → dict
 
 **Pertanyaan sidang (draft — centang kalau sudah bisa jawab):**
 
-- Q1. Kenapa perlu `POST_DATA` di log, tidak cukup URL saja?
-- Q2. Beda detection engine vs AI Groq?
-- Q3. Apa yang terjadi kalau log monitor mati? (hint: banner kuning Dashboard `/log-status`)
-- Q4. Bagaimana Docker Compose hubungkan vuln-web log ke backend?
-- Q5. Kenapa ada dedup 5 menit?
+- [x] Q1. Kenapa perlu `POST_DATA` di log, tidak cukup URL saja?
+- [x] Q2. Beda detection engine vs AI Groq?
+- [x] Q3. Apa yang terjadi kalau log monitor mati? (hint: banner kuning Dashboard `/log-status`)
+- [x] Q4. Bagaimana Docker Compose hubungkan vuln-web log ke backend?
+- [x] Q5. Kenapa ada dedup 5 menit?
+- [x] Q6. Kenapa AbuseIPDB pakai `threading.Thread`, bukan Celery `.delay()`?
 
 **Jawaban:**
 
@@ -356,6 +460,7 @@ log_parser.py: baca string → POST_DATA_PATTERN → dict
 - **A3.** Log monitor idle >60s → `GET /log-status` return `stale: true` → banner kuning di Dashboard. Pipeline ingestion mati; incident baru tidak terbuat.
 - **A4.** Volume `vuln_logs` di-mount ke vuln-web (`/app/logs`) dan backend (`/app/watched_logs`) — file `access.log` sama. Backend `LogTailer` tail file itu.
 - **A5.** Tanpa dedup, 1 attacker kirim 100 request SQLi = 100 incident identik. Dedup 5 menit (IP + attack_type sama) = 1 incident per window.
+- **A6.** AbuseIPDB = enrichment **opsional** & lambat (HTTP eksternal). Thread daemon = fire-and-forget di proses yang sama — tidak block log monitor. Celery `.delay()` butuh worker terpisah; di project ini Celery hanya untuk cleanup block hourly. Pola thread sama dengan notifikasi email di `response_manager._notify_async()`.
 
 **One-liner sidang (hafalkan):**
 
@@ -484,7 +589,7 @@ log_parser.py: baca string → POST_DATA_PATTERN → dict
 | Backend | `backend/app/services/threat_intel_service.py` | `check_ip_reputation`, `_do_reputation_check` |
 | Backend | `backend/app/core/log_monitor.py` | baris yang spawn thread `_do_reputation_check` |
 
-**Catatan penting (terverifikasi ke kode):** Notifikasi dan AbuseIPDB **tidak lewat Celery** — keduanya dipanggil lewat `threading.Thread(daemon=True)` yang di-spawn langsung dari `response_manager.py` (notifikasi) dan `log_monitor.py` (AbuseIPDB), segera setelah incident dibuat. Celery Worker di project ini **hanya** menjalankan satu task nyata: `cleanup_expired_blocks` (jadwal per jam via Celery Beat, lihat `backend/celery_worker.py`) — tidak terkait AI, notifikasi, atau AbuseIPDB sama sekali.
+**Catatan penting (terverifikasi ke kode):** Notifikasi email/Telegram **tidak lewat Celery** — dipanggil lewat `threading.Thread(daemon=True)` dari `response_manager._notify_async()`. AbuseIPDB sama — thread dari `log_monitor.py` baris 196–214 (sudah dipelajari di Section 3). Celery Worker hanya menjalankan `cleanup_expired_blocks` (hourly via Beat).
 
 **Alur:**
 
@@ -572,3 +677,5 @@ log_parser.py: baca string → POST_DATA_PATTERN → dict
 | 2026-08-01 | Kerangka Section 3 Log Ingestion → Detection (diagram, alur 14 langkah, latihan besok) | `docs/PEMAHAMAN_PROGRESSIF.md` |
 | 2026-08-02 | Perbaikan Pemahaman Section 3 (vuln-web selesai, shared volume, koreksi ip_utils/request vs response) | `docs/PEMAHAMAN_PROGRESSIF.md`, `vuln-web/middleware/logging.py` |
 | 2026-08-03 | parse_log_line Langkah A–D selesai; komentar blok logging.py + log_parser.py + Login/Dashboard; catatan spasi baris 51 | `log_parser.py`, `logging.py`, `Login.js`, `Dashboard.js`, `auth.py`, `dashboard.py`, `PEMAHAMAN_PROGRESSIF.md` |
+| 2026-08-04 | Section 3 dirapikan: LogTailer dipulihkan (tabel), log_monitor + dedup + AbuseIPDB/thread; checklist 5–13 di-update; koreksi rule_id vs return None | `PEMAHAMAN_PROGRESSIF.md` |
+| 2026-08-04 | Restore catatan panjang user (LogTailer 8 poin, start_monitor 14 poin, _process_log_line 14 poin, AbuseIPDB 9 poin) — tabel jadi suplemen | `PEMAHAMAN_PROGRESSIF.md` |

@@ -1,3 +1,17 @@
+"""
+DETECTION ENGINE — regex + threshold → threat dict atau None.
+Ctrl+F: analyze, DETECTION_PATTERNS, BruteForceTracker, _load_rules_from_db
+
+Urutan baca file ini (sesuai alur runtime):
+  ① DETECTION_PATTERNS     → baseline OWASP (hardcoded regex)
+  ② BruteForceTracker      → counter POST /login (bukan regex)
+  ③ DetectionEngine        → compile rules + method analyze()
+  ④ get_redis_client()     → helper koneksi Redis (optional)
+
+Alur dipanggil dari log_monitor._process_log_line():
+  parse_log_line(entry) → engine.analyze(entry) → threat dict | None
+    → (jika threat) dedup → INSERT incident → responder.respond()
+"""
 import re
 import time
 from collections import defaultdict, deque
@@ -9,18 +23,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ─── OWASP BASELINE PATTERNS (hardcoded, not AI) ─────────────────────────────
-# Ctrl+F: search "OWASP_BASELINE_PATTERNS" or "DETECTION_PATTERNS"
-# File: backend/app/core/detection_engine.py
-# These regexes are merged after DB rules UNLESS Settings → Lab mode (UI rules only).
-# AI explanations are separate: backend/app/services/ai_service.py (Groq fallback).
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# ① DETECTION_PATTERNS — baseline OWASP (hardcoded, bukan AI)
+#    Digabung dengan rule analyst dari PostgreSQL kecuali Lab mode (UI rules only).
+#    AI explain terpisah: backend/app/services/ai_service.py (Groq on-demand).
+# ═══════════════════════════════════════════════════════════════════════════════
 
 DETECTION_PATTERNS = {
     'SQL_INJECTION': {
         'patterns': [
             r"(?i)(union\s+select|select\s+(\*|[\w]+\s*,\s*[\w\s,`]*|count\s*\([\w\s,*)]*\))\s+from\s+\w|insert\s+into\s+\w+\s*\(|drop\s+table\s+\w|delete\s+from\s+\w|update\s+\w+\s+set\s+\w)",
-            r"(?i)(\bor\b\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+[\'\"]?)",
+            r"(?i)(\bor\b\s+[\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+[\'\"]?)",  # ← classic ' OR '1'='1
             r"(?i)(\'|\")(\s*;\s*|\s+or\s+|\s+and\s+).*?(--|#|/\*)",
             r"(?i)(sleep\s*\(|benchmark\s*\(|waitfor\s+delay)",
             r"(?i)(information_schema|sys\.tables|sysobjects|syscolumns)",
@@ -30,7 +43,7 @@ DETECTION_PATTERNS = {
             r"(?i)(\bcast\s*\(|\bconvert\s*\()\s*.*\s+(as|using)\s+\w+",
             r"(?i)(order\s+by\s+\d+|group\s+by\s+\d+.*having)",
         ],
-        'severity': 'critical',
+        'severity': 'critical',  # ← dipakai RESPONSE_ACTIONS → escalating_block
         'mitre': 'T1190 - Exploit Public-Facing Application',
     },
     'XSS': {
@@ -50,10 +63,10 @@ DETECTION_PATTERNS = {
         'mitre': 'T1059.007 - JavaScript',
     },
     'BRUTE_FORCE': {
-        'patterns': [],  # threshold-based, not regex
+        'patterns': [],  # ← kosong sengaja — deteksi pakai BruteForceTracker (threshold), bukan regex
         'severity': 'high',
         'mitre': 'T1110 - Brute Force',
-        'threshold_based': True,
+        'threshold_based': True,  # ← flag: skip _compile_patterns(); logic di analyze() baris ~380
     },
     'PATH_TRAVERSAL': {
         'patterns': [
@@ -69,9 +82,9 @@ DETECTION_PATTERNS = {
         'mitre': 'T1083 - File and Directory Discovery',
     },
     'FILE_UPLOAD': {
-        # Incident only for dangerous filenames (unfiltered upload risk), not benign .txt/.pdf.
+        # Incident hanya untuk ekstensi berbahaya (.php, .jsp, …) — bukan .txt/.pdf biasa
         'patterns': [
-            # log_parser stores POST body as "file=name" or "avatar=name" (POST_DATA: prefix stripped)
+            # log_parser simpan POST body sebagai "file=name" (prefix POST_DATA: sudah di-strip di parser)
             r'(?i)(?:POST_DATA:)?(?:file|avatar)=[^&\s"]*\.(php\d*|phtml|phar|jsp|asp|aspx|exe|dll|sh|bat|cmd|ps1|htaccess|cgi)\b',
             r'(?i)(?:POST_DATA:)?(?:file|avatar)=[^&\s"]*\.(php|jsp|asp|aspx)[^&\s"]*\.(jpg|jpeg|png|gif|txt|pdf)\b',
         ],
@@ -84,7 +97,7 @@ DETECTION_PATTERNS = {
             r"(?i)(\bexec\b|\bsystem\b|\bpassthru\b|\bshell_exec\b|\bpopen\b)\s*\(",
             r"(?i)(\/bin\/sh|\/bin\/bash|\/usr\/bin\/perl|\/usr\/bin\/python)",
             r"(?i)(\bchmod\s+\d+|\bchown\s+|\brm\s+-|\bmv\s+|\bcp\s+)\s+\/",
-            # vuln-web /cmd?cmd=whoami (log query is "cmd=..." — no leading semicolon)
+            # vuln-web /cmd?cmd=whoami — query di log = "cmd=..." (tanpa leading semicolon)
             r"(?i)\bcmd=\s*[^&\s\"]*\b(whoami|id|uname|ls|pwd|cat|ping|nc|netcat|wget|curl)\b",
             r"(?i)\bcmd=[^&\s\"]*[;&|`]",
         ],
@@ -97,14 +110,14 @@ DETECTION_PATTERNS = {
             r"(?i)(python-requests\/|go-http-client\/|java\/|libwww-perl\/|curl\/\d+.*\d+.*\d+\s*$)",
             r"(?i)(zgrab|zgrabber|wfuzz|hydra|medusa|nuclei)",
         ],
-        'severity': 'medium',
+        'severity': 'medium',  # ← RESPONSE_ACTIONS → rate_limit (bukan block langsung)
         'mitre': 'T1595 - Active Scanning',
     },
     'LFI_RFI': {
         'patterns': [
             r"(?i)(php://input|php://filter|php://data|expect://|data://)",
             r"(?i)(file=https?://|page=https?://|url=https?://|path=https?://)",
-            # Query is parsed without "?" — match file= / ?file= / &file= (vuln-web /files?file=../../)
+            # Query di parser tanpa "?" — match file= / ?file= / &file= (vuln-web /files?file=../../)
             r"(?i)(?:\?file=|[&;\s]file=|file=)[^&\s\"]*\.\.",
             r"(?i)(?:\?page=|\?path=|\?template=|\?include=)[^&\s\"]*\.\.",
         ],
@@ -113,14 +126,14 @@ DETECTION_PATTERNS = {
     },
     'CSRF': {
         'patterns': [
-            r"(?i)(csrf|xsrf).*token.*missing",
+            r"(?i)(csrf|xsrf).*token.*missing",  # ← vuln-web logging.py tulis ke access.log
         ],
         'severity': 'medium',
         'mitre': 'T1185 - Browser Session Hijacking',
     },
 }
 
-# Severity weights for scoring
+# Skor numerik — dipakai max(threats) pilih severity tertinggi kalau multi-match
 SEVERITY_WEIGHTS = {
     'critical': 100,
     'high': 70,
@@ -128,53 +141,59 @@ SEVERITY_WEIGHTS = {
     'low': 10,
 }
 
-# Response actions per severity
+# Mapping severity → aksi response_manager.respond() (Section 4)
 RESPONSE_ACTIONS = {
-    'low': 'log_and_monitor',
-    'medium': 'rate_limit',
-    'high': 'escalating_block',
+    'low': 'log_and_monitor',       # ← hanya log, tidak block
+    'medium': 'rate_limit',         # ← throttle request
+    'high': 'escalating_block',     # ← block IP (escalating = durasi naik kalau repeat)
     'critical': 'escalating_block',
 }
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ② BruteForceTracker — sliding window counter POST login (Redis + fallback lokal)
+#    Key Redis: bf:{ip}:{path} — sorted set timestamp attempt
+# ═══════════════════════════════════════════════════════════════════════════════
 
 class BruteForceTracker:
     """In-memory + Redis brute force tracker"""
 
     def __init__(self, redis_client=None, window_seconds=60, threshold=10):
-        self.window = window_seconds
-        self.threshold = threshold
-        self._local: Dict[str, deque] = defaultdict(deque)
-        self.redis = redis_client
+        self.window = window_seconds       # ← sliding window detik (Settings DB / .env)
+        self.threshold = threshold         # ← attempt ke-N yang trigger incident (default 10)
+        self._local: Dict[str, deque] = defaultdict(deque)  # ← fallback kalau Redis down
+        self.redis = redis_client          # ← dari log_monitor start_monitor(redis_client=...)
 
     def record_attempt(self, ip: str, path: str) -> int:
+        """Catat 1 POST login attempt; return jumlah attempt dalam window."""
         now = time.time()
-        key = f"bf:{ip}:{path}"
+        key = f"bf:{ip}:{path}"  # ← contoh: bf:151.158.106.34:/login
 
         if self.redis:
             try:
                 pipe = self.redis.pipeline()
-                pipe.zadd(key, {str(now): now})
-                pipe.zremrangebyscore(key, 0, now - self.window)
-                pipe.zcard(key)
-                pipe.expire(key, self.window * 2)
+                pipe.zadd(key, {str(now): now})                          # tambah timestamp attempt
+                pipe.zremrangebyscore(key, 0, now - self.window)         # buang attempt di luar window
+                pipe.zcard(key)                                          # hitung sisa attempt
+                pipe.expire(key, self.window * 2)                        # TTL agar key tidak menumpuk
                 results = pipe.execute()
-                return results[2]
+                return results[2]  # ← zcard = jumlah attempt dalam window
             except Exception:
-                pass
+                pass  # ← Redis error → fallback _local di bawah
 
-        # Fallback local
+        # Fallback local (dev tanpa Redis)
         dq = self._local[key]
         dq.append(now)
-        while dq and dq[0] < now - self.window:
+        while dq and dq[0] < now - self.window:  # buang attempt lama dari deque kiri
             dq.popleft()
         return len(dq)
 
     def is_brute_force(self, ip: str, path: str) -> bool:
-        """Fire only when the threshold is first crossed in the sliding window."""
-        return self.record_attempt(ip, path) == self.threshold
+        """True hanya saat attempt == threshold (crossing pertama), bukan setiap attempt setelahnya."""
+        return self.record_attempt(ip, path) == self.threshold  # ← True hanya saat count == threshold (1 incident per crossing)
 
     def clear_ip(self, ip: str):
-        """Reset counters for an IP (e.g. after manual unblock)."""
+        """Reset counter untuk IP (dipanggil saat admin unblock di BlockedIPs UI)."""
         prefix = f"bf:{ip}:"
         for key in list(self._local.keys()):
             if key.startswith(prefix):
@@ -187,43 +206,51 @@ class BruteForceTracker:
                 pass
 
 
-# Shared engine instance used by the log monitor thread (for unblock resets)
+# ─── Global ref engine aktif — dipakai clear_brute_force_state() saat unblock ───
 _active_engine: Optional['DetectionEngine'] = None
 
 
 def register_detection_engine(engine: 'DetectionEngine'):
+    """Dipanggil log_monitor start_monitor() sekali — simpan ref untuk API unblock."""
     global _active_engine
     _active_engine = engine
 
 
 def clear_brute_force_state(ip: str):
+    """Dipanggil response_manager / blocked IP API saat admin unblock IP."""
     if _active_engine:
         _active_engine.bf_tracker.clear_ip(ip)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ③ DetectionEngine — compile patterns + analyze(entry)
+#    Dibuat sekali di log_monitor._run() — analyze() dipanggil per baris log
+# ═══════════════════════════════════════════════════════════════════════════════
+
 class DetectionEngine:
     def __init__(self, redis_client=None):
         from app.core.settings_reader import get_rate_limit_window, get_brute_force_threshold
-        self.redis = redis_client
+        self.redis = redis_client  # ← rules_dirty flag + BruteForceTracker shared Redis
         self.bf_tracker = BruteForceTracker(
             redis_client=redis_client,
-            window_seconds=get_rate_limit_window(),
-            threshold=get_brute_force_threshold(),
+            window_seconds=get_rate_limit_window(),       # ← Settings DB
+            threshold=get_brute_force_threshold(),        # ← Settings DB (default 10)
         )
-        self._compiled = self._compile_patterns()
+        self._compiled = self._compile_patterns()         # ← fallback OWASP-only kalau DB belum load
         self._last_rules_reload = time.time()
-        self._rules_reload_interval = 60  # seconds
-        self._lab_mode_cached = None
+        self._rules_reload_interval = 60  # detik — poll reload rule dari DB
+        self._lab_mode_cached = None      # ← cache is_lab_mode_ui_only()
 
     def _compile_patterns(self):
+        """Compile regex baseline OWASP saja (startup fallback sebelum _load_rules_from_db)."""
         compiled = {}
         for attack_type, info in DETECTION_PATTERNS.items():
-            if not info.get('threshold_based'):
+            if not info.get('threshold_based'):  # skip BRUTE_FORCE — tidak punya regex
                 compiled[attack_type] = [re.compile(p) for p in info['patterns']]
         return compiled
 
     def _refresh_runtime_settings(self):
-        """Apply detection thresholds from Settings (DB or .env)."""
+        """Refresh threshold dari Settings setiap analyze() — perubahan UI langsung efektif."""
         from app.core.settings_reader import (
             get_rate_limit_window,
             get_brute_force_threshold,
@@ -234,22 +261,23 @@ class DetectionEngine:
         self._lab_mode_cached = is_lab_mode_ui_only()
 
     def _load_rules_from_db(self):
-        """Load active rules from DB and rebuild compiled patterns.
-        BRUTE_FORCE is threshold-based — skip regex compilation.
-        OWASP baseline: appended unless Lab mode (UI rules only) is enabled in Settings.
+        """Load rule analyst aktif dari PostgreSQL + merge OWASP baseline (kecuali Lab mode).
+
+        BRUTE_FORCE = threshold only — tidak compile regex.
+        Output: self._compiled_db = { patterns, lab_only, brute_force_enabled }
         """
         try:
             from app.core.settings_reader import is_lab_mode_ui_only
             from app.models import DetectionRule
-            lab_only = is_lab_mode_ui_only()
+            lab_only = is_lab_mode_ui_only()  # ← Settings: Lab mode = UI rules only
             self._lab_mode_cached = lab_only
-            rules = DetectionRule.query.filter_by(is_active=True).all()
+            rules = DetectionRule.query.filter_by(is_active=True).all()  # ← tabel detection_rules
             active_bf_rule = any(r.attack_type == 'BRUTE_FORCE' for r in rules)
             compiled = {}
             for rule in rules:
                 attack_type = rule.attack_type
                 if attack_type == 'BRUTE_FORCE':
-                    # BRUTE_FORCE is threshold-based only, not regex
+                    # BRUTE_FORCE hanya threshold — placeholder list kosong
                     if 'BRUTE_FORCE' not in compiled:
                         compiled['BRUTE_FORCE'] = []
                     continue
@@ -257,18 +285,18 @@ class DetectionEngine:
                     if attack_type not in compiled:
                         compiled[attack_type] = []
                     compiled[attack_type].append({
-                        'pattern': re.compile(rule.pattern, re.IGNORECASE),
+                        'pattern': re.compile(rule.pattern, re.IGNORECASE),  # ← regex dari analyst
                         'severity': rule.severity_level.value,
-                        'rule_id': rule.id,
+                        'rule_id': rule.id,  # ← dipakai statistik match_count di log_monitor
                     })
                 except re.error as e:
                     logger.warning(f"Invalid regex in rule {rule.id}: {e}")
-            # Threshold-based types (no regex list)
+            # Pastikan entry threshold_based ada meski tidak ada rule DB
             for attack_type, info in DETECTION_PATTERNS.items():
                 if info.get('threshold_based') and attack_type not in compiled:
                     compiled[attack_type] = []
 
-            # OWASP baseline (production default). Skipped in Lab mode — see Settings.
+            # OWASP baseline (production default). Dilewati kalau Lab mode aktif.
             if not lab_only:
                 for attack_type, info in DETECTION_PATTERNS.items():
                     if info.get('threshold_based'):
@@ -279,7 +307,7 @@ class DetectionEngine:
                         compiled[attack_type].append({
                             'pattern': re.compile(raw, re.IGNORECASE),
                             'severity': info['severity'],
-                            'rule_id': None,
+                            'rule_id': None,  # ← baseline OWASP — bukan rule DB spesifik
                         })
             else:
                 logger.info("Detection lab mode: UI rules only (OWASP baseline disabled)")
@@ -296,93 +324,104 @@ class DetectionEngine:
             )
         except Exception as e:
             logger.warning(f"Could not load rules from DB (using defaults): {e}")
-            self._compiled_db = None
+            self._compiled_db = None  # ← fallback ke self._compiled (OWASP hardcoded)
 
     def _maybe_reload_rules(self):
-        """Reload rules when Redis rules_dirty is set or every _rules_reload_interval seconds."""
+        """Reload rule kalau Redis rules_dirty (analyst edit rule) atau interval 60 detik."""
         now = time.time()
         dirty = False
         if self.redis:
             try:
-                dirty = bool(self.redis.get('rules_dirty'))
+                dirty = bool(self.redis.get('rules_dirty'))  # ← ditulis rules.py saat create/update/delete rule
                 if dirty:
                     self.redis.delete('rules_dirty')
             except Exception:
                 pass
         if not dirty and (now - self._last_rules_reload < self._rules_reload_interval):
-            return
+            return  # belum waktunya reload
         self._last_rules_reload = now
         self._load_rules_from_db()
 
     def _get_compiled(self):
-        """Get compiled patterns — prefer DB rules if available."""
+        """Ambil pattern compiled — prefer DB merge kalau _compiled_db sudah load."""
         if hasattr(self, '_compiled_db') and self._compiled_db is not None:
             return self._compiled_db['patterns']
-        return self._compiled
+        return self._compiled  # ← fallback startup sebelum DB query sukses
 
     def _brute_force_enabled(self) -> bool:
+        """Lab mode: brute force hanya aktif kalau analyst punya rule BRUTE_FORCE aktif."""
         if hasattr(self, '_compiled_db') and self._compiled_db is not None:
             return self._compiled_db.get('brute_force_enabled', True)
         return True
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # analyze() — ENTRY POINT deteksi (dipanggil log_monitor baris 134)
+    # Input:  entry dict dari parse_log_line (ip, method, path, query, user_agent, status_code, raw)
+    # Output: threat dict → log_monitor INSERT incident | None → skip (bukan threat)
+    # ═══════════════════════════════════════════════════════════════════════════
 
     def analyze(self, log_entry: dict) -> Optional[dict]:
         """
         Analyze a parsed log entry and return a threat dict or None.
         log_entry keys: ip, method, path, query, user_agent, status_code, raw
         """
+        # Step 1–2: refresh Settings + reload rule DB kalau dirty / interval
         self._refresh_runtime_settings()
         self._maybe_reload_rules()
 
+        # Step 3: whitelist check — IP di BlockedIPs is_whitelist=True → skip total
         ip = log_entry.get('ip', '')
         if ip:
             try:
                 from app.models import BlockedIP
                 if BlockedIP.query.filter_by(ip_address=ip, is_whitelist=True).first():
-                    return None
+                    return None  # ← trusted IP — tidak buat incident
             except Exception as e:
                 logger.debug(f"whitelist check skipped: {e}")
+
+        # Step 4: ambil field entry — query sudah berisi POST body (log_parser Langkah D)
         path = log_entry.get('path', '')
-        query = log_entry.get('query', '')
+        query = log_entry.get('query', '')           # ← POST_DATA:username=... sudah di sini
         user_agent = log_entry.get('user_agent', '')
         method = log_entry.get('method', '')
         status_code = log_entry.get('status_code', 200)
 
-        # Include HTTP method so POST /files + POST_DATA:file=... is matchable
+        # Step 4b: gabung string untuk regex scan — method penting untuk POST /files + file=...
         searchable = f"{method} {path} {query} {user_agent}"
 
-        threats = []
-        compiled = self._get_compiled()
+        threats = []  # ← kumpulkan semua match; nanti pilih score tertinggi
+        compiled = self._get_compiled()  # ← DB rules + OWASP baseline (atau fallback _compiled)
 
-        # Pattern-based detection (supports both old list format and new dict format)
+        # Step 5: loop regex per attack_type
         for attack_type, patterns in compiled.items():
-            if not patterns:
+            if not patterns:  # ← BRUTE_FORCE punya list kosong — skip loop regex
                 continue
             for p in patterns:
-                # Support both old format (compiled regex) and new DB format (dict with 'pattern')
+                # Format lama: list compiled regex | Format baru DB: dict { pattern, severity, rule_id }
                 if isinstance(p, dict):
                     pattern = p['pattern']
                     severity = p.get('severity', DETECTION_PATTERNS.get(attack_type, {}).get('severity', 'medium'))
                 else:
                     pattern = p
                     severity = DETECTION_PATTERNS.get(attack_type, {}).get('severity', 'medium')
-                match = pattern.search(searchable)
+                match = pattern.search(searchable)  # ← regex match di string gabungan
                 if match:
                     mitre = DETECTION_PATTERNS.get(attack_type, {}).get('mitre', 'T1190')
                     threats.append({
                         'attack_type': attack_type,
                         'severity': severity,
                         'mitre': mitre,
-                        'matched_text': match.group(0)[:200],
+                        'matched_text': match.group(0)[:200],  # ← potong 200 char untuk DB/UI
                         'score': SEVERITY_WEIGHTS.get(severity, 40),
                     })
-                    break
+                    break  # ← satu attack_type cukup 1 match — lanjut type berikutnya
 
-        # Brute force check (login paths) — only count POST requests (actual login attempts)
+        # Step 6: brute force — POST ke path login, status 200/401/403, counter >= threshold
         login_paths = ['/login', '/admin', '/wp-login', '/signin', '/auth', '/api/auth/login']
         is_login_path = any(lp in path.lower() for lp in login_paths)
         is_post = method.upper() == 'POST'
         if is_login_path and is_post and status_code in [200, 401, 403] and self._brute_force_enabled():
-            if self.bf_tracker.is_brute_force(ip, path):
+            if self.bf_tracker.is_brute_force(ip, path):  # ← True saat attempt == threshold
                 info = DETECTION_PATTERNS['BRUTE_FORCE']
                 threats.append({
                     'attack_type': 'BRUTE_FORCE',
@@ -392,7 +431,7 @@ class DetectionEngine:
                     'score': SEVERITY_WEIGHTS[info['severity']],
                 })
 
-        # B3: classic path traversal (?file=../../) without php/remote wrappers → PATH_TRAVERSAL
+        # Step 7: edge case — ?file=../../ tanpa php:// → PATH_TRAVERSAL saja, buang LFI_RFI
         if threats:
             types = {t['attack_type'] for t in threats}
             if 'PATH_TRAVERSAL' in types and 'LFI_RFI' in types:
@@ -404,29 +443,35 @@ class DetectionEngine:
                 if not has_remote_include:
                     threats = [t for t in threats if t['attack_type'] != 'LFI_RFI']
 
+        # Step 8: tidak ada match → bukan threat
         if not threats:
-            return None
+            return None  # ← log_monitor baris 135–136: if not threat → return None
 
-        # Pick highest severity threat
+        # Step 9–11: pilih severity tertinggi (score max) → bangun threat dict final
         primary = max(threats, key=lambda t: t['score'])
 
         return {
             'ip': ip,
-            'attack_type': primary['attack_type'],
-            'severity': primary['severity'],
+            'attack_type': primary['attack_type'],           # ← contoh 'SQL_INJECTION'
+            'severity': primary['severity'],                 # ← contoh 'critical'
             'mitre_technique': primary['mitre'],
-            'raw_payload': log_entry.get('raw', '')[:1000],
+            'raw_payload': log_entry.get('raw', '')[:1000],  # ← baris log mentah (potong)
             'request_path': path[:500],
             'request_method': method,
             'user_agent': user_agent[:500],
             'response_code': status_code,
-            'matched_text': primary['matched_text'],
-            'recommended_action': RESPONSE_ACTIONS[primary['severity']],
-            'all_threats': threats,
+            'matched_text': primary['matched_text'],       # ← substring yang kena regex
+            'recommended_action': RESPONSE_ACTIONS[primary['severity']],  # ← dipakai respond()
+            'all_threats': threats,  # ← semua match (kalau multi-type); primary = yang dipakai incident
         }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ④ get_redis_client() — helper standalone (bukan method class)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def get_redis_client():
+    """Buat koneksi Redis dari REDIS_URL — return None kalau unreachable."""
     try:
         r = redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
         r.ping()

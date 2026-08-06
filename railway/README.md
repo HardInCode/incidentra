@@ -338,6 +338,9 @@ Railway auto-redeploys linked services on push. Key commits for this project:
    `ARG REACT_APP_API_URL`, and Railway automatically forwards any variable of the same
    name from this tab into the Docker build as that arg. It's baked into the JS bundle
    at `npm run build` time, so changing it later requires a redeploy.
+
+   `REACT_APP_ADMIN_CONTACT_EMAIL=admin@gmail.com`
+   
 4. Deploy.
 5. Go back to the **core** service's Variables and set `CORS_ORIGINS` (step 2) now that
   `frontend`'s domain exists, then redeploy `core`.

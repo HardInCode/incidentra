@@ -269,7 +269,7 @@ def seed_analyst():
 
 
 def seed_settings_from_env():
-    """Copy non-empty env vars into app_settings (Docker .env.docker → AI/notifications)."""
+    """Sync non-empty env vars into app_settings (Railway redeploy updates SMTP/ALERT_EMAIL)."""
     keys = [
         'GROQ_API_KEY', 'GROQ_MODEL', 'ABUSEIPDB_API_KEY',
         'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL',
@@ -280,10 +280,9 @@ def seed_settings_from_env():
         if not val:
             continue
         existing = AppSetting.query.filter_by(key=key).first()
-        if existing and existing.value:
-            continue
         if existing:
-            existing.value = val
+            if existing.value != val:
+                existing.value = val
         else:
             db.session.add(AppSetting(key=key, value=val))
     db.session.commit()

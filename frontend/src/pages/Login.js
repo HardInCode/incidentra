@@ -26,10 +26,14 @@ const AUTH_ERROR_I18N = {
   email_exists: 'login.emailExists',
 };
 
+const ADMIN_CONTACT_EMAIL = (
+  process.env.REACT_APP_ADMIN_CONTACT_EMAIL || 'admin@incidentra.local'
+).trim();
+
 function translateAuthError(err, t, fallbackKey) {
   const code = err.response?.data?.error;
   const i18nKey = code && AUTH_ERROR_I18N[code];
-  if (i18nKey) return t(i18nKey);
+  if (i18nKey) return t(i18nKey, { email: ADMIN_CONTACT_EMAIL });
   return t(fallbackKey);
 }
 
@@ -174,7 +178,7 @@ export default function Login({ onLogin }) {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  {t('login.noAccountHint')}
+                  {t('login.noAccountHint', { email: ADMIN_CONTACT_EMAIL })}
                 </Typography>
               </Box>
 
@@ -239,7 +243,7 @@ export default function Login({ onLogin }) {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  {t('login.registerHint')}
+                  {t('login.registerHint', { email: ADMIN_CONTACT_EMAIL })}
                 </Typography>
               </Box>
 
@@ -253,6 +257,24 @@ export default function Login({ onLogin }) {
               </Box>
             </>
           )}
+
+          <Box sx={{
+            mt: 3,
+            pt: 2,
+            borderTop: 1,
+            borderColor: 'divider',
+            textAlign: 'center',
+          }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              {t('login.contactAdminPrompt')}
+            </Typography>
+            <Link
+              href={`mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(t('login.contactAdminSubject'))}`}
+              sx={{ fontWeight: 700, fontSize: '0.875rem', wordBreak: 'break-all' }}
+            >
+              {ADMIN_CONTACT_EMAIL}
+            </Link>
+          </Box>
         </CardContent>
       </Card>
     </Box>

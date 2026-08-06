@@ -4,10 +4,6 @@ Ctrl+F: trigger_explanation, simulate
 """
 from flask import Blueprint, request, jsonify
 import logging
-import json
-import re
-import os
-
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from sqlalchemy import case
@@ -274,11 +270,15 @@ def trigger_explanation(incident_id):
         db.session.commit()
         db.session.refresh(incident)
 
-    from app.services.ai_service import build_prompt, _call_groq_with_fallback, _save_fallback_explanation
-    from app.models import IncidentExplanation
+    from app.services.notification_service import _get_setting
+    from app.services.ai_service import (
+        build_prompt,
+        _call_groq_with_fallback,
+        _save_fallback_explanation,
+        save_groq_explanation,
+    )
 
-    api_key = os.getenv('GROQ_API_KEY', '')
-    if not api_key:
+    if not _get_setting('GROQ_API_KEY'):
         _save_fallback_explanation(incident_id)
         db.session.refresh(incident)
         return jsonify({
@@ -289,27 +289,19 @@ def trigger_explanation(incident_id):
     try:
         prompt = build_prompt(incident.to_dict(), language=lang)
         raw, model_used = _call_groq_with_fallback(prompt, max_tokens=600)
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            match = re.search(r'\{.*?\}', raw, re.DOTALL)
-            data = json.loads(match.group(0)) if match else {}
+        if save_groq_explanation(incident_id, raw, model_used):
+            db.session.refresh(incident)
+            return jsonify({
+                'message': f'Generated via {model_used}.',
+                'explanation': incident.explanation.to_dict(),
+            })
 
-
-        explanation = IncidentExplanation(
-            incident_id=incident_id,
-            ai_summary=data.get('ai_summary', 'Unavailable.'),
-            threat_explanation=data.get('threat_explanation', ''),
-            recommended_actions=data.get('recommended_actions', ''),
-            mitre_technique=data.get('mitre_technique', ''),
-            model_used=model_used,
-        )
-        db.session.add(explanation)
-        db.session.commit()
+        logger.warning(f"Groq JSON parse failed for incident {incident_id}, using static fallback.")
+        _save_fallback_explanation(incident_id)
         db.session.refresh(incident)
         return jsonify({
-            'message': f'Generated via {model_used}.',
-            'explanation': incident.explanation.to_dict(),
+            'message': 'Generated (Groq response invalid — static fallback).',
+            'explanation': incident.explanation.to_dict() if incident.explanation else None,
         })
     except Exception as e:
         logger.error(f"Groq failed for incident {incident_id}: {e}")

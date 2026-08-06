@@ -70,17 +70,72 @@ def _call_groq_with_fallback(prompt: str, max_tokens: int = 600):
             return content, model
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else 0
-            if status in (400, 404, 422):
+            if status in (400, 404, 422, 429, 503):
                 logger.warning(f"Model {model} unavailable (HTTP {status}), trying next...")
                 last_error = e
                 continue
-            raise  # re-raise auth errors, rate limits etc.
+            raise  # re-raise auth errors (401/403) etc.
         except requests.exceptions.RequestException as e:
             logger.warning(f"Model {model} request failed: {e}, trying next...")
             last_error = e
             continue
 
     raise RuntimeError(f"All Groq models failed. Last error: {last_error}")
+
+
+def parse_explanation_response(raw: str):
+    """Parse Groq JSON explanation. Returns dict or None if unparseable / missing ai_summary."""
+    import re
+
+    if not raw or not raw.strip():
+        return None
+
+    text = _strip_think_tags(raw.strip())
+    if text.startswith('```'):
+        text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*```\s*$', '', text)
+
+    data = None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+    if not isinstance(data, dict):
+        return None
+    if not (data.get('ai_summary') or '').strip():
+        return None
+    return data
+
+
+def save_groq_explanation(incident_id: int, raw: str, model_used: str) -> bool:
+    """Persist parsed Groq explanation. Returns False → caller should use static fallback."""
+    from app.models import Incident, IncidentExplanation
+
+    incident = Incident.query.get(incident_id)
+    if not incident or incident.explanation:
+        return bool(incident and incident.explanation)
+
+    data = parse_explanation_response(raw)
+    if not data:
+        return False
+
+    explanation = IncidentExplanation(
+        incident_id=incident_id,
+        ai_summary=data.get('ai_summary', ''),
+        threat_explanation=data.get('threat_explanation', ''),
+        recommended_actions=data.get('recommended_actions', ''),
+        mitre_technique=data.get('mitre_technique', ''),
+        model_used=model_used,
+    )
+    db.session.add(explanation)
+    db.session.commit()
+    return True
 
 
 def build_prompt(incident_data: dict, language: str = 'en') -> str:
@@ -116,7 +171,7 @@ Respond ONLY with the JSON object, no markdown, no extra text."""
 
 @celery.task(bind=True, max_retries=3, default_retry_delay=10)
 def generate_explanation_task(self, incident_id: int):
-    from app.models import Incident, IncidentExplanation
+    from app.models import Incident
 
     try:
         incident = Incident.query.get(incident_id)
@@ -149,25 +204,12 @@ def generate_explanation_task(self, incident_id: int):
             _save_fallback_explanation(incident_id)
             return
 
-        # Parse JSON response
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r'\{.*\}', content, re.DOTALL)
-            data = json.loads(match.group(0)) if match else {}
+        if save_groq_explanation(incident_id, content, model_used):
+            logger.info(f"AI explanation generated for incident {incident_id} using {model_used}.")
+            return
 
-        explanation = IncidentExplanation(
-            incident_id=incident_id,
-            ai_summary=data.get('ai_summary', 'AI explanation unavailable.'),
-            threat_explanation=data.get('threat_explanation', ''),
-            recommended_actions=data.get('recommended_actions', ''),
-            mitre_technique=data.get('mitre_technique', ''),
-            model_used=model_used,
-        )
-        db.session.add(explanation)
-        db.session.commit()
-        logger.info(f"AI explanation generated for incident {incident_id} using {model_used}.")
+        logger.warning(f"Groq response unparseable for incident {incident_id}, using static fallback.")
+        _save_fallback_explanation(incident_id)
 
     except requests.exceptions.RequestException as exc:
         logger.error(f"Groq API error for incident {incident_id}: {exc}")

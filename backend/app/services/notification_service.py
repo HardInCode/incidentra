@@ -11,14 +11,32 @@ logger = logging.getLogger(__name__)
 
 def _get_setting(key: str) -> str:
     """Read from AppSetting DB first, fall back to environment variable."""
+    env_val = (os.getenv(key, '') or '').strip()
     try:
         from app.models import AppSetting
         s = AppSetting.query.filter_by(key=key).first()
         if s and s.value:
-            return s.value
+            db_val = s.value.strip()
+            # Ignore corrupted masked placeholders saved by mistake
+            if '••••' in db_val:
+                return env_val
+            return db_val
     except Exception:
         pass
-    return os.getenv(key, '')
+    return env_val
+
+
+def _frontend_base_url() -> str:
+    """Public UI base URL for links in alert emails (Railway: set FRONTEND_URL or CORS_ORIGINS)."""
+    explicit = (os.getenv('FRONTEND_URL') or '').strip().rstrip('/')
+    if explicit:
+        return explicit
+    cors = (os.getenv('CORS_ORIGINS') or '').strip()
+    if cors:
+        first = cors.split(',')[0].strip().rstrip('/')
+        if first:
+            return first
+    return 'http://localhost:3000'
 
 
 def _do_notify(incident_id: int, severity: str = 'critical', block_hours: int = 0, offense_count: int = 0):
@@ -84,9 +102,11 @@ Raw Payload   : {str(incident.raw_payload)[:200]}
 
 Action Taken  : {action_text}
 
-Review: http://localhost:3000/incidents/{incident.id}
+Review: {_frontend_base_url()}/incidents/{incident.id}
 """
-    _send_email(subject, body)
+    ok, err = _send_email(subject, body)
+    if not ok:
+        logger.warning(f"Incident email not sent (incident #{incident.id}): {err}")
     _send_telegram(
         f"{emoji} *Incidentra SOC {level} ALERT*\n\n"
         f"*Attack:* {incident.attack_type}\n"
@@ -107,29 +127,61 @@ def notify_incident(incident_id: int, severity: str = 'critical', block_hours: i
 notify_critical_incident = notify_incident
 
 
-def _send_email(subject: str, body: str):
+def _send_email(subject: str, body: str) -> tuple:
+    """Send alert email. Returns (success: bool, error_message: str | None)."""
     smtp_host = _get_setting('SMTP_HOST')
     smtp_port = int(_get_setting('SMTP_PORT') or 587)
     smtp_user = _get_setting('SMTP_USER')
     smtp_pass = _get_setting('SMTP_PASSWORD')
     alert_email = _get_setting('ALERT_EMAIL')
 
-    if not all([smtp_host, smtp_user, smtp_pass, alert_email]):
-        logger.info("Email not configured, skipping notification.")
-        return
+    missing = [
+        name for name, val in (
+            ('SMTP_HOST', smtp_host),
+            ('SMTP_USER', smtp_user),
+            ('SMTP_PASSWORD', smtp_pass),
+            ('ALERT_EMAIL', alert_email),
+        ) if not val
+    ]
+    if missing:
+        msg = f"Email not configured — missing: {', '.join(missing)}"
+        logger.warning(msg)
+        return False, msg
+
     try:
         msg = MIMEMultipart()
         msg['From'] = smtp_user
         msg['To'] = alert_email
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, alert_email, msg.as_string())
+
+        timeout = 30
+        if smtp_port == 465:
+            # Gmail / providers that require implicit TLS
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=timeout) as server:
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, [alert_email], msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, [alert_email], msg.as_string())
+
         logger.info(f"Alert email sent to {alert_email}.")
+        return True, None
+    except smtplib.SMTPAuthenticationError as e:
+        hint = (
+            f"SMTP authentication failed ({e}). "
+            "For Gmail use an App Password (not your normal password) and 2-Step Verification."
+        )
+        logger.error(hint)
+        return False, hint
     except Exception as e:
-        logger.error(f"Email send failed: {e}")
+        err = f"Email send failed: {e}"
+        logger.error(err)
+        return False, err
 
 
 def _send_telegram(message: str):

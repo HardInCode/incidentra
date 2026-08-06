@@ -122,7 +122,7 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
     from app.core.log_parser import parse_log_line  # ← log_parser.py
     from app.models import Incident, SeverityLevel, IncidentStatus, DetectionRule  # ← backend/app/models — tabel PostgreSQL
 
-    if not line or not line.strip():
+    if not line or not line.strip(): # skip whitespace atau kosong
         return None
 
     touch_last_log_received(redis_client)  # ← helper bawah file; Dashboard baca via get_last_log_received_at
@@ -193,7 +193,7 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
 
     responder.respond(threat, incident.id)  # ← response_manager.py — block IP (Section 4)
 
-    from app.services.threat_intel_service import _do_reputation_check  # ← opsional AbuseIPDB
+    from app.services.threat_intel_service import _do_reputation_check   # ← opsional AbuseIPDB
     from app.services.notification_service import _get_setting           # ← baca setting dari DB
     if _get_setting('ABUSEIPDB_API_KEY'):  # ← skip kalau API key tidak diset
         try:
@@ -203,11 +203,11 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
                         _do_reputation_check(inc_id, ip)
                 except Exception as e:
                     logger.error(f"AbuseIPDB thread error: {e}")
-            threading.Thread(
-                target=_rep_thread,
-                args=(app, incident.id, threat['ip']),
-                daemon=True,
-            ).start()
+            threading.Thread(  
+                target=_rep_thread,                    # Function yang dijalankan thread
+                args=(app, incident.id, threat['ip']), # Argument app dari start monitor, Argument — app dari start_monitor, incident.id baru dari commit 
+                daemon=True,                           # True = thread akan berhenti bersama proses utama (Flask/Gunicorn)
+            ).start()                                  # Jalankan thread (non-blocking) — caller tidak tunggu selesai, tidak blocking, tidak menunggu thread selesai
         except Exception as e:
             logger.warning(f"IP reputation check skipped: {e}")
 

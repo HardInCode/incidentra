@@ -91,11 +91,12 @@ def test_notification():
     channel = request.get_json().get('channel', 'both')
     errors = []
     if channel in ('email', 'both'):
-        try:
-            _send_email('[Incidentra SOC] Test Notification',
-                        'This is a test from Incidentra SOC. Email alerts are working.')
-        except Exception as e:
-            errors.append(f'Email: {e}')
+        ok, err = _send_email(
+            '[Incidentra SOC] Test Notification',
+            'This is a test from Incidentra SOC. Email alerts are working.',
+        )
+        if not ok:
+            errors.append(f'Email: {err}')
     if channel in ('telegram', 'both'):
         try:
             _send_telegram('🔔 *Incidentra SOC Test*\nTelegram alerts are working!')
