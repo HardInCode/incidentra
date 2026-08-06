@@ -8,13 +8,13 @@
  *
  * Backend counterpart: backend/app/api/auth.py
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link,
   IconButton, Tooltip,
 } from '@mui/material';
 import { HelpOutline } from '@mui/icons-material';
-import { login, register } from '../services/api';
+import { login, register, getSupportContact } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 // Map kode error backend (auth.py) → key i18n — alert mengikuti bahasa app (en/id)
@@ -30,14 +30,12 @@ const AUTH_ERROR_I18N = {
   email_exists: 'login.emailExists',
 };
 
-const ADMIN_CONTACT_EMAIL = (
-  process.env.REACT_APP_ADMIN_CONTACT_EMAIL || 'admin@incidentra.local'
-).trim();
+const FALLBACK_CONTACT_EMAIL = 'admin@incidentra.local';
 
-function translateAuthError(err, t, fallbackKey) {
+function translateAuthError(err, t, fallbackKey, contactEmail) {
   const code = err.response?.data?.error;
   const i18nKey = code && AUTH_ERROR_I18N[code];
-  if (i18nKey) return t(i18nKey, { email: ADMIN_CONTACT_EMAIL });
+  if (i18nKey) return t(i18nKey, { email: contactEmail });
   return t(fallbackKey);
 }
 
@@ -47,6 +45,20 @@ export default function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const [contactEmail, setContactEmail] = useState(
+    (process.env.REACT_APP_ADMIN_CONTACT_EMAIL || '').trim() || FALLBACK_CONTACT_EMAIL,
+  );
+
+  useEffect(() => {
+    getSupportContact()
+      .then((res) => {
+        const email = (res.data?.email || '').trim();
+        if (email) setContactEmail(email);
+      })
+      .catch(() => {
+        /* keep build-time fallback */
+      });
+  }, []);
 
   // State form login
   const [username, setUsername] = useState('');
@@ -78,7 +90,7 @@ export default function Login({ onLogin }) {
       // onLogin = prop dari App.js → simpan JWT + setIsAuthenticated(true)
       onLogin(res.data.token);
     } catch (err) {
-      setError(translateAuthError(err, t, 'login.invalidCredentials'));
+      setError(translateAuthError(err, t, 'login.invalidCredentials', contactEmail));
     } finally {
       setLoading(false);
     }
@@ -107,7 +119,7 @@ export default function Login({ onLogin }) {
       setRegConfirm('');
       setMode('login');
     } catch (err) {
-      setError(translateAuthError(err, t, 'login.registerFailed'));
+      setError(translateAuthError(err, t, 'login.registerFailed', contactEmail));
     } finally {
       setLoading(false);
     }
@@ -126,7 +138,7 @@ export default function Login({ onLogin }) {
           <Tooltip title={t('login.contactAdminTooltip')} arrow>
             <IconButton
               component="a"
-              href={`mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(t('login.contactAdminSubject'))}`}
+              href={`mailto:${contactEmail}?subject=${encodeURIComponent(t('login.contactAdminSubject'))}`}
               aria-label={t('login.contactAdminTooltip')}
               size="small"
               sx={{

@@ -99,6 +99,7 @@ export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 // ─── Auth (Login.js) ───
 export const login = (username, password) => api.post('/auth/login', { username, password });
 export const register = (data) => api.post('/auth/register', data);
+export const getSupportContact = () => api.get('/auth/support-contact');
 export const getUsers = () => api.get('/auth/users');
 
 // User Management (admin only)

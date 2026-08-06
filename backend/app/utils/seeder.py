@@ -272,7 +272,7 @@ def seed_settings_from_env():
     """Sync non-empty env vars into app_settings (Railway redeploy updates SMTP/ALERT_EMAIL)."""
     keys = [
         'GROQ_API_KEY', 'GROQ_MODEL', 'ABUSEIPDB_API_KEY',
-        'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL',
+        'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL', 'ADMIN_CONTACT_EMAIL',
         'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
     ]
     for key in keys:

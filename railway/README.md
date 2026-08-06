@@ -313,6 +313,7 @@ Railway auto-redeploys linked services on push. Key commits for this project:
   - `RATE_LIMIT_MAX_REQUESTS` = `10`
   - `BRUTE_FORCE_THRESHOLD` = `10`
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_EMAIL`,
+  `ADMIN_CONTACT_EMAIL` *(login help icon + error messages; falls back to `ALERT_EMAIL`)`,
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` = *(optional, for alert notifications)*
   - `CORS_ORIGINS` = `https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}` (add once the
   `frontend` service exists — step 3 below)
@@ -338,8 +339,8 @@ Railway auto-redeploys linked services on push. Key commits for this project:
    `ARG REACT_APP_API_URL`, and Railway automatically forwards any variable of the same
    name from this tab into the Docker build as that arg. It's baked into the JS bundle
    at `npm run build` time, so changing it later requires a redeploy.
-  - `REACT_APP_ADMIN_CONTACT_EMAIL` = `hardinirfan31@gmail.com` *(login page help icon mailto — set on **frontend** service, NOT vuln-web)*
-   Both `REACT_APP_*` vars are baked at `npm run build` — changing them requires a **frontend redeploy**.
+   Login-page admin contact email is **not** a frontend env var — set `ADMIN_CONTACT_EMAIL`
+   on the **core** service instead (see step 2); the login page fetches it at runtime.
 4. Deploy.
 5. Go back to the **core** service's Variables and set `CORS_ORIGINS` (step 2) now that
   `frontend`'s domain exists, then redeploy `core`.

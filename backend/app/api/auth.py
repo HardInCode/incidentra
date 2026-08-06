@@ -129,3 +129,15 @@ def register():
         'message': 'registered',
         'user': user.to_dict(),
     }), 201
+
+
+@auth_bp.route('/support-contact', methods=['GET'])
+def support_contact():
+    """Public email for login-page help icon — reads core env/DB, no auth required."""
+    from app.services.notification_service import _get_setting
+    email = (
+        _get_setting('ADMIN_CONTACT_EMAIL')
+        or _get_setting('ALERT_EMAIL')
+        or os.getenv('DEMO_ADMIN_EMAIL', 'admin@incidentra.local')
+    ).strip()
+    return jsonify({'email': email})
