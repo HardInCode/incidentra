@@ -9,7 +9,11 @@
  * Backend counterpart: backend/app/api/auth.py
  */
 import React, { useState } from 'react';
-import { Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link } from '@mui/material';
+import {
+  Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link,
+  IconButton, Tooltip,
+} from '@mui/material';
+import { HelpOutline } from '@mui/icons-material';
 import { login, register } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -118,7 +122,25 @@ export default function Login({ onLogin }) {
       bgcolor: 'background.default',
     }}>
       <Card sx={{ width: '100%', maxWidth: 420, mx: 2 }}>
-        <CardContent sx={{ p: 4 }}>
+        <CardContent sx={{ p: 4, position: 'relative' }}>
+          <Tooltip title={t('login.contactAdminTooltip')} arrow>
+            <IconButton
+              component="a"
+              href={`mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(t('login.contactAdminSubject'))}`}
+              aria-label={t('login.contactAdminTooltip')}
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
+              }}
+            >
+              <HelpOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Box
               component="img"
@@ -175,12 +197,6 @@ export default function Login({ onLogin }) {
                   </Button>
                 </Box>
               </form>
-
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  {t('login.noAccountHint', { email: ADMIN_CONTACT_EMAIL })}
-                </Typography>
-              </Box>
 
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -241,13 +257,10 @@ export default function Login({ onLogin }) {
                 </Box>
               </form>
 
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  {t('login.registerHint', { email: ADMIN_CONTACT_EMAIL })}
-                </Typography>
-              </Box>
-
               <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+                  {t('login.registerHint')}
+                </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   {t('login.haveAccountPrompt')}{' '}
                   <Link component="button" type="button" onClick={() => switchMode('login')} sx={{ fontWeight: 700 }}>
@@ -257,24 +270,6 @@ export default function Login({ onLogin }) {
               </Box>
             </>
           )}
-
-          <Box sx={{
-            mt: 3,
-            pt: 2,
-            borderTop: 1,
-            borderColor: 'divider',
-            textAlign: 'center',
-          }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
-              {t('login.contactAdminPrompt')}
-            </Typography>
-            <Link
-              href={`mailto:${ADMIN_CONTACT_EMAIL}?subject=${encodeURIComponent(t('login.contactAdminSubject'))}`}
-              sx={{ fontWeight: 700, fontSize: '0.875rem', wordBreak: 'break-all' }}
-            >
-              {ADMIN_CONTACT_EMAIL}
-            </Link>
-          </Box>
         </CardContent>
       </Card>
     </Box>
