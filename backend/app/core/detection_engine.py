@@ -159,10 +159,10 @@ class BruteForceTracker:
     """In-memory + Redis brute force tracker"""
 
     def __init__(self, redis_client=None, window_seconds=60, threshold=10):
-        self.window = window_seconds       # ← sliding window detik (Settings DB / .env)
-        self.threshold = threshold         # ← attempt ke-N yang trigger incident (default 10)
+        self.window = window_seconds                        # ← sliding window detik (Settings DB / .env)
+        self.threshold = threshold                          # ← attempt ke-N yang trigger incident (default 10)
         self._local: Dict[str, deque] = defaultdict(deque)  # ← fallback kalau Redis down
-        self.redis = redis_client          # ← dari log_monitor start_monitor(redis_client=...)
+        self.redis = redis_client                           # ← dari log_monitor start_monitor(redis_client=...)
 
     def record_attempt(self, ip: str, path: str) -> int:
         """Catat 1 POST login attempt; return jumlah attempt dalam window."""
