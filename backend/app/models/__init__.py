@@ -227,6 +227,13 @@ class AuditLog(db.Model):
     ip_address = db.Column(db.String(45), nullable=True)
 
     def to_dict(self):
+        resource = None
+        if self.resource_type and self.resource_id:
+            resource = f'{self.resource_type} #{self.resource_id}'
+        elif self.resource_type:
+            resource = self.resource_type
+        elif self.resource_id:
+            resource = f'#{self.resource_id}'
         return {
             'id': self.id,
             'timestamp': self.timestamp.isoformat() + 'Z' if self.timestamp else None,
@@ -235,6 +242,7 @@ class AuditLog(db.Model):
             'action': self.action,
             'resource_type': self.resource_type,
             'resource_id': self.resource_id,
+            'resource': resource,
             'details': self.details,
             'ip_address': self.ip_address,
         }

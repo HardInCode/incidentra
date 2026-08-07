@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Grid, Divider,
   TextField, CircularProgress, Chip, Alert, Accordion, AccordionSummary,
-  AccordionDetails, IconButton, Tooltip, Select, MenuItem, FormControl,
+  AccordionDetails, IconButton, Tooltip, Select, MenuItem, FormControl, useTheme,
 } from '@mui/material';
 import {
   ArrowBack, AutoAwesome, Add, ExpandMore, Shield, ContentCopy, SmartToy, Refresh,
@@ -21,7 +21,7 @@ import { InlineContent, FormattedMessage } from '../utils/renderMarkdown';
 
 function InfoRow({ label, value, mono = false }) {
   return (
-    <Box sx={{ display: 'flex', gap: 2, py: 1, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <Box sx={{ display: 'flex', gap: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
       <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem', minWidth: 140, flexShrink: 0, pt: 0.1 }}>
         {label}
       </Typography>
@@ -34,6 +34,15 @@ function InfoRow({ label, value, mono = false }) {
 
 function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }) {
   const { t } = useLanguage();
+  const theme = useTheme();
+  const inset = theme.semantic?.insetPanel;
+  const panelSx = {
+    mb: 2,
+    p: 2,
+    bgcolor: inset?.bg ?? 'action.hover',
+    borderRadius: 2,
+    border: inset?.border ? `1px solid ${inset.border}` : undefined,
+  };
   if (!explanation) {
     return (
       <Card sx={{ border: '1px solid rgba(124,77,255,0.3)', background: 'rgba(124,77,255,0.05)' }}>
@@ -85,7 +94,7 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
           </Tooltip>
         </Box>
 
-        <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: `3px solid ${brandCyan.main}` }}>
+        <Box sx={{ ...panelSx, borderLeft: `3px solid ${brandCyan.main}` }}>
           <Typography variant="body2" sx={{ color: brandCyan.main, fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
             {t('incidentDetail.summary')}
           </Typography>
@@ -93,7 +102,7 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
         </Box>
 
         {explanation.threat_explanation && (
-          <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: '3px solid #ff6d00' }}>
+          <Box sx={{ ...panelSx, borderLeft: '3px solid #ff6d00' }}>
             <Typography variant="body2" sx={{ color: '#ff6d00', fontWeight: 600, mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
               {t('incidentDetail.whyDangerous')}
             </Typography>
@@ -102,7 +111,7 @@ function AIExplanationCard({ explanation, onGenerate, onRegenerate, generating }
         )}
 
         {explanation.recommended_actions && (
-          <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, borderLeft: '3px solid #7c4dff' }}>
+          <Box sx={{ ...panelSx, borderLeft: '3px solid #7c4dff' }}>
             <Typography variant="body2" sx={{ color: '#7c4dff', fontWeight: 600, mb: 1, fontSize: '0.75rem', textTransform: 'uppercase' }}>
               {t('incidentDetail.recommended')}
             </Typography>
@@ -130,6 +139,9 @@ export default function IncidentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+  const theme = useTheme();
+  const codeBlock = theme.semantic?.codeBlock;
+  const notePanel = theme.semantic?.notePanel;
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState('');
@@ -302,7 +314,7 @@ export default function IncidentDetail() {
               {incident.abuse_confidence_score != null && (() => {
                 const c = getAbuseColor(incident.abuse_confidence_score);
                 return (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, borderBottom: 1, borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary">{t('incidentDetail.abuseScore')}</Typography>
                     <Chip
                       label={t('incidentDetail.abuseConfidence', { score: incident.abuse_confidence_score })}
@@ -349,7 +361,19 @@ export default function IncidentDetail() {
                     </IconButton>
                   </Tooltip>
                 </Box>
-                <Box sx={{ bgcolor: 'rgba(0,0,0,0.4)', borderRadius: 2, p: 2, fontFamily: 'monospace', fontSize: '0.78rem', color: brandCyan.main, wordBreak: 'break-all', maxHeight: 200, overflow: 'auto' }}>
+                <Box sx={{
+                  bgcolor: codeBlock?.bg ?? 'action.hover',
+                  borderRadius: 2,
+                  p: 2,
+                  fontFamily: 'monospace',
+                  fontSize: '0.78rem',
+                  color: codeBlock?.color ?? brandCyan.main,
+                  wordBreak: 'break-all',
+                  maxHeight: 200,
+                  overflow: 'auto',
+                  border: 1,
+                  borderColor: 'divider',
+                }}>
                   {incident.raw_payload}
                 </Box>
               </CardContent>
@@ -408,7 +432,7 @@ export default function IncidentDetail() {
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>{t('incidentDetail.notes')}</Typography>
               {incident.notes?.map(note => (
-                <Box key={note.id} sx={{ mb: 1.5, p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 2 }}>
+                <Box key={note.id} sx={{ mb: 1.5, p: 1.5, bgcolor: notePanel?.bg ?? 'action.hover', borderRadius: 2, border: 1, borderColor: 'divider' }}>
                   <Typography variant="body2">{note.note_content}</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {note.created_by} · {formatDate(note.created_at)}

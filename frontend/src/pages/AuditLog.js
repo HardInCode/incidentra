@@ -12,6 +12,14 @@ import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
 
+function formatAuditResource(log) {
+  if (log.resource) return log.resource;
+  if (log.resource_type && log.resource_id) return `${log.resource_type} #${log.resource_id}`;
+  if (log.resource_type) return log.resource_type;
+  if (log.resource_id) return `#${log.resource_id}`;
+  return '—';
+}
+
 export default function AuditLog() {
   const { t, language } = useLanguage();
   const currentUser = useCurrentUser();
@@ -113,10 +121,14 @@ export default function AuditLog() {
                 </TableRow>
               ) : logs.map((log) => (
                 <TableRow key={log.id} hover>
-                  <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{formatDate(log.created_at)}</TableCell>
-                  <TableCell>{log.user}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                    {log.timestamp ? formatDate(log.timestamp) : '—'}
+                  </TableCell>
+                  <TableCell>{log.username || '—'}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{log.action}</TableCell>
-                  <TableCell sx={{ fontSize: '0.85rem' }}>{log.resource}</TableCell>
+                  <TableCell sx={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                    {formatAuditResource(log)}
+                  </TableCell>
                   <TableCell sx={{ fontSize: '0.75rem', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {log.details}
                   </TableCell>
