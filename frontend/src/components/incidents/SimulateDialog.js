@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   Box, Typography, Select, MenuItem, FormControl, InputLabel, TextField,
-  Alert, RadioGroup, FormControlLabel, Radio, Chip,
+  Alert, RadioGroup, FormControlLabel, Radio, Chip, useTheme,
 } from '@mui/material';
 import { PlayArrow, Terminal, DirectionsRun } from '@mui/icons-material';
 import { injectLog } from '../../services/api';
@@ -14,6 +14,9 @@ import { brandCyan, brandAlpha } from '../../theme';
 const SEVERITY_COLORS = { Critical: '#ff1744', High: '#ff6d00', Medium: '#ffd600' };
 
 export default function SimulateDialog({ open, onClose, onSimulate, onInjectSuccess }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const inset = theme.semantic?.insetPanel;
   const [attackType, setAttackType] = useState('SQL_INJECTION');
   const [ip, setIp] = useState('45.33.32.156');  // scanme.nmap.org — safe public test IP
   const [mode, setMode] = useState('direct');
@@ -54,7 +57,13 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
         </Box>
       </DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-        <Box sx={{ p: 2, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)' }}>
+        <Box sx={{
+          p: 2,
+          bgcolor: inset?.bg ?? 'action.hover',
+          borderRadius: 2,
+          border: 1,
+          borderColor: inset?.border ?? 'divider',
+        }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 700, mb: 1, display: 'block' }}>
             Simulation Mode
           </Typography>
@@ -83,7 +92,7 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Terminal sx={{ fontSize: 16, color: brandCyan.main }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>Mode B — Log Injection</Typography>
-                    <Chip label="Realistic" size="small" sx={{ bgcolor: brandAlpha(0.12), color: brandCyan.main, fontSize: '0.65rem' }} />
+                    <Chip label="Realistic" size="small" sx={{ bgcolor: brandAlpha(0.12, isDark), color: brandCyan.main, fontSize: '0.65rem' }} />
                   </Box>
                   <Typography variant="caption" sx={{ color: 'text.secondary', pl: 3, display: 'block' }}>
                     Writes to access.log and runs the full detection pipeline immediately. Change IP if you see a duplicate warning.
@@ -109,7 +118,13 @@ export default function SimulateDialog({ open, onClose, onSimulate, onInjectSucc
         </FormControl>
 
         {selected && (
-          <Box sx={{ p: 2, bgcolor: 'rgba(124,77,255,0.08)', borderRadius: 2, border: '1px solid rgba(124,77,255,0.2)' }}>
+          <Box sx={{
+            p: 2,
+            bgcolor: isDark ? 'rgba(124,77,255,0.08)' : 'rgba(124,77,255,0.06)',
+            borderRadius: 2,
+            border: 1,
+            borderColor: isDark ? 'rgba(124,77,255,0.2)' : 'rgba(124,77,255,0.15)',
+          }}>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>{selected.desc}</Typography>
           </Box>
         )}
