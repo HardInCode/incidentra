@@ -518,7 +518,7 @@ of truth and is safe to call directly (e.g. via curl) with an analyst token.
 | Dashboard, Live Traffic, incident list/detail (read) | ✓ | ✓ |
 | Incident triage — change status, assign, add notes, AI explanation | ✓ | ✓ |
 | Bulk resolve / false-positive, CSV export | ✓ | ✓ |
-| Detection lab — simulate attack, log injection, sandbox test | ✓ | ✓ |
+| Detection lab — simulate attack, log injection, sandbox test | ✓ | ✗ |
 | IP Management — view blocked/rate-limited/whitelisted | ✓ | ✓ (view only) |
 | IP Management — block/unblock/whitelist/extend/clear | ✓ | ✗ |
 | Detection Rules — view | ✓ | ✓ |
@@ -529,12 +529,11 @@ of truth and is safe to call directly (e.g. via curl) with an analyst token.
 | Audit log (`/audit`) | ✓ | ✗ |
 | User Management (`/users`) | ✓ | ✗ |
 
-Detection lab tools (simulate/inject-log/sandbox test) are intentionally available to both roles —
-they're read-mostly investigative/testing tools an analyst would use day-to-day, not
-configuration changes. If you'd rather restrict these to admin only (e.g. to avoid analysts
-seeding synthetic incidents in a production deployment), gate `app/api/detection.py`'s three
-routes with `@require_role('admin')` and hide the "Simulate Attack" button in `Incidents.js`
-behind `isAdmin`.
+Detection lab tools (simulate/inject-log/sandbox test) are **admin-only** — they can seed
+synthetic incidents, write to the shared log, and trigger auto-block via the response pipeline.
+Analysts can still view rules and incidents; sandbox UI on Detection Rules and the Simulate
+button on Incidents are hidden unless `role === 'admin'`. Enforced server-side via
+`@require_role('admin')` on all three routes in `app/api/detection.py`.
 
 ### Account lifecycle (`users.status`)
 

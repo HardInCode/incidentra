@@ -353,14 +353,16 @@ export default function Incidents({ mode = 'ongoing' }) {
               {selectionMode ? t('incidents.cancelSelect') : t('incidents.selectMode')}
             </Button>
           )}
-          <Button
-            variant="outlined"
-            startIcon={<PlayArrow sx={{ fontSize: 20 }} />}
-            onClick={() => setSimulateOpen(true)}
-            color="secondary"
-          >
-            {t('incidents.simulate')}
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              startIcon={<PlayArrow sx={{ fontSize: 20 }} />}
+              onClick={() => setSimulateOpen(true)}
+              color="secondary"
+            >
+              {t('incidents.simulate')}
+            </Button>
+          )}
           {canExport && (
             <Button
               variant="outlined"

@@ -2,11 +2,14 @@
  * APP ROOT — auth state, React Router, Layout wrapper.
  * Ctrl+F: handleLogin, handleLogout, isAuthenticated, AppRoutes
  *
- * Alur login (hulu → hilir):
+ * Render chain (hulu → hilir):
+ *   index.html #root → index.js createRoot → App (file ini)
+ *   → LanguageProvider → ThemeProvider → Router
+ *   → /login = Login.js | authenticated = Layout + nested Routes + ChatbotWidget
+ *
+ * Alur login:
  *   Login.js onLogin(token) → handleLogin → localStorage + setIsAuthenticated(true)
  *   → Navigate ke "/" → Dashboard
- *
- * Refresh page: useEffect baca token dari localStorage → tetap login
  */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';

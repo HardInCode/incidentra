@@ -5,7 +5,7 @@ from app.core.log_parser import parse_log_line
 detection_bp = Blueprint('detection', __name__)
 _engine = None
 
-from app.api.auth_middleware import verify_token
+from app.api.auth_middleware import verify_token, require_role
 
 @detection_bp.before_request
 def _check_auth():
@@ -20,6 +20,7 @@ def get_engine():
 
 
 @detection_bp.route('/test', methods=['POST'])
+@require_role('admin')
 def test_payload():
     """Test a payload or log line against detection engine."""
     data = request.get_json()
@@ -52,6 +53,7 @@ def test_payload():
 
 
 @detection_bp.route('/inject-log', methods=['POST'])
+@require_role('admin')
 def inject_log():
     """
     BUG 5 FIX — MODE B 'Log Injection':
@@ -115,6 +117,7 @@ def inject_log():
         'log_path': log_path,
     })
 @detection_bp.route('/simulate', methods=['POST'])
+@require_role('admin')
 def simulate_attack():
     """Inject a simulated attack into the detection pipeline."""
     from app import db

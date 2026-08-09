@@ -33,15 +33,63 @@ def _strip_think_tags(text: str) -> str:
     return re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.DOTALL).strip()
 
 
+# Shown when a message is clearly outside cybersecurity (no Groq call).
+OUT_OF_SCOPE_REPLY = (
+    "I focus on **cybersecurity** topics — incidents, attacks, detection, response, hardening, "
+    "compliance basics, careers in infosec, tools like Wireshark/Burp, MITRE, OWASP, and similar. "
+    "I can't help with cooking, recipes, general homework, entertainment, or other non-security subjects. "
+    "Try asking about a threat, vulnerability, or how to investigate an incident."
+)
+
+# Broad allow-list signal — if any match, send to the model (don't pre-reject).
+_CYBER_TOPIC_RE = re.compile(
+    r'\b('
+    r'secur|cyber|siber|keamanan|infosec|hack|threat|serangan|vuln|exploit|malware|ransom|'
+    r'phish|firewall|waf|ids|ips|soc|siem|log|incident|block|whitelist|regex|owasp|mitre|'
+    r'sql|xss|csrf|injection|brute|password|auth|encrypt|ssl|tls|vpn|ddos|botnet|cve|nmap|'
+    r'burp|wireshark|forensic|pentest|audit|patch|harden|blue\s*team|red\s*team|deteksi|'
+    r'respons|ip\s*address|\bip\b|port\s*scan|zero\s*day|apt|trojan|rootkit|spyware'
+    r')\b',
+    re.IGNORECASE,
+)
+
+# Obvious off-topic — only reject when _CYBER_TOPIC_RE also finds nothing.
+_OFF_TOPIC_RE = re.compile(
+    r'\b('
+    r'resep|rendang|masak|memasak|masakan|recipe|cooking|cook\b|ingredients|bake\b|baking|'
+    r'weather|cuaca|prakiraan\s+cuaca|'
+    r'lirik\s+lagu|chord\s+lagu|film\s+terbaru|drakor|k\-drama|'
+    r'homework|tugas\s+matematika|kalkulus|fisika\s+dasar'
+    r')\b',
+    re.IGNORECASE,
+)
+
+
+def _is_clearly_off_topic(message: str) -> bool:
+    """Fast guardrail: block only obvious non-cyber requests (e.g. recipes)."""
+    text = (message or '').strip()
+    if not text:
+        return False
+    if _CYBER_TOPIC_RE.search(text):
+        return False
+    return bool(_OFF_TOPIC_RE.search(text))
+
+
 def _build_system_prompt(model_name: str) -> str:
     """Build a system prompt that includes model self-awareness."""
-    return f"""You are a cybersecurity AI assistant embedded in Incidentra SOC, an intelligent Web-SOC platform.
+    return f"""You are a cybersecurity AI assistant embedded in Incidentra, a Web-SOC platform.
 Your model identity: you are running as **{model_name}**. If a user asks what model or AI you are, answer truthfully with this model name.
-You help IT administrators understand security incidents, write regex detection patterns,
-explain attack techniques, and provide security recommendations.
-Be concise and practical. When asked to write a regex pattern for detection rules,
-always format it in a code block ready to copy-paste.
-Keep responses focused and actionable for non-technical SME owners."""
+
+SCOPE — IN SCOPE (answer helpfully):
+- Any **cybersecurity / information security** topic: web attacks, network security, malware, phishing, IAM, cryptography basics, SOC workflows, incident response, threat intel, hardening, compliance overview (ISO 27001, NIST at high level), security careers, CTF concepts, blue/red team, common tools (Wireshark, Nmap, Burp, etc.).
+- **Incidentra-specific help**: reading incidents, severity, blocking, rate limits, detection rules, regex patterns, log analysis, demo/simulation context.
+- Practical regex for detection rules — always put patterns in a fenced code block ready to copy-paste.
+
+SCOPE — OUT OF SCOPE (politely refuse; do NOT answer the substance):
+- Cooking, recipes, food, entertainment, sports, dating, general trivia, non-security homework, creative writing unrelated to security, or any topic with no security angle.
+- Use a short refusal like: "I only cover cybersecurity topics. Ask me about threats, incidents, detection, or defense."
+
+STYLE: concise, practical, actionable for SME owners and junior analysts. No long essays unless the user asks for depth."""
 
 
 def _get_groq_reply(messages: list) -> tuple:
@@ -101,6 +149,14 @@ def chat_message():
 
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
+
+    if _is_clearly_off_topic(user_message):
+        return jsonify({
+            'reply': OUT_OF_SCOPE_REPLY,
+            'session_id': session_id,
+            'model_used': 'guardrail',
+            'out_of_scope': True,
+        })
 
     # Get or create conversation history for this session
     if session_id not in _conversations:

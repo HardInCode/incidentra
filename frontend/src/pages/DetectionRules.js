@@ -195,6 +195,7 @@ export function DetectionRules() {
         </Box>
       </Box>
 
+      {isAdmin && (
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -259,6 +260,7 @@ export function DetectionRules() {
           )}
         </CardContent>
       </Card>
+      )}
 
       <FilterBar
         filters={FILTER_CONFIG}

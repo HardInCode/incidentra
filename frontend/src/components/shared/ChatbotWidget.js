@@ -360,7 +360,7 @@ export default function ChatbotWidget() {
             multiline
             maxRows={4}
             size="small"
-            placeholder="Ask about security incidents, attacks, regex patterns..."
+            placeholder="Ask about cybersecurity — attacks, incidents, detection, hardening..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
