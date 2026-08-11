@@ -222,13 +222,22 @@ export default function Dashboard() {
 
   // CHART 2 — By Severity — stats.severity_breakdown
   const severityData = {
-    labels: stats?.severity_breakdown?.map(s => s.severity) || [],
+    labels: stats?.severity_breakdown?.map(s => s.severity) || [], 
     datasets: [{
       data: stats?.severity_breakdown?.map(s => s.count) || [],
       backgroundColor: stats?.severity_breakdown?.map(s => SEV_LINE_COLORS[s.severity]) || [],
       borderWidth: 0,
     }],
   };
+  // CHART 2 — Chart.js format (referensi sidang):
+  // {
+  //   labels: ['critical', 'high', 'medium', 'low'],  // legenda donut
+  //   datasets: [{
+  //     data: [2, 5, 10, 3],                            // angka tiap slice
+  //     backgroundColor: ['#ff1744', '#ff6d00', ...]    // warna per severity
+  //   }]
+  // }
+  // Render: <Doughnut data={severityData} /> — ROW 1 kanan
 
   // CHART 3 — Severity Trend (7 Days) — stats.severity_timeline
   const severityDates = (stats?.timeline || []).map((t) => t.date);
@@ -352,7 +361,7 @@ export default function Dashboard() {
         <Grid item xs={12} md={4}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>{t('dashboard.bySeverity')}</Typography>
+              <Typography variant="h6" sx={{ mb: 2 }}>{t('dashboard.bySeverity')}</Typography> 
               <Box sx={{ height: 180, display: 'flex', justifyContent: 'center' }}>
                 <Doughnut data={severityData} options={{
                   ...chartDefaults,
@@ -395,7 +404,17 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* ROW 3: Globe — stats.top_countries (bukan Chart.js) */}
+      {/* ROW 3: GLOBE — Attack Origins (BUKAN Chart.js; library react-globe.gl)
+          Alur (hulu → hilir):
+            log_monitor.py → thread AbuseIPDB → Incident.country_code (PostgreSQL)
+            dashboard.py GET /stats → GROUP BY country_code 7 hari → top_countries
+            fetchStats → stats.* → props di bawah → AttackOriginsGlobe.js buildPoints → titik 3D
+          Props (field API dari response /stats yang sama dengan chart lain):
+            countries={stats?.top_countries}     — [{ code, count }, ...] nama prop, bukan var lokal
+            geoEnriched7d={stats?.geo_enriched_7d} — incident 7 hari yang punya negara
+            last7d={stats?.last_7d}              — total incident 7 hari (warning jika geo kosong)
+          Suspense + React.lazy (line 33) = load komponen 3D hanya saat Dashboard dibuka
+          Detail transform code→lat/lng: frontend/src/components/dashboard/AttackOriginsGlobe.js */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12}>
           <Card>

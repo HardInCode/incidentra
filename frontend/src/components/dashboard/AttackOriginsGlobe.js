@@ -1,3 +1,15 @@
+/**
+ * Attack Origins Globe — 3D map (react-globe.gl, bukan Chart.js).
+ * Ctrl+F: buildPoints, pointsData, hasData
+ *
+ * Dipanggil dari Dashboard.js dengan props:
+ *   countries      ← stats.top_countries (API /dashboard/stats)
+ *   geoEnriched7d  ← stats.geo_enriched_7d
+ *   last7d         ← stats.last_7d
+ *
+ * Alur render: countries[{code,count}] → buildPoints → {lat,lng,size} → <Globe pointsData={points} />
+ * country_code asal: AbuseIPDB enrichment (threat_intel_service.py) setelah incident dibuat.
+ */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Globe from 'react-globe.gl';
 import { Box, Typography, LinearProgress, useTheme } from '@mui/material';
@@ -12,13 +24,17 @@ const GLOBE_TEXTURE = {
   day: 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
 };
 
+// Transform API → format react-globe.gl (referensi sidang):
+//   Input:  { code: "ID", count: 8 }
+//   Lookup: getCountryCentroid("ID") → { name, lat, lng }  (data/countryCentroids.js)
+//   Output: { lat, lng, size, count, name }  — size ∝ count/max (titik terbesar = negara #1)
 function buildPoints(countries) {
   if (!countries?.length) return [];
   const max = Math.max(...countries.map((c) => c.count), 1);
   return countries
     .map(({ code, count }) => {
       const geo = getCountryCentroid(code);
-      if (!geo) return null;
+      if (!geo) return null; // kode negara tidak ada di lookup → titik di-skip
       const ratio = count / max;
       return {
         lat: geo.lat,
@@ -113,6 +129,7 @@ export default function AttackOriginsGlobe({ countries = [], geoEnriched7d = 0, 
               bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(10,14,26,0.92)',
             }}
           >
+            {/* pointsData = hasil buildPoints; pointLat/pointLng/pointRadius = nama field di setiap titik */}
             <Globe
               ref={globeRef}
               width={globeWidth}

@@ -4,7 +4,7 @@
 > 1. Ikuti **Rencana 10 hari** di bawah — jangan baca 1025 baris sekaligus.
 > 2. Setiap hari: baca 1 section MD → buka file di tabel "Files terlibat" → Ctrl+F anchor → cocokkan baris MD dengan baris kode.
 > 3. Centang checklist hari itu kalau sudah bisa jelaskan dengan mulut (bukan hafalan).
-> 4. **Section 16 + Appendix** = referensi lengkap Redis, Celery, sync/thread — baca HARI 8–9.
+> 4. **Section 16 + Appendix A–H** = Redis, Celery, sync/thread, **glosarium istilah** — baca HARI 1 & 8–9.
 > 5. Section 15 (cheat sheet) = baca ulang HARI 10 sebelum sidang.
 >
 > **Target 10 hari:** bukan hafal semua baris — tapi **bisa jelaskan alur + tunjuk lokasi kode** untuk setiap bagian app.
@@ -271,6 +271,8 @@ flowchart LR
 
 **Alur langkah demi langkah:**
 
+> **Catatan checklist:** `[x]` di bawah = **sudah dijelaskan di MD ini** (bukan berarti kamu sudah hafal). Centang pribadi "saya paham" pakai tabel **Rencana 10 hari** di atas. Latihan hands-on: lihat sub-bagian **Latihan** + Appendix F.
+
 1. [x] Attacker kirim request ke vuln-web (contoh SQLi di query/form)
 2. [x] `logging.py` `log_request()` — setelah response, format baris NCSA Combined Log
 3. [x] Kalau POST: append `POST_DATA:key=val&...` supaya detection bisa baca body (bukan cuma URL)
@@ -278,13 +280,13 @@ flowchart LR
 5. [x] `docker_log_monitor.py` → `start_monitor()` → `LogTailer` poll file tiap ~1 detik
 6. [x] Baris baru → `_process_log_line(line, ...)`
 7. [x] `parse_log_line()` — regex `NGINX_PATTERN` + strip/merge `POST_DATA` ke field `query` (Langkah A–D)
-8. [ ] `DetectionEngine.analyze(entry)` — gabung string `method path query user_agent`, match regex DB + baseline OWASP
-9. [ ] Kalau match → threat dict; kalau tidak → return `None`, selesai
+8. [x] `DetectionEngine.analyze(entry)` — gabung string `method path query user_agent`, match regex DB + baseline OWASP → **tabel line-by-line di bawah**
+9. [x] Kalau match → threat dict; kalau tidak → return `None`, selesai
 10. [x] Dedup: skip jika IP+attack_type sama sudah ada incident dalam **5 menit** (kecuali waiver unblock)
 11. [x] Buat row `Incident` di PostgreSQL, commit, `rule.match_count++` kalau rule DB aktif
-12. [~] `responder.respond(threat, incident.id)` → **Section 4** (tahu dipanggil; detail block belum)
+12. [x] `responder.respond(threat, incident.id)` → **Section 4** (escalating block, rate limit, JSON sync)
 13. [x] Background thread AbuseIPDB (kalau API key ada) — **bukan** AI; lihat sub-bagian di bawah
-14. [~] Dashboard `/stats` baca tabel `incidents` → angka/chart berubah (konsep OK; latihan hands-on belum semua)
+14. [x] Dashboard `/stats` baca tabel `incidents` → angka/chart berubah (Section 2 + `dashboard.py`)
 
 **Mode log monitor (env):**
 
@@ -501,10 +503,15 @@ Thread utama (_process_log_line)          Thread daemon (_rep_thread)
 
 #### `BruteForceTracker` (baris 158–206) — ringkas
 
-1. Object counter POST login per `(ip, path)` dalam sliding window `self.window` detik (dari Settings `RATE_LIMIT_WINDOW`).
-2. `record_attempt()` — Redis sorted set `bf:{ip}:{path}` atau fallback deque lokal.
-3. `is_brute_force()` — True **hanya** saat count **tepat** == threshold (mis. attempt ke-10), bukan setiap attempt setelahnya.
-4. `clear_ip()` — dipanggil saat admin unblock (reset counter).
+1. **Object counter** = `BruteForceTracker` (instance class) yang **menghitung** berapa kali POST login dari IP yang sama.
+2. **`(ip, path)`** = pasangan unik, mis. IP `1.2.3.4` + path `/login` — counter terpisah per kombinasi.
+3. **Sliding window** = hanya hitung attempt dalam **N detik terakhir** (bukan seumur hidup). Penjelasan bahasa normal: **Appendix H → "Sliding window"**.
+   - Setting `RATE_LIMIT_WINDOW` (default 60 detik) = lebar jendela.
+   - Attempt lebih tua dari 60 detik **“meluncur keluar”** window → tidak dihitung lagi.
+   - Contoh: attempt ke-1 jam 10:00, ke-10 jam 10:00:30 → BF trigger. Attempt ke-1 jam 10:02 sudah keluar window.
+4. `record_attempt()` — catat 1 POST; simpan timestamp di Redis key `bf:{ip}:{path}` atau deque lokal.
+5. `is_brute_force()` — True **hanya** saat count **tepat** == threshold (mis. attempt ke-10), bukan setiap attempt setelahnya.
+6. `clear_ip()` — dipanggil saat admin unblock (reset counter).
 
 #### `DetectionEngine` class (baris 230+)
 
@@ -1429,6 +1436,55 @@ setIncidentContext(incident);  // widget chatbot tahu incident aktif
 
 ---
 
+## Appendix H — Glosarium istilah teknis (bahasa normal)
+
+> **Kalau ketemu kata aneh di MD:** Ctrl+F kata ini dulu. Section ini sengaja **tanpa jargon berlebihan**.
+
+| Istilah | Arti sederhana | Di Incidentra |
+|---------|----------------|---------------|
+| **Sliding window** | Hitung event hanya dalam **N detik terakhir**; yang lebih lama **dikeluarkan** dari hitungan (seperti jendela waktu yang **geser** maju). Bukan total sejak awal. | Brute force: 10 POST login dalam **60 detik** → trigger. POST jam 10:00 tidak dihitung lagi jam 10:02. Setting: `RATE_LIMIT_WINDOW`. |
+| **Threshold** | Batas angka pemicu alarm. | Default **10** attempt login (`BRUTE_FORCE_THRESHOLD`) → incident BF. |
+| **Object / instance** | "Mesin" hasil blueprint class — punya data sendiri (`self.window`, counter, dll.). | `engine = DetectionEngine()` → `engine.analyze()`. |
+| **Regex** | Pola teks untuk deteksi (seperti Ctrl+F tapi lebih pintar). | `' OR 1=1` di URL match → SQL_INJECTION. |
+| **Dedup** | Anti duplikat: IP + jenis serangan sama dalam **5 menit** → **1 incident** saja. | 100× SQLi identik ≠ 100 tiket. |
+| **Whitelist** | IP dipercaya → **skip deteksi** total. | `BlockedIP.is_whitelist=True` di `analyze()` Step 3. |
+| **Tail (log)** | Baca file log ** dari belakang**, hanya baris **baru** setelah backend nyala. | `LogTailer` — skip log lama saat restart. |
+| **Poll** | Cek ulang berkala (setiap N detik). | LogTailer sleep 1s; Dashboard fetch stats 15s. |
+| **Sync** | Kerja **berurutan**, caller **nunggu** selesai. | Explain AI, `analyze()` per baris log. Lihat §16. |
+| **Thread** | Kerja paralel **same process**, caller **tidak nunggu**. | AbuseIPDB, email setelah block. Lihat §16. |
+| **Daemon thread** | Thread background; mati ikut process utama restart. | `_rep_thread`, `_notify_async`. |
+| **Celery** | Worker **process terpisah** + antrian Redis; jadwal hourly. | Cuma `cleanup_expired_blocks`. Lihat Appendix B. |
+| **Escalating block** | Block IP dengan durasi naik kalau repeat offense (1h→24h→7d). | `_escalating_block()` — bukan block fixed 24 jam legacy. |
+| **JSON sync** | Tulis `blocked_ips.json` supaya vuln-web baca tanpa query PostgreSQL. | Dual-write DB + file. |
+| **JWT** | Token login 24 jam di header `Authorization: Bearer ...`. | Setiap API call → `verify_token()`. |
+| **Blueprint** | Grup route Flask dengan prefix URL. | `/api/auth` + `/login` = POST `/api/auth/login`. |
+| **Mount** (React) | Halaman **pertama kali tampil** → `useEffect` jalan. | Dashboard fetch stats saat buka `/`. |
+| **Pipeline** | Rantai langkah otomatis berurutan. | parse → analyze → incident → respond. |
+| **Enrichment** | Tambah data extra setelah incident ada (bukan buat incident baru). | AbuseIPDB → `country_code` untuk globe. |
+| **Lab mode** | Deteksi **hanya** rule UI analyst; OWASP baseline off. | `DETECTION_LAB_MODE_UI_ONLY`. |
+| **Waiver** | Izin 1× skip dedup setelah admin unblock (demo). | Redis `unblock_waiver:{ip}:{attack}`. |
+| **Stale** (log) | Log monitor idle >60s — banner kuning Dashboard. | `GET /log-status`. |
+| **MTTR** | Rata-rata waktu resolve incident (menit). | Dashboard KPI card. |
+| **RBAC** | Role admin vs analyst — siapa boleh apa. | Section 9 tabel. |
+
+**Sliding window — contoh visual (BruteForce, window=60 detik, threshold=10):**
+
+```
+Menit:  10:00  10:00:15  10:00:30  10:01:05  10:02:00
+        POST×3  POST×5   POST×2    (idle)    POST×1
+        └─────────── 10 attempt dalam 60s ───────────┘ → BF!
+        
+Jam 10:02: attempt jam 10:00 sudah "keluar jendela" → counter turun
+```
+
+**Object counter — frase yang membingungkan, diurai:**
+
+> ~~"Object counter POST login per (ip, path) dalam sliding window"~~
+
+**Bahasa normal:** Program penghitung (`BruteForceTracker`) menghitung **berapa kali** IP X POST ke `/login` **dalam 60 detik terakhir**. Lebih dari 10 → brute force.
+
+---
+
 > Isi baris baru tiap kali ada perubahan arsitektur/implementasi signifikan yang mungkin bikin laporan/diagram jadi tidak sinkron dengan kode. Cukup 1 baris.
 
 | Tanggal | Perubahan | File terdampak |
@@ -1438,5 +1494,5 @@ setIncidentContext(incident);  // widget chatbot tahu incident aktif
 | 2026-08-02 | Perbaikan Pemahaman Section 3 (vuln-web selesai, shared volume, koreksi ip_utils/request vs response) | `docs/PEMAHAMAN_PROGRESSIF.md`, `vuln-web/middleware/logging.py` |
 | 2026-08-03 | parse_log_line Langkah A–D selesai; komentar blok logging.py + log_parser.py + Login/Dashboard; catatan spasi baris 51 | `log_parser.py`, `logging.py`, `Login.js`, `Dashboard.js`, `auth.py`, `dashboard.py`, `PEMAHAMAN_PROGRESSIF.md` |
 | 2026-08-04 | Section 3 dirapikan: LogTailer dipulihkan (tabel), log_monitor + dedup + AbuseIPDB/thread; checklist 5–13 di-update; koreksi rule_id vs return None | `PEMAHAMAN_PROGRESSIF.md` |
-| 2026-08-09 | Appendix G React hooks (useState, useEffect, useContext, dll.) mapped ke file Incidentra | `PEMAHAMAN_PROGRESSIF.md` |
+| 2026-08-09 | Appendix H Glosarium istilah teknis (sliding window, dedup, sync/thread, dll.) bahasa normal | `PEMAHAMAN_PROGRESSIF.md` |
 | 2026-08-09 | Section 3–15 diisi lengkap: analyze() line-by-line, respond/escalation, AI Groq fallback, globe data flow, frontend boot+pages, cheat sheet sidang; Dashboard CHART 2/3/5/Globe | `docs/PEMAHAMAN_PROGRESSIF.md` |
