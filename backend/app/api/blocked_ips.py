@@ -120,7 +120,7 @@ def unblock_ip(ip_id):
     ip_address = blocked.ip_address
     was_whitelist = blocked.is_whitelist
 
-    # Preserve escalation count in Redis so offense tier survives unblock
+    # REDIS_ESCALATION: salin incident_count → Redis sebelum row DB dihapus (pasangan: _escalating_block elif self.redis)
     if not was_whitelist:
         try:
             from app.core.detection_engine import get_redis_client as _grc

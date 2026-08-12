@@ -341,13 +341,63 @@ vuln_web container          backend container
 
 **Pemahaman saya — vuln-web (selesai):**
 
+<!-- Setiap poin di bawah = 1 konsep sidang. File terkait ada komentar [vuln-web §N] -->
+
 1. `app.py` membuat Flask app vuln-web. Tidak berisi route handler — handler ada di `routes/*.py`, didaftarkan lewat `register_blueprints(app)` dari `routes/__init__.py`.
+   - **`create_app()`** — factory function; return objek `app` Flask.
+   - **Tidak ada `@app.route('/login')` di sini** — route handler ada di `routes/auth.py`, `routes/shop.py`, dll.
+   - **`register_blueprints(app)`** (`routes/__init__.py`) — daftarkan semua blueprint: `auth_bp`, `shop_bp`, … ke satu app.
+   - **Ctrl+F sidang:** `vuln-web/app.py` baris `before_request` / `after_request` / `register_blueprints`.
+
 2. Setiap HTTP request: `@app.before_request` → `enforce_security()` (cek block/rate-limit); route handler di `routes/*.py`; `@app.after_request` → `log_request(response)`.
+   - **Urutan Flask (jangan dibalik):** request masuk → **`before_request`** dulu → **route handler** (logic halaman/API) → **`after_request`** terakhir.
+   - **`before_request` → `enforce_security()`** — gatekeeper: IP blocked? → 403; rate limit? → 429; OK → `return None` (lanjut ke route).
+   - **Route handler** — proses bisnis lab (login, shop, upload, …); return HTML/JSON ke browser.
+   - **`after_request` → `log_request(response)`** — request sudah selesai; catat 1 baris ke `access.log` (side-effect, response ke user tidak diubah).
+
 3. `enforce_security()` (`security.py`) baca blocklist dari JSON file (`blocked_ips.json`, `rate_limited.json`) yang **ditulis backend** ke shared volume. Match IP → 403/429. Railway terpisah: `_fetch_blocklist_remote()` GET ke `/api/internal/blocklist`.
+   - **Siapa tulis JSON?** Backend `response_manager.py` saat block/rate-limit — dual-write DB + file JSON di volume shared.
+   - **Docker:** vuln-web baca file langsung (`BLOCKED_IPS_FILE`, `RATE_LIMITED_FILE`) — path sama di disk, beda mount path container.
+   - **`ip in blocked_data['blocked']`** → halaman HTML 403 (bukan JSON API).
+   - **`ip in rate_limited`** → hitung request per window in-memory (`_request_log`) → 429 jika lewat batas.
+   - **Railway (service terpisah):** env `BLOCKLIST_API_URL` set → `_fetch_blocklist_remote()` poll backend, cache beberapa detik — tidak baca file shared.
+
 4. `get_client_ip(request)` dari **`vuln-web/ip_utils.py`** (bukan backend). Prioritas: `X-Real-IP` → `X-Forwarded-For` (IP pertama) → `remote_addr` (Docker lokal).
+   - **Kenapa file sendiri?** vuln-web tidak import package backend — logic IP diduplikasi (mirip `backend/app/utils/net.py`).
+   - **Prioritas 1 — `X-Real-IP`:** header dari Nginx/Railway edge = IP asli client.
+   - **Prioritas 2 — `X-Forwarded-For`:** bisa `"client, proxy1, proxy2"` — ambil **IP pertama** (client).
+   - **Prioritas 3 — `remote_addr`:** Docker Compose lokal, tidak ada proxy → IP koneksi TCP langsung ke container.
+   - **Dipakai di:** `security.py` (block cek IP benar) dan `logging.py` (IP di baris access log).
+
 5. `log_request(response)` (`logging.py`): **`request`** (Flask global) untuk method, path, form POST → `POST_DATA:`; **`response`** (parameter dari after_request) untuk status code & content length — POST_DATA bukan dari response object.
+   - **`request`** = objek Flask global untuk request **masuk** (masih hidup di `after_request`).
+   - Dari `request`: `method`, `full_path`, `user_agent`, **`request.form`** (body POST form).
+   - **`response`** = parameter fungsi dari decorator `@app.after_request` — hasil route (status 200/403/500, ukuran body response).
+   - **POST_DATA suffix** dibuat dari **`request.form`**, BUKAN dari `response` — response hanya bawa status code + content length ke baris log.
+
 6. Langkah logging: kumpulkan POST body → (opsional) `g.log_extra` → susun baris NCSA → append ke `access.log` (Docker/manual) atau push `LOG_INGEST_URL` (Railway).
+   - **Langkah 1:** `request.form` + `request.files` → string ` POST_DATA:key=val&...`
+   - **Langkah 2 (opsional):** route set `g.log_extra` (mis. CSRF lab di `routes/forms.py`) → append ke suffix.
+   - **Langkah 3:** susun format NCSA: `IP - - [timestamp] "METHOD path HTTP/1.1" status bytes "-" "User-Agent" POST_DATA:...`
+   - **Langkah 4a Docker:** `open(LOG_FILE, 'a')` — volume shared, backend `LogTailer` tail file yang sama.
+   - **Langkah 4b Railway:** `POST LOG_INGEST_URL` json `{line: ...}` — backend terima tanpa share file.
+
 7. GET attack payload ada di URL (query string), sudah tercatat di log tanpa `POST_DATA`. POST attack sering butuh suffix `POST_DATA:`.
+   - **GET SQLi/XSS:** payload di `?id=1' OR 1=1--` → sudah ada di `request.full_path` di baris log — **tidak perlu** `POST_DATA:`.
+   - **POST login brute force / form attack:** body tidak masuk access log Nginx standar → vuln-web **tambah** `POST_DATA:username=...&password=...`.
+   - **Backend `log_parser.py`:** regex baca path **dan** suffix `POST_DATA:` — makanya dua jalur deteksi (GET vs POST).
+
+**File ↔ poin (Ctrl+F):**
+
+| Poin | File | Anchor |
+|------|------|--------|
+| 1 | `vuln-web/app.py` | `[vuln-web §1]` |
+| 2 | `vuln-web/app.py` | `[vuln-web §2]` |
+| 3 | `vuln-web/middleware/security.py` | `[vuln-web §3]` |
+| 4 | `vuln-web/ip_utils.py` | `[vuln-web §4]` |
+| 5–6 | `vuln-web/middleware/logging.py` | `[vuln-web §5]` `[vuln-web §6]` |
+| 7 | `vuln-web/middleware/logging.py` | `[vuln-web §7]` |
+| 1 | `vuln-web/routes/__init__.py` | `[vuln-web §1]` |
 
 **Pemahaman saya — backend (`log_parser.py`):**
 

@@ -3,22 +3,25 @@ full rationale (same logic, duplicated here since vuln-web has no shared depende
 the backend package). Locally (Docker Compose), no reverse proxy sits in front of this
 app, so neither header is ever present and this falls back to request.remote_addr
 exactly as before.
+
+[vuln-web §4] Prioritas: X-Real-IP → X-Forwarded-For (IP pertama) → remote_addr
+Dipakai: security.py (block) + logging.py (IP di access log)
 """
 
-# get_client_ip — dipakai logging.py (access.log) & security.py (block/rate-limit)
-def get_client_ip(request) -> str: #from request Flask object, return client ip
+# [vuln-web §4] Bukan backend — file lokal vuln-web; logic mirip backend/app/utils/net.py
+def get_client_ip(request) -> str:
 
-    # Prioritas 1: header dari reverse proxy (Nginx/Railway edge) — IP asli client, bukan IP proxy
+    # Prioritas 1: reverse proxy (Nginx/Railway) — IP asli client
     real_ip = request.headers.get('X-Real-IP')
     if real_ip:
-        return real_ip.strip() 
+        return real_ip.strip()
 
-    # Prioritas 2: X-Forwarded-For bisa berisi rantai IP "client, proxy1, proxy2" — ambil yang pertama (client)
+    # Prioritas 2: rantai "client, proxy1, proxy2" — ambil client (elemen pertama)
     xff = request.headers.get('X-Forwarded-For')
     if xff:
         first = xff.split(',')[0].strip()
         if first:
             return first
 
-    # Prioritas 3: Docker Compose lokal — tidak ada proxy, langsung IP koneksi TCP ke container
-    return request.remote_addr or 'unknown' # 'remote_addr' attribute from request Flask object for local development
+    # Prioritas 3: Docker lokal — tidak ada proxy header
+    return request.remote_addr or 'unknown'
