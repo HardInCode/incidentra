@@ -9,6 +9,7 @@ from routes.profile import profile_bp
 from routes.shop import shop_bp
 
 
+# [vuln-web §1] Semua route handler ada di routes/*.py — app.py cuma panggil fungsi ini
 def register_blueprints(app):
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)

@@ -1,12 +1,21 @@
 """
 RESPONSE MANAGER — severity → monitor / rate_limit / escalating_block.
-Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit
+Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit, REDIS_ESCALATION
+
+patokan REDIS (backend):
+  File ini + detection_engine.py (BruteForceTracker) 
+  Dipanggil dari log_monitor._process_log_line() setelah incident INSERT.
+
+Dual-write pattern (3 tempat):
+  1. PostgreSQL BlockedIP  → source of truth UI SOC
+  2. Redis blocked:/ratelimit:/escalation_*  → flag cepat + TTL
+  3. blocked_ips.json / rate_limited.json  → vuln-web enforcement (TANPA Redis)
 
 Escalation logic (configurable in Settings):
   HIGH:     1st → 1h, 2nd → 24h, 3rd+ → 7d + Repeat Offender flag
   CRITICAL: 1st → 24h, 2nd → 7d, 3rd+ → 30d + Repeat Offender flag + notify
 
-Writes: blocked_ips.json, rate_limited.json (read by vuln-web middleware.security)
+Writes: blocked_ips.json, rate_limited.json (read by vuln-web middleware/security.py)
 """
 import logging
 import os
@@ -22,7 +31,11 @@ RATE_LIMIT_REDIS_TTL = int(os.getenv('RATE_LIMIT_REDIS_TTL', 300))
 
 
 def _write_blocked_ips_json():
-    """Write current blocked IPs from DB to shared JSON file for vuln-web enforcement."""
+    """Sync PostgreSQL → blocked_ips.json untuk vuln-web (Docker shared volume / Railway via blocklist API).
+
+    Vuln-web security.py baca file ini — tidak query PostgreSQL langsung.
+    Dipanggil setelah block/unblock dan oleh Celery cleanup hourly.
+    """
     try:
         from app.models import BlockedIP
         from app import db
@@ -87,7 +100,11 @@ def _persist_rate_limited_data(data: dict):
 
 
 def _write_rate_limited_json(ip: str, add: bool = True):
-    """Add or remove IP from rate_limited.json for vuln-web enforcement."""
+    """Tambah/hapus IP dari rate_limited.json — vuln-web enforce 429 dari file ini.
+
+    limits[ip].expires_at = kapan rate limit berakhir (backend set, vuln-web baca di security.py).
+    Redis ratelimit:{ip} = flag paralel dengan TTL (fast path backend).
+    """
     try:
         data = _read_rate_limited_data()
         limited = set(data.get("rate_limited", []))
@@ -110,11 +127,11 @@ def _write_rate_limited_json(ip: str, add: bool = True):
 
 
 def get_rate_limit_redis_ttl(redis_client, ip: str) -> int:
-    """Remaining TTL for ratelimit:{ip} in Redis (0 if missing)."""
+    """Sisa TTL key Redis ratelimit:{ip} — dipakai Celery cleanup hourly."""
     if not redis_client:
         return 0
     try:
-        ttl = redis_client.ttl(f"ratelimit:{ip}")
+        ttl = redis_client.ttl(f"ratelimit:{ip}")  # Appendix A — rate limit flag
         return max(int(ttl), 0) if ttl and ttl > 0 else 0
     except Exception:
         return 0
@@ -194,23 +211,28 @@ def _pick_escalating_duration(durations: list, offense_index: int) -> int:
 class ResponseManager:
     """
     Executes automated responses based on threat severity.
-    Level 1 (Low)      → Log & Monitor
-    Level 2 (Medium)   → Rate Limit (Redis counter)
-    Level 3 (High)     → Escalating temp block: 1h → 24h → 7d + Repeat Offender
-    Level 4 (Critical) → Escalating temp block: 24h → 7d → 30d + Repeat Offender + Notify
+    Dibuat sekali di log_monitor.start_monitor() — respond() dipanggil per incident.
+
+    Level 1 (Low)      → Log & Monitor          → Redis action:{ip}
+    Level 2 (Medium)   → Rate Limit             → Redis ratelimit:{ip} + rate_limited.json
+    Level 3 (High)     → Escalating temp block  → Redis blocked: + escalation_* + blocked_ips.json
+    Level 4 (Critical) → Escalating temp block  → sama + email thread (_notify_async, BUKAN Celery)
+
+    self.redis = redis_client dari log_monitor — None kalau Redis down (fallback DB saja).
     """
 
     def __init__(self, db, redis_client=None, app=None):
         self.db = db
-        self.redis = redis_client
-        self._app = app
+        self.redis = redis_client  # koneksi Redis — pass-through dari log_monitor.start_monitor()
+        self._app = app            # Flask app — untuk app_context di thread notifikasi
         self.temp_block_duration = int(os.getenv('TEMP_BLOCK_DURATION', 86400))
 
     def _notify_async(self, incident_id: int, severity: str, block_hours: int = 0, offense_count: int = 0):
         """
-        Run notification in a background thread (works without Celery worker).
-        Celery .delay() is skipped intentionally: even if broker is reachable,
-        tasks queue silently without a running worker. Thread fallback is always reliable.
+        Email/Telegram alert — THREAD daemon (bukan Celery).
+
+        Pola sama AbuseIPDB di log_monitor.py: fire-and-forget supaya respond() tidak nunggu SMTP.
+        Celery notify_critical_incident terdaftar di celery_worker.py tapi TIDAK dipanggil .delay().
         """
         import threading
         from app.services.notification_service import _do_notify
@@ -236,6 +258,11 @@ class ResponseManager:
                 logger.warning(f"Notification failed: {e}")
 
     def respond(self, threat: dict, incident_id: int) -> dict:
+        """ENTRY POINT response — dipanggil log_monitor setelah INSERT incident.
+
+        threat['recommended_action'] dari detection_engine.analyze():
+          log_and_monitor | rate_limit | escalating_block | temporary_block | permanent_block
+        """
         from app.core.settings_reader import get_temp_block_duration
         self.temp_block_duration = get_temp_block_duration()
         severity = threat.get('severity', 'low')
@@ -252,16 +279,16 @@ class ResponseManager:
 
         if action == 'log_and_monitor':
             result['details'] = f'Threat logged. IP {ip} is being monitored.'
-            self._log_to_redis(ip, 'monitor')
+            self._log_to_redis(ip, 'monitor')  # Redis action:{ip} TTL 3600s — debugging/monitor path
 
         elif action == 'rate_limit':
-            self._apply_rate_limit(ip)
-            _write_rate_limited_json(ip, add=True)
+            self._apply_rate_limit(ip)         # Redis ratelimit:{ip}
+            _write_rate_limited_json(ip, add=True)  # JSON untuk vuln-web 429
             result['details'] = f'Rate limiting applied to {ip}. Max 10 req/min enforced.'
 
         elif action == 'escalating_block':
             self.db.session.expire_all()
-            block_result = self._escalating_block(
+            block_result = self._escalating_block(  # PostgreSQL + Redis + JSON
                 ip=ip,
                 severity=severity,
                 attack_type=threat.get('attack_type', ''),
@@ -303,13 +330,7 @@ class ResponseManager:
         return result
 
     def _escalating_block(self, ip: str, severity: str, attack_type: str, incident_id: int) -> dict:
-        """
-        Escalating temporary block logic:
-        - Looks up existing BlockedIP.incident_count to determine offense tier
-        - Picks block duration from configurable duration list per severity
-        - Flags is_repeat_offender=True when count >= threshold
-        - Notifies admin for critical repeat offenders
-        """
+        """Escalating temp block. Ctrl+F: REDIS_ESCALATION"""
         from app.models import BlockedIP
         from app.core.settings_reader import (
             get_escalating_high_durations,
@@ -324,15 +345,14 @@ class ResponseManager:
             current_count = 0
             previous_max_severity = None
             if existing:
-                current_count = existing.incident_count or 0
-                # Extract the highest severity previously recorded from the reason field
+                current_count = existing.incident_count or 0  # REDIS_ESCALATION: baca dari DB (masih blocked)
                 if existing.reason:
                     for sev_tag in ['CRITICAL', 'HIGH']:
                         if sev_tag in existing.reason.upper():
                             previous_max_severity = sev_tag.lower()
                             break
             elif self.redis:
-                # IP was unblocked — check Redis for preserved escalation count & severity
+                # REDIS_ESCALATION: sudah unblock → row DB hilang → baca last count dari Redis
                 try:
                     saved = self.redis.get(f"escalation_count:{ip}")
                     if saved:
@@ -356,11 +376,10 @@ class ResponseManager:
                 else get_escalating_high_durations()
             )
 
-            offense_index = current_count  # 0-based: 0=first block, 1=second, ...
-
+            offense_index = current_count
             hours = _pick_escalating_duration(durations, offense_index)
             expire_time = datetime.utcnow() + timedelta(hours=hours)
-            new_count = current_count + 1
+            new_count = current_count + 1  # REDIS_ESCALATION: +1 offense (mis. Redis=2 → offense #3)
             is_repeat = new_count >= repeat_threshold
 
             reason_parts = [f"Auto-blocked ({effective_severity.upper()}): {attack_type}"]
@@ -370,14 +389,15 @@ class ResponseManager:
             reason = " | ".join(reason_parts)
 
             if existing:
+                existing.incident_count = new_count  # REDIS_ESCALATION: update DB
                 existing.is_whitelist = False
                 existing.reason = reason
                 existing.block_type = 'temporary'
                 existing.expire_time = expire_time
                 existing.block_time = datetime.utcnow()
-                existing.incident_count = new_count
                 existing.is_repeat_offender = is_repeat
             else:
+                # REDIS_ESCALATION: INSERT DB baru (typical setelah unblock, count dari Redis)
                 new_block = BlockedIP(
                     ip_address=ip,
                     reason=reason,
@@ -391,15 +411,14 @@ class ResponseManager:
 
             self.db.session.commit()
 
-            # Persist escalation count and max severity in Redis (survives future unblock)
             if self.redis:
                 try:
-                    self.redis.setex(f"escalation_count:{ip}", 30 * 24 * 3600, str(new_count))
+                    self.redis.setex(f"escalation_count:{ip}", 30 * 24 * 3600, str(new_count))  # REDIS_ESCALATION: mirror ke Redis
                     self.redis.setex(f"escalation_severity:{ip}", 30 * 24 * 3600, effective_severity)
                 except Exception:
                     pass
 
-            # Redis TTL for fast enforcement check
+            # ─── REDIS: flag block aktif dengan TTL = durasi block (fast path is_blocked()) ───
             if self.redis:
                 ttl_seconds = int(hours * 3600)
                 try:
@@ -407,7 +426,7 @@ class ResponseManager:
                 except Exception:
                     pass
 
-            _write_blocked_ips_json()
+            _write_blocked_ips_json()  # sync ke vuln-web — security.py baca blocked_ips.json
 
             # Human-readable duration
             if hours >= 720:
@@ -452,6 +471,7 @@ class ResponseManager:
             }
 
     def _log_to_redis(self, ip: str, action: str):
+        """Monitor path — Redis action:{ip} = 'monitor' (TTL 1 jam). Bukan block."""
         if self.redis:
             try:
                 self.redis.setex(f"action:{ip}", 3600, action)
@@ -459,10 +479,11 @@ class ResponseManager:
                 pass
 
     def _apply_rate_limit(self, ip: str):
+        """Medium severity — Redis ratelimit:{ip} flag + tulis rate_limited.json (dual-write)."""
         if self.redis:
             try:
                 key = f"ratelimit:{ip}"
-                self.redis.setex(key, RATE_LIMIT_REDIS_TTL, '1')
+                self.redis.setex(key, RATE_LIMIT_REDIS_TTL, '1')  # default TTL 300s dari env
             except Exception:
                 pass
 
@@ -520,13 +541,13 @@ class ResponseManager:
             self.db.session.rollback()
 
     def is_blocked(self, ip: str) -> bool:
-        """Check if an IP is blocked (Redis fast path)."""
+        """Cek IP blocked — Redis blocked:{ip} dulu (cepat), fallback query PostgreSQL."""
         if self.redis:
             try:
                 return bool(self.redis.exists(f"blocked:{ip}"))
             except Exception:
                 pass
-        # Fallback to DB
+        # Fallback kalau Redis down
         from app.models import BlockedIP
         blocked = BlockedIP.query.filter_by(ip_address=ip, is_whitelist=False).first()
         if blocked:

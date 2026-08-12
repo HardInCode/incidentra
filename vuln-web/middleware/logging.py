@@ -2,14 +2,11 @@
 VULN-WEB LOGGING — Combined Log + POST_DATA suffix for SOC detection.
 Ctrl+F: log_request, POST_DATA, LOG_INGEST_URL, log_extra
 
-Dipanggil dari app.py @app.after_request — setiap request selesai, tulis 1 baris log.
+Dipanggil dari app.py @after_request — SETELAH route handler selesai.
 
-Hubungan dengan backend (TIDAK import langsung — hanya format string yang sama):
-  logging.py (vuln-web)  →  tulis string ke access.log / LOG_INGEST_URL
-  log_parser.py (backend) →  baca string itu, parse jadi dict
-
-POST_DATA bukan variable/function — literal teks " POST_DATA:..." di akhir baris log.
-Isinya = salinan body form POST (payload Burp di bawah header HTTP).
+Hubungan backend (TIDAK import langsung — hanya format string log yang sama):
+  logging.py (vuln-web)   → tulis string ke access.log ATAU POST ke LOG_INGEST_URL
+  log_monitor.py (backend) → tail file / terima ingest → log_parser.py → detection_engine
 """
 import datetime
 import logging
@@ -24,69 +21,101 @@ logger = logging.getLogger(__name__)
 
 
 def log_request(response):
-    """Catat 1 baris log per request.
+    """Catat 1 baris access log per HTTP request.
 
-    Parameter:
-      response — dari @app.after_request (status code, content_length, dll.)
-    Flask global `request` — masih hidup di sini, body POST bisa dibaca via request.form.
+    Dipanggil dari app.py:
+      @app.after_request
+      def _log(response):
+          return log_request(response)
+
+    Dua objek penting (jangan dibalik):
+      request  — Flask GLOBAL: data request MASUK (method, path, form POST, user-agent)
+      response — PARAMETER fungsi: data response KELUAR (status code, ukuran body)
+
+    POST_DATA suffix selalu dari request.form — BUKAN dari response.
     """
+    # ═══════════════════════════════════════════════════════════════════
+    # LANGKAH 1 — Kumpulkan body POST jadi suffix POST_DATA (kalau POST)
+    # ═══════════════════════════════════════════════════════════════════
+    # Kenapa perlu? Access log Nginx standar TIDAK mencatat body HTTP.
+    # SQLi/XSS di query string (GET) sudah ada di path — POST butuh suffix ini
+    # supaya backend log_parser.py bisa regex baca payload login, form, upload, dll.
+    post_data = ''  # default kosong — GET tidak punya suffix
 
-    # ─── Langkah 1: salin body POST ke teks (payload Burp: username=hello&password=) ───
-    # Nginx access log standar TIDAK menyertakan body — makanya kita tambah suffix custom.
-    # request.form = dict field form; Flask sudah parse body HTTP (bukan dari header).
-    post_data = ''
     if request.method == 'POST':
-        parts = []
+        parts = []  # list string "key=value" sebelum digabung
+
         if request.form:
-            # Contoh: {'username': 'hello', 'password': ''} → ['username=hello', 'password=']
+            # request.form = dict field form-urlencoded (Flask sudah parse body HTTP)
+            # Contoh Burp POST login: username=admin&password=test
+            # Hasil: ['username=admin', 'password=test']
             parts.extend(f'{key}={str(value)[:200]}' for key, value in request.form.items())
+
         if request.files:
-            # Upload: log nama file saja (bukan isi file), max 200 char
+            # Upload file: log NAMA file saja (bukan isi binary) — cukup untuk deteksi FILE_UPLOAD
             for key, f in request.files.items():
                 if f and f.filename:
                     parts.append(f'{key}={f.filename[:200]}')
+
         if parts:
-            # Hasil: ' POST_DATA:username=hello&password='
+            # Gabung jadi suffix literal — backend cari teks " POST_DATA:" di akhir baris
+            # Contoh: ' POST_DATA:username=admin&password=test'
             post_data = ' POST_DATA:' + '&'.join(parts)
 
-    # ─── Langkah 2 (opsional): teks extra dari route lewat g.log_extra ───
-    # Hook generik — route mana saja boleh set g.log_extra sebelum return.
-    # Pemakaian: routes/forms.py — lab CSRF; kata "CSRF" ikut ke log untuk detection.
+    # ═══════════════════════════════════════════════════════════════════
+    # LANGKAH 2 (opsional) — Route bisa tambah teks extra lewat g.log_extra
+    # ═══════════════════════════════════════════════════════════════════
+    # g = Flask request context (hidup sepanjang 1 request)
+    # Pemakaian: routes/forms.py lab CSRF — set g.log_extra supaya kata "CSRF" ikut ke log
     log_extra = getattr(g, 'log_extra', '')
     if log_extra:
-        post_data = f'{post_data} {log_extra}' if post_data else f' POST_DATA:{log_extra}'
+        if post_data:
+            post_data = f'{post_data} {log_extra}'       # sudah ada POST_DATA → append
+        else:
+            post_data = f' POST_DATA:{log_extra}'       # belum ada → buat suffix baru
 
-    # ─── Langkah 3: susun 1 string baris log format NCSA (seperti Nginx access log) ───
-    # Contoh lengkap:
-    #   172.19.0.1 - - [02/Aug/2026:13:00:01 +0000] "POST /login HTTP/1.1" 200 3144
-    #   "-" "Mozilla/5.0" POST_DATA:username=hello&password=
+    # ═══════════════════════════════════════════════════════════════════
+    # LANGKAH 3 — Susun 1 string baris log format NCSA (mirip Nginx access log)
+    # ═══════════════════════════════════════════════════════════════════
+    # Contoh baris lengkap:
+    #   172.19.0.1 - - [12/Aug/2026:09:55:00 +0000] "POST /login HTTP/1.1" 200 3144
+    #   "-" "Mozilla/5.0" POST_DATA:username=admin&password=test
     log_line = (
-        f'{get_client_ip(request)} - - '                                          # IP client
+        f'{get_client_ip(request)} - - '                                          # IP client (ip_utils.py)
         f'[{datetime.datetime.utcnow().strftime("%d/%b/%Y:%H:%M:%S +0000")}] '    # timestamp UTC
-        f'"{request.method} {request.full_path.rstrip("?")} HTTP/1.1" '           # method + path (tanpa body!)
-        f'{response.status_code} {response.content_length or 0} '                 # status + ukuran response
-        f'"-" "{request.user_agent.string}"{post_data}'                           # referer + UA + suffix POST
+        f'"{request.method} {request.full_path.rstrip("?")} HTTP/1.1" '           # GET: payload SQLi/XSS ada di sini (query string)
+        f'{response.status_code} {response.content_length or 0} '                 # dari response: 200, 403, 500, ukuran bytes
+        f'"-" "{request.user_agent.string}"{post_data}'                           # referer dummy + UA + suffix POST (langkah 1)
     )
 
-    # ─── Langkah 4: simpan string log_line ───
-    # Manual & Docker: append ke file (volume shared → backend tail file yang sama)
-    # Railway: POST json {'line': log_line} ke backend (tidak share file)
+    # ═══════════════════════════════════════════════════════════════════
+    # LANGKAH 4 — Simpan log_line ke backend SOC (2 mode deploy)
+    # ═══════════════════════════════════════════════════════════════════
     if LOG_INGEST_URL:
+        # ── MODE RAILWAY / service terpisah ──
+        # vuln-web & backend TIDAK share file access.log → kirim lewat HTTP POST
+        # LOG_INGEST_URL = env, contoh: https://backend.../api/internal/logs
+        # Backend: internal.py ingest_logs() → append ke file yang di-tail log_monitor
         try:
-            import requests
+            import requests  # lazy import — hanya dipakai kalau LOG_INGEST_URL set (Docker tidak perlu)
             requests.post(
-                LOG_INGEST_URL,
-                json={'line': log_line},
-                headers={'X-Internal-Token': INTERNAL_API_TOKEN},
-                timeout=INTERNAL_API_TIMEOUT,
+                LOG_INGEST_URL,                        # URL endpoint ingest backend
+                json={'line': log_line},               # 1 baris log per request
+                headers={'X-Internal-Token': INTERNAL_API_TOKEN},  # auth service-to-service, bukan JWT user SOC
+                timeout=INTERNAL_API_TIMEOUT,          # default 2 detik — jangan block response user terlalu lama
             )
+            # Tidak perlu cek response body — kalau gagal, masuk except di bawah
         except Exception as e:
+            # Log gagal push → request user tetap sukses; baris log hilang untuk deteksi (warning saja)
             logger.warning(f'LOG_INGEST_URL push failed: {e}')
     else:
+        # ── MODE DOCKER / shared volume ──
+        # Tulis langsung ke access.log — backend LogTailer tail file yang sama di volume shared
+        # LOG_FILE default: logs/access.log (env VULN_LOG_FILE)
         log_dir = os.path.dirname(LOG_FILE)
         if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
+            os.makedirs(log_dir, exist_ok=True)  # buat folder logs/ kalau belum ada
         with open(LOG_FILE, 'a', encoding='utf-8') as f:
-            f.write(log_line + '\n')
+            f.write(log_line + '\n')  # append 1 baris — tidak overwrite file lama
 
-    return response  # response ke browser tidak diubah — logging cuma side-effect
+    return response  # WAJIB return response — after_request Flask expect response ke browser tidak berubah
