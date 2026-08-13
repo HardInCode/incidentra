@@ -128,7 +128,7 @@ notify_critical_incident = notify_incident
 
 
 def _send_email(subject: str, body: str) -> tuple:
-    """Send alert email. Returns (success: bool, error_message: str | None)."""
+    """NOTIFY: SMTP via env/Settings. Railway Hobby block port 587 → timeout; Telegram OK."""
     smtp_host = _get_setting('SMTP_HOST')
     smtp_port = int(_get_setting('SMTP_PORT') or 587)
     smtp_user = _get_setting('SMTP_USER')

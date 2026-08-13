@@ -1,6 +1,6 @@
 """
 RESPONSE MANAGER — severity → monitor / rate_limit / escalating_block.
-Ctrl+F: respond, _escalating_block, _write_blocked_ips_json, _apply_rate_limit, REDIS_ESCALATION
+Ctrl+F: respond, _escalating_block, REDIS_ESCALATION, ESCALATING, NOTIFY
 
 patokan REDIS (backend):
   File ini + detection_engine.py (BruteForceTracker) 
@@ -377,7 +377,7 @@ class ResponseManager:
             )
 
             offense_index = current_count
-            hours = _pick_escalating_duration(durations, offense_index)
+            hours = _pick_escalating_duration(durations, offense_index)  # ESCALATING: HIGH 1h→24h→7d, CRITICAL 24h→7d→30d
             expire_time = datetime.utcnow() + timedelta(hours=hours)
             new_count = current_count + 1  # REDIS_ESCALATION: +1 offense (mis. Redis=2 → offense #3)
             is_repeat = new_count >= repeat_threshold
@@ -445,13 +445,12 @@ class ResponseManager:
             if is_repeat:
                 details += f' ⚠ Repeat Offender (≥{repeat_threshold} offenses) — review in IP Management.'
 
-            # Notify on critical repeat offenders, or any severity repeat offender
+            # NOTIFY: email/Telegram HANYA critical #1, repeat offender — BUKAN high #1 / medium
             if is_repeat and severity == 'critical':
                 self._notify_async(incident_id, 'critical', block_hours=hours, offense_count=new_count)
             elif is_repeat:
                 self._notify_async(incident_id, 'high', block_hours=hours, offense_count=new_count)
             elif severity == 'critical' and new_count == 1:
-                # Notify on first critical offense too
                 self._notify_async(incident_id, 'critical', block_hours=hours, offense_count=new_count)
 
             return {

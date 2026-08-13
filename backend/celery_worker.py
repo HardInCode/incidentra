@@ -1,5 +1,5 @@
 """
-CELERY WORKER — SIDANG: patokan file ini untuk pertanyaan Celery.
+CELERY WORKER — patokan file ini untuk pertanyaan Celery.
 
 Yang BENAR-BENAR JALAN di runtime:
   cleanup_expired_blocks  →  setiap 1 jam (beat_schedule baris bawah)
