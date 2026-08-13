@@ -1,6 +1,6 @@
 """
 DETECTION ENGINE — regex + threshold → threat dict atau None.
-Ctrl+F: analyze, DETECTION_PATTERNS, BruteForceTracker, _load_rules_from_db
+Ctrl+F: analyze, DETECTION_PATTERNS, BruteForceTracker, SEVERITY, PIPELINE
 
 Urutan baca file ini (sesuai alur runtime):
   ① DETECTION_PATTERNS     → baseline OWASP (hardcoded regex)
@@ -133,7 +133,7 @@ DETECTION_PATTERNS = {
     },
 }
 
-# Skor numerik — dipakai max(threats) pilih severity tertinggi kalau multi-match
+# SEVERITY: tie-breaker multi-match — bukan sumber severity (sumber=rule DB / DETECTION_PATTERNS)
 SEVERITY_WEIGHTS = {
     'critical': 100,
     'high': 70,
@@ -141,7 +141,7 @@ SEVERITY_WEIGHTS = {
     'low': 10,
 }
 
-# Mapping severity → aksi response_manager.respond() (Section 4)
+# SEVERITY → PIPELINE step 4: severity menentukan aksi respond()
 RESPONSE_ACTIONS = {
     'low': 'log_and_monitor',       # ← hanya log, tidak block
     'medium': 'rate_limit',         # ← throttle request
@@ -448,12 +448,12 @@ class DetectionEngine:
             return None  # ← log_monitor baris 135–136: if not threat → return None
 
         # Step 9–11: pilih severity tertinggi (score max) → bangun threat dict final
-        primary = max(threats, key=lambda t: t['score'])
+        primary = max(threats, key=lambda t: t['score'])  # SEVERITY: pilih match score tertinggi
 
         return {
             'ip': ip,
-            'attack_type': primary['attack_type'],           # ← contoh 'SQL_INJECTION'
-            'severity': primary['severity'],                 # ← contoh 'critical'
+            'attack_type': primary['attack_type'],
+            'severity': primary['severity'],  # SEVERITY: decide di sini — rule DB atau DETECTION_PATTERNS default
             'mitre_technique': primary['mitre'],
             'raw_payload': log_entry.get('raw', '')[:1000],  # ← baris log mentah (potong)
             'request_path': path[:500],
@@ -461,7 +461,7 @@ class DetectionEngine:
             'user_agent': user_agent[:500],
             'response_code': status_code,
             'matched_text': primary['matched_text'],       # ← substring yang kena regex
-            'recommended_action': RESPONSE_ACTIONS[primary['severity']],  # ← dipakai respond()
+            'recommended_action': RESPONSE_ACTIONS[primary['severity']],  # PIPELINE: log_monitor → respond() baca ini
             'all_threats': threats,  # ← semua match (kalau multi-type); primary = yang dipakai incident
         }
 

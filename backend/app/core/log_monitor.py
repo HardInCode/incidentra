@@ -1,6 +1,6 @@
 """
 LOG MONITOR — orkestrator pipeline: access.log → incident → block.
-Ctrl+F: start_monitor, _process_log_line, ingest_log_lines
+Ctrl+F: start_monitor, _process_log_line, PIPELINE, DEDUP, SEVERITY
 
 Urutan baca file ini (sesuai alur runtime):
   ① start_monitor()        → background thread, loop baca log
@@ -127,45 +127,45 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
 
     touch_last_log_received(redis_client)  # ← helper bawah file; Dashboard baca via get_last_log_received_at
 
-    entry = parse_log_line(line)  # ← log_parser.py ② — string → dict
+    entry = parse_log_line(line)  # PIPELINE step 1: string → dict
     if not entry:
         return None
 
-    threat = engine.analyze(entry)  # ← detection_engine.py analyze() — dict → threat dict atau None
+    threat = engine.analyze(entry)  # PIPELINE step 2: severity + recommended_action di sini
     if not threat:
         return None
 
-    skip_dedup = False  # ← variable lokal; True = lewati cek dedup 5 menit (setelah admin unblock)
-    if redis_client:
+    skip_dedup = False
+    if redis_client:  # DEDUP: Redis optional — mati = waiver tidak jalan, dedup normal tetap jalan
         try:
-            ip = threat['ip']                    # ← dari analyze() — sama dengan entry['ip']
-            attack = threat['attack_type']       # ← dari analyze() — contoh 'SQL_INJECTION'
-            if redis_client.exists(f"unblocked:{ip}"):  # ← key ditulis response_manager saat admin unblock
+            ip = threat['ip']
+            attack = threat['attack_type']
+            if redis_client.exists(f"unblocked:{ip}"):  # ditulis blocked_ips.py saat admin unblock
                 waiver_key = f"unblock_waiver:{ip}:{attack}"
-                if redis_client.set(waiver_key, '1', nx=True, ex=600):  # 1x waiver 10 menit
-                    skip_dedup = True
+                if redis_client.set(waiver_key, '1', nx=True, ex=600):  # 1× per attack type, 10 menit
+                    skip_dedup = True  # lewati dedup → incident baru → respond() block lagi
         except Exception:
             pass
 
     if not skip_dedup:
-        dedup_window = datetime.utcnow() - timedelta(minutes=5)  # ← variable lokal — batas waktu dedup
-        recent = Incident.query.filter(  # ← query PostgreSQL tabel incidents (bukan Redis)
+        dedup_window = datetime.utcnow() - timedelta(minutes=5)
+        recent = Incident.query.filter(  # DEDUP: sama IP + sama attack_type < 5 menit → skip (PostgreSQL)
             Incident.source_ip == threat['ip'],
             Incident.attack_type == threat['attack_type'],
             Incident.created_at >= dedup_window,
         ).first()
         if recent:
             logger.debug(f"Dedup skip: {threat['attack_type']} from {threat['ip']} (seen within 5m)")
-            return None  # sudah ada incident sama → skip
+            return None  # tidak INSERT, respond() tidak dipanggil
 
-    # ── Step 4: simpan incident ke PostgreSQL → Dashboard/Incidents UI ──
-    sev_map = {  # ← mapping string analyze() → enum SQLAlchemy di models
+    # PIPELINE step 3: INSERT incident (PostgreSQL via SQLAlchemy db.session)
+    sev_map = {
         'low': SeverityLevel.LOW,
         'medium': SeverityLevel.MEDIUM,
         'high': SeverityLevel.HIGH,
         'critical': SeverityLevel.CRITICAL,
     }
-    severity_enum = sev_map.get(threat['severity'], SeverityLevel.MEDIUM)  # ← threat['severity'] dari analyze()
+    severity_enum = sev_map.get(threat['severity'], SeverityLevel.MEDIUM)  # SEVERITY: convert string→enum; MEDIUM=hanya fallback error, bukan decide
 
     rule = DetectionRule.query.filter_by(  # ← tabel detection_rules — rule DB aktif (Section 7)
         attack_type=threat['attack_type'], is_active=True,
@@ -186,12 +186,12 @@ def _process_log_line(line: str, engine, responder, db, redis_client, app) -> Op
         response_code=threat.get('response_code'),       # ← dari analyze() — entry status_code
         rule_id=rule_id,                     # ← dari query DetectionRule di atas
     )
-    db.session.add(incident)   # ← db = parameter start_monitor (SQLAlchemy)
-    db.session.commit()        # ← INSERT ke PostgreSQL — setelah ini incident.id ada
+    db.session.add(incident)
+    db.session.commit()  # PIPELINE step 3 selesai — incident.id ada
 
     logger.info(f"[THREAT] {threat['attack_type']} from {threat['ip']} | Severity: {threat['severity']}")
 
-    responder.respond(threat, incident.id)  # ← response_manager.py — block IP (Section 4)
+    responder.respond(threat, incident.id)  # PIPELINE step 4: block/rate-limit/monitor
 
     from app.services.threat_intel_service import _do_reputation_check   # ← opsional AbuseIPDB
     from app.services.notification_service import _get_setting           # ← baca setting dari DB

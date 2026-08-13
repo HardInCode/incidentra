@@ -18,7 +18,7 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
-    # Database
+    # DB: DATABASE_URL → SQLALCHEMY_DATABASE_URI → db.init_app(app) di __init__.py
     SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.getenv(
         'DATABASE_URL',
         'postgresql+psycopg://incidentra:incidentra123@localhost:5432/incidentra_db'

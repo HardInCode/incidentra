@@ -149,7 +149,7 @@ def unblock_ip(ip_id):
         from app.core.detection_engine import get_redis_client, clear_brute_force_state
         r = get_redis_client()
         if r:
-            r.setex(f"unblocked:{ip_address}", 600, '1')
+            r.setex(f"unblocked:{ip_address}", 600, '1')  # DEDUP: flag 10 menit — pasangan log_monitor skip_dedup
             for key in r.scan_iter(f"unblock_waiver:{ip_address}:*"):
                 r.delete(key)
         clear_brute_force_state(ip_address)
