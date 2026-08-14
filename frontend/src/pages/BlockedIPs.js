@@ -1,3 +1,16 @@
+/**
+ * IP MANAGEMENT — Blocked (PostgreSQL), Rate Limited (Redis/JSON), Whitelist (DB).
+ * Ctrl+F: UNBLOCK_FLOW, RATE_LIMIT_FLOW, handleUnblock, handleAdd, fetchIPs
+ *
+ * RATE_LIMIT_FLOW (tab 1):
+ *   getRateLimitedIPs → rate_limited.py → JSON + Redis (429 di vuln-web, bukan PostgreSQL)
+ *
+ * UNBLOCK_FLOW (tab 0 — demo unblock → attack → block):
+ *   handleUnblock → DELETE /blocked-ips/:id → blocked_ips.py
+ *   → Redis unblocked:{ip} + escalation_count tetap → dedup waiver 1x per attack_type
+ *
+ * Pasangan backend: backend/app/api/blocked_ips.py (REDIS_ESCALATION, DEDUP)
+ */
 // IP Management: Blocked IPs (DB) + Rate Limited (JSON/Redis) + Whitelisted IPs (DB)
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -118,6 +131,7 @@ export default function BlockedIPs() {
     },
   ], [t]);
 
+  // ─── Tab 0: blocked IPs dari PostgreSQL + blocked_ips.json sync ───
   const fetchIPs = useCallback(async () => {
     setLoading(true);
     try {
@@ -134,6 +148,7 @@ export default function BlockedIPs() {
     }
   }, [sortBy, sortDir, filterValues, search]);
 
+  // ─── RATE_LIMIT_FLOW tab 1: JSON+Redis — bukan blocked_ips PostgreSQL ───
   const fetchRateLimited = useCallback(async () => {
     setRateLoading(true);
     try {
@@ -221,6 +236,7 @@ export default function BlockedIPs() {
     }
   };
 
+  // ─── UNBLOCK_FLOW: admin unblock → Redis flag → incident baru boleh masuk (dedup waiver) ───
   const handleUnblock = async (id, ip) => {
     try {
       await unblockIP(id);

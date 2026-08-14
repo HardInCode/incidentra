@@ -1,3 +1,14 @@
+/**
+ * IN-APP NOTIFICATION BELL — Layout header.
+ * Ctrl+F: NOTIFY_INAPP_FLOW, fetchSummary, LAST_SEEN_KEY
+ *
+ * NOTIFY_INAPP_FLOW:
+ *   poll getNotificationsSummary(since_id) tiap 30s
+ *   since_id = localStorage sme_notif_last_seen_id (mark all read)
+ *   unread naik → toast + notification sound
+ *
+ * Beda NOTIFY (email/Telegram): notification_service.py dari respond()
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   IconButton, Badge, Menu, MenuItem, Typography, Box, Button, Divider, ListItemText,
@@ -29,6 +40,7 @@ export default function NotificationBell({ compact = false }) {
   const prevUnread = useRef(null);
   const token = typeof window !== 'undefined' ? localStorage.getItem('incidentra_token') : null;
 
+  // NOTIFY_INAPP_FLOW — poll backend; since_id = incident terakhir yang user sudah "baca"
   const fetchSummary = useCallback(async () => {
     if (!localStorage.getItem('incidentra_token')) return;
     try {

@@ -1,7 +1,18 @@
 """
-LIVE TRAFFIC API — display-only tags (Attack/Normal/Blocked); NOT the detection engine.
-Ctrl+F: ATTACK_KEYWORDS, TRAFFIC_ATTACK_PATTERNS, _parse_line, get_recent_traffic
-Incidents: detection_engine.analyze (separate pipeline)
+LIVE TRAFFIC API — display-only tags (Attack/Suspicious/Blocked/Normal).
+Ctrl+F: TRAFFIC_FLOW, ATTACK_KEYWORDS, TRAFFIC_ATTACK_PATTERNS, get_recent_traffic
+
+TRAFFIC_FLOW:
+  vuln-web logging.py → access.log → GET /traffic/recent → LiveTraffic.js
+  _parse_line + _classify_traffic_tag → tag untuk warna chip UI
+
+PENTING — bukan detection engine:
+  Tag di sini TIDAK INSERT incident
+  Deteksi beneran = log_monitor PIPELINE → detection_engine.analyze()
+  Regex di sini subset display-only, diselaraskan visual dengan engine
+
+Pasangan frontend: frontend/src/pages/LiveTraffic.js
+Pasangan log: vuln-web/middleware/logging.py, WEB_SERVER_LOG_PATH
 """
 import re
 import os
@@ -145,7 +156,10 @@ def _parse_line(line: str) -> dict | None:
 
 @traffic_bp.route('/recent', methods=['GET'])
 def get_recent_traffic():
-    """Return last N log entries, newest first. Max 500."""
+    """
+    TRAFFIC_FLOW — LiveTraffic.js fetchTraffic polling.
+    Tail N baris terakhir access.log, parse + tag, newest first.
+    """
     limit = min(request.args.get('limit', 100, type=int), 500)
     limit = max(limit, 1)
 

@@ -1,3 +1,19 @@
+"""
+IN-APP NOTIFICATIONS — bell icon di Layout (bukan email/Telegram).
+Ctrl+F: NOTIFY_INAPP_FLOW, notifications_summary
+
+NOTIFY_INAPP_FLOW:
+  PIPELINE INSERT incident (status=new) → NotificationBell poll GET /notifications/summary
+  → unread_count = incident.id > last_seen_id (localStorage)
+  → toast + sound kalau unread naik
+
+Bedakan dengan NOTIFY (email/Telegram):
+  NOTIFY = response_manager → notification_service._do_notify (critical + repeat offender)
+  NOTIFY_INAPP = semua incident status=new, cuma di UI bell
+
+Pasangan frontend: frontend/src/components/shared/NotificationBell.js
+Pasangan email/Telegram: backend/app/services/notification_service.py (NOTIFY)
+"""
 from flask import Blueprint, request, jsonify
 from app.models import Incident, IncidentStatus
 
@@ -14,11 +30,12 @@ def _check_auth():
 @notifications_bp.route('/summary', methods=['GET'])
 def notifications_summary():
     """
-    In-app alert summary (no Telegram/email). unread_count = new incidents with id > since_id.
-    Query: since_id (int, default 0) — client last_seen_incident_id from localStorage after mark-all-read.
+    NOTIFY_INAPP_FLOW — NotificationBell.js fetchSummary() tiap 30 detik.
+    Query since_id = localStorage sme_notif_last_seen_id (mark-all-read).
     """
     since_id = request.args.get('since_id', default=0, type=int) or 0
 
+    # unread = incident NEW dengan id lebih besar dari yang sudah user "lihat"
     unread_count = Incident.query.filter(
         Incident.status == IncidentStatus.NEW,
         Incident.id > since_id,

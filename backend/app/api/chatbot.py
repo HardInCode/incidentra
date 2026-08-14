@@ -1,3 +1,20 @@
+"""
+CHATBOT API — Groq assistant cybersecurity (floating widget di Layout).
+Ctrl+F: CHATBOT_FLOW, chat_message, _get_groq_reply, guardrail
+
+CHATBOT_FLOW:
+  ChatbotWidget.js sendChatMessage → POST /chatbot/message
+  → guardrail off-topic (resep/cuaca dll) → skip Groq
+  → _get_groq_reply → Groq fallback chain (sync ai_service.py models)
+  → history in-memory per session_id (max 10 turn)
+
+Bedakan dengan AI explain incident:
+  CHATBOT = general cyber Q&A, widget global
+  trigger_explanation = incidents.py POST /explain → ai_service.py per incident
+
+Pasangan frontend: frontend/src/components/shared/ChatbotWidget.js
+Pasangan AI explain: backend/app/api/incidents.py (trigger_explanation)
+"""
 from flask import Blueprint, request, jsonify
 import os
 import re
@@ -9,13 +26,15 @@ logger = logging.getLogger(__name__)
 
 from app.api.auth_middleware import verify_token
 
+
 @chatbot_bp.before_request
 def _check_auth():
     return verify_token()
 
+
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Fallback model chain — keep in sync with ai_service.GROQ_FALLBACK_MODELS.
+# Fallback chain — sync dengan ai_service.GROQ_FALLBACK_MODELS dan Settings.js GROQ_MODELS
 GROQ_MODELS = [
     'openai/gpt-oss-120b',
     'qwen/qwen3.6-27b',
@@ -24,16 +43,15 @@ GROQ_MODELS = [
     'allam-2-7b',
 ]
 
-# In-memory conversation history per session (last 10 messages)
+# In-memory history — hilang saat restart backend (bukan PostgreSQL)
 _conversations: dict = {}
 
 
 def _strip_think_tags(text: str) -> str:
-    """Remove <think>...</think> blocks output by reasoning models (qwen3, DeepSeek-R1, etc.)."""
+    """Hapus <think> dari model reasoning (qwen3, dll)."""
     return re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.DOTALL).strip()
 
 
-# Shown when a message is clearly outside cybersecurity (no Groq call).
 OUT_OF_SCOPE_REPLY = (
     "I focus on **cybersecurity** topics — incidents, attacks, detection, response, hardening, "
     "compliance basics, careers in infosec, tools like Wireshark/Burp, MITRE, OWASP, and similar. "
@@ -41,7 +59,6 @@ OUT_OF_SCOPE_REPLY = (
     "Try asking about a threat, vulnerability, or how to investigate an incident."
 )
 
-# Broad allow-list signal — if any match, send to the model (don't pre-reject).
 _CYBER_TOPIC_RE = re.compile(
     r'\b('
     r'secur|cyber|siber|keamanan|infosec|hack|threat|serangan|vuln|exploit|malware|ransom|'
@@ -53,7 +70,6 @@ _CYBER_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Obvious off-topic — only reject when _CYBER_TOPIC_RE also finds nothing.
 _OFF_TOPIC_RE = re.compile(
     r'\b('
     r'resep|rendang|masak|memasak|masakan|recipe|cooking|cook\b|ingredients|bake\b|baking|'
@@ -66,7 +82,7 @@ _OFF_TOPIC_RE = re.compile(
 
 
 def _is_clearly_off_topic(message: str) -> bool:
-    """Fast guardrail: block only obvious non-cyber requests (e.g. recipes)."""
+    """Guardrail cepat — tolak topik jelas non-cyber tanpa habiskan quota Groq."""
     text = (message or '').strip()
     if not text:
         return False
@@ -76,7 +92,6 @@ def _is_clearly_off_topic(message: str) -> bool:
 
 
 def _build_system_prompt(model_name: str) -> str:
-    """Build a system prompt that includes model self-awareness."""
     return f"""You are a cybersecurity AI assistant embedded in Incidentra, a Web-SOC platform.
 Your model identity: you are running as **{model_name}**. If a user asks what model or AI you are, answer truthfully with this model name.
 
@@ -94,8 +109,8 @@ STYLE: concise, practical, actionable for SME owners and junior analysts. No lon
 
 def _get_groq_reply(messages: list) -> tuple:
     """
-    Call Groq API with fallback chain.
-    Returns (reply_text, model_used).
+    CHATBOT_FLOW core — Groq dengan fallback chain.
+    Baca GROQ_API_KEY dari Settings DB via notification_service._get_setting.
     """
     from app.services.notification_service import _get_setting
     api_key = _get_setting('GROQ_API_KEY')
@@ -142,9 +157,10 @@ def _get_groq_reply(messages: list) -> tuple:
 
 @chatbot_bp.route('/message', methods=['POST'])
 def chat_message():
+    """CHATBOT_FLOW — ChatbotWidget.js kirim message + optional incident context."""
     data = request.get_json()
     user_message = data.get('message', '').strip()
-    context = data.get('context', '')  # Optional incident context
+    context = data.get('context', '')  # optional — konteks incident dari drawer/detail
     session_id = data.get('session_id', 'default')
 
     if not user_message:
@@ -158,20 +174,17 @@ def chat_message():
             'out_of_scope': True,
         })
 
-    # Get or create conversation history for this session
     if session_id not in _conversations:
         _conversations[session_id] = []
 
     history = _conversations[session_id]
 
-    # If incident context provided, prepend it
     full_message = user_message
     if context:
         full_message = f"[Incident Context: {context}]\n\nQuestion: {user_message}"
 
     history.append({'role': 'user', 'content': full_message})
 
-    # Keep only last 10 messages
     if len(history) > 10:
         history = history[-10:]
         _conversations[session_id] = history
@@ -188,6 +201,7 @@ def chat_message():
 
 @chatbot_bp.route('/clear', methods=['POST'])
 def clear_history():
+    """Reset session — ChatbotWidget tombol clear."""
     data = request.get_json() or {}
     session_id = data.get('session_id', 'default')
     _conversations.pop(session_id, None)

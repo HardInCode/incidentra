@@ -1,3 +1,11 @@
+/**
+ * FLOATING CHATBOT — Groq cybersecurity assistant (global di Layout).
+ * Ctrl+F: CHATBOT_FLOW, handleSend, SESSION_ID
+ *
+ * CHATBOT_FLOW:
+ *   handleSend → sendChatMessage → chatbot.py → Groq fallback chain
+ *   Beda AI explain incident (IncidentDetail → incidents.py /explain)
+ */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, IconButton, Typography, TextField,

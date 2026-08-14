@@ -1,3 +1,20 @@
+"""
+BLOCKED IPs API — manual block/unblock + whitelist sync ke vuln-web.
+Ctrl+F: UNBLOCK_FLOW, REDIS_ESCALATION, DEDUP, add_blocked, unblock_ip
+
+UNBLOCK_FLOW (demo unblock → attack → block lagi):
+  BlockedIPs.js handleUnblock → DELETE /blocked-ips/:id → unblock_ip()
+  → REDIS_ESCALATION: salin incident_count ke Redis sebelum DELETE row
+  → DEDUP: Redis unblocked:{ip} + hapus unblock_waiver → 1 incident baru per attack_type
+  → _write_blocked_ips.json → vuln-web security.py baca blocklist
+
+Triple-write saat auto-block (response_manager):
+  PostgreSQL blocked_ips + Redis + blocked_ips.json
+
+Pasangan frontend: frontend/src/pages/BlockedIPs.js
+Pasangan response: backend/app/core/response_manager.py (ESCALATING, REDIS_ESCALATION)
+Pasangan dedup: backend/app/core/log_monitor.py (DEDUP)
+"""
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from app import db
@@ -15,9 +32,9 @@ def _check_auth():
 
 @blocked_ips_bp.route('/', methods=['GET'])
 def list_blocked():
+    """BlockedIPs.js fetchIPs — tab Blocked / Whitelist via ?whitelist=true."""
     show_whitelist = request.args.get('whitelist', 'false').lower() == 'true'
 
-    # REVISI 1C: tambahkan sort, filter, search
     sort_by = request.args.get('sort_by', 'block_time')
     sort_dir = request.args.get('sort_dir', 'desc')
     block_type = request.args.get('block_type')  # permanent | temporary
@@ -26,23 +43,19 @@ def list_blocked():
 
     query = BlockedIP.query.filter_by(is_whitelist=show_whitelist)
 
-    # Filter block_type
     if block_type:
         query = query.filter(BlockedIP.block_type == block_type)
 
-    # Filter repeat_offender
     if repeat_offender:
         query = query.filter(BlockedIP.is_repeat_offender == True)
 
-    # Search by IP
     if search:
         query = query.filter(BlockedIP.ip_address.ilike(f'%{search}%'))
 
-    # Sorting
     col_map = {
         'ip_address': BlockedIP.ip_address,
         'block_time': BlockedIP.block_time,
-        'incident_count': BlockedIP.incident_count,
+        'incident_count': BlockedIP.incident_count,  # naik saat ESCALATING block sama IP
     }
     sort_col = col_map.get(sort_by, BlockedIP.block_time)
     if sort_dir == 'asc':
@@ -55,8 +68,9 @@ def list_blocked():
 
 
 @blocked_ips_bp.route('/', methods=['POST'])
-@require_role('admin')  # REVISI 3: hanya admin
+@require_role('admin')
 def add_blocked():
+    """Manual block atau whitelist — BlockedIPs.js handleAdd / handleAddWhitelist."""
     data = request.get_json()
     ip = data.get('ip_address', '').strip()
     if not ip:
@@ -105,22 +119,28 @@ def add_blocked():
             details={'ip': ip},
         )
 
+    # Sync ke blocked_ips.json — vuln-web middleware/security.py enforce 403
     from app.core.response_manager import _write_blocked_ips_json, clear_rate_limit_entry
     from app.core.detection_engine import get_redis_client
     _write_blocked_ips_json()
     if is_whitelist:
-        clear_rate_limit_entry(ip, get_redis_client())
+        clear_rate_limit_entry(ip, get_redis_client())  # whitelist = hapus rate limit counter
     return jsonify(blocked.to_dict()), 201 if not existing else 200
 
 
 @blocked_ips_bp.route('/<int:ip_id>', methods=['DELETE'])
-@require_role('admin')  # REVISI 3: hanya admin
+@require_role('admin')
 def unblock_ip(ip_id):
+    """
+    UNBLOCK_FLOW — BlockedIPs.js handleUnblock.
+    Urutan penting: salin escalation → DELETE DB → sync JSON → Redis dedup waiver.
+    """
     blocked = BlockedIP.query.get_or_404(ip_id)
     ip_address = blocked.ip_address
     was_whitelist = blocked.is_whitelist
 
-    # REDIS_ESCALATION: salin incident_count → Redis sebelum row DB dihapus (pasangan: _escalating_block elif self.redis)
+    # REDIS_ESCALATION step 1: incident_count DB → Redis (survive DELETE row)
+    # Pasangan baca: response_manager._escalating_block() elif redis escalation_count
     if not was_whitelist:
         try:
             from app.core.detection_engine import get_redis_client as _grc
@@ -134,7 +154,8 @@ def unblock_ip(ip_id):
 
     db.session.delete(blocked)
     db.session.commit()
-    # BUG 3 FIX: Also remove from shared JSON file
+
+    # UNBLOCK step 2: update blocked_ips.json + clear rate limit Redis entry
     try:
         from app.core.response_manager import _write_blocked_ips_json, clear_rate_limit_entry
         from app.core.detection_engine import get_redis_client
@@ -144,15 +165,15 @@ def unblock_ip(ip_id):
         import logging
         logging.getLogger(__name__).warning(f"Could not update blocked_ips.json: {e}")
 
-    # Allow one fresh incident per attack type after unblock; reset brute-force counters.
+    # DEDUP waiver — log_monitor cek unblocked:{ip} → skip dedup 1x per attack_type
     try:
         from app.core.detection_engine import get_redis_client, clear_brute_force_state
         r = get_redis_client()
         if r:
-            r.setex(f"unblocked:{ip_address}", 600, '1')  # DEDUP: flag 10 menit — pasangan log_monitor skip_dedup
+            r.setex(f"unblocked:{ip_address}", 600, '1')  # flag 10 menit
             for key in r.scan_iter(f"unblock_waiver:{ip_address}:*"):
                 r.delete(key)
-        clear_brute_force_state(ip_address)
+        clear_brute_force_state(ip_address)  # reset BruteForceTracker counter
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Could not reset detection state on unblock: {e}")
@@ -172,6 +193,7 @@ def unblock_ip(ip_id):
 @blocked_ips_bp.route('/<int:ip_id>', methods=['PATCH'])
 @require_role('admin')
 def update_blocked(ip_id):
+    """Edit reason / block_type / hours — BlockedIPs.js handleEdit."""
     blocked = BlockedIP.query.get_or_404(ip_id)
     if blocked.is_whitelist:
         return jsonify({'error': 'Cannot modify whitelist entry'}), 400

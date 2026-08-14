@@ -1,6 +1,17 @@
-// Detection Rules UI — CRUD + sandbox test (/api/detection/test).
-// Info icon (hover): lab mode vs OWASP baseline. Ctrl+F: DetectionRules, rules.py, detection_engine.
-
+/**
+ * DETECTION RULES PAGE — CRUD rule analyst + sandbox test regex.
+ * Ctrl+F: RULES_FLOW, handleSave, handleTest, ATTACK_TYPES
+ *
+ * Alur tambah rule (hulu → hilir):
+ *   handleSave → api.createRule → backend rules.py create_rule → PostgreSQL detection_rules
+ *   → Redis rules_dirty → detection_engine reload → log_monitor analyze() pakai regex baru
+ *
+ * Pasangan backend:
+ *   backend/app/api/rules.py          (CRUD + rules_dirty)
+ *   backend/app/core/detection_engine.py (_load_rules_from_db, analyze)
+ *   backend/app/api/detection.py      (sandbox /test)
+ *   frontend/src/constants/attackTypes.js (dropdown attack_type)
+ */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
@@ -16,7 +27,7 @@ import FilterBar from '../components/shared/FilterBar';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 
-import { ATTACK_TYPES } from '../constants/attackTypes';
+import { ATTACK_TYPES } from '../constants/attackTypes';  // 9 tipe — sync DETECTION_PATTERNS backend
 import { brandCyan, brandAlpha } from '../theme';
 
 const DEFAULT_PAYLOAD = "' OR 1=1--";
@@ -24,25 +35,31 @@ const EXAMPLE_LOG_LINE = '192.168.1.50 - - [15/May/2026:10:30:00 +0000] "GET /se
 
 export function DetectionRules() {
   const { t } = useLanguage();
-  const [rules, setRules] = useState([]);
+  const [rules, setRules] = useState([]);           // rows dari GET /api/rules/
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editRule, setEditRule] = useState(null);
-  const [form, setForm] = useState({ rule_name: '', attack_type: 'SQL_INJECTION', pattern: '', severity_level: 'high', description: '' });
+  const [editRule, setEditRule] = useState(null);   // null = create, object = edit
+  // form → dikirim ke createRule/updateRule — field harus match DetectionRule model backend
+  const [form, setForm] = useState({
+    rule_name: '',
+    attack_type: 'SQL_INJECTION',
+    pattern: '',
+    severity_level: 'high',
+    description: '',
+  });
 
-  // REVISI 1B: filter/sort state
   const [filterValues, setFilterValues] = useState({ is_active: '', attack_type: '' });
   const [sortBy, setSortBy] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
-  const [sandboxTab, setSandboxTab] = useState(0);
+  const [sandboxTab, setSandboxTab] = useState(0);   // 0=payload, 1=full log line
   const [payloadInput, setPayloadInput] = useState(DEFAULT_PAYLOAD);
   const [logInput, setLogInput] = useState(EXAMPLE_LOG_LINE);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
-  const [labModeOnly, setLabModeOnly] = useState(false);
+  const [labModeOnly, setLabModeOnly] = useState(false);  // true = OWASP baseline OFF di engine
 
-  const currentUser = useCurrentUser(); // REVISI 3B
-  const isAdmin = currentUser?.role === 'admin';
+  const currentUser = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';  // CRUD cuma admin; analyst read-only
 
   const SORT_OPTIONS = useMemo(() => [
     { value: 'created_at', label: t('rules.sortCreated') },
@@ -67,13 +84,14 @@ export function DetectionRules() {
     },
   ], [t]);
 
+  // ─── RULES_FLOW: baca list rule dari PostgreSQL via GET /api/rules/ ───
   const fetchRules = useCallback(async () => {
     setLoading(true);
     try {
       const params = { sort_by: sortBy, sort_dir: sortDir };
       if (filterValues.is_active !== '') params.is_active = filterValues.is_active;
       if (filterValues.attack_type) params.attack_type = filterValues.attack_type;
-      const res = await getRules(params);
+      const res = await getRules(params);  // api.js → rules.py list_rules()
       setRules(res.data);
     } catch {
       toast.error('Failed to load rules');
@@ -84,6 +102,7 @@ export function DetectionRules() {
 
   useEffect(() => { fetchRules(); }, [fetchRules]);
 
+  // Lab mode: kalau ON, engine cuma pakai rule UI — baseline OWASP (DETECTION_PATTERNS) dimatikan
   useEffect(() => {
     getSettings().then((res) => {
       const raw = res.data?.DETECTION_LAB_MODE_UI_ONLY?.value || '';
@@ -103,13 +122,14 @@ export function DetectionRules() {
 
   const hasActiveFilters = !!(filterValues.is_active || filterValues.attack_type);
 
+  // ─── RULES_FLOW step 1 UI: POST/PUT rule → rules.py → rules_dirty → engine reload ───
   const handleSave = async () => {
     try {
       if (editRule) {
-        await updateRule(editRule.id, form);
+        await updateRule(editRule.id, form);  // PUT /api/rules/:id
         toast.success('Rule updated');
       } else {
-        await createRule(form);
+        await createRule(form);  // POST /api/rules/ — pattern disimpan ke detection_rules
         toast.success('Rule created');
       }
       setDialogOpen(false);
@@ -123,7 +143,7 @@ export function DetectionRules() {
 
   const handleToggle = async (rule) => {
     try {
-      await updateRule(rule.id, { is_active: !rule.is_active });
+      await updateRule(rule.id, { is_active: !rule.is_active });  // nonaktifkan rule tanpa delete
       toast.success(`Rule ${rule.is_active ? 'disabled' : 'enabled'}`);
       fetchRules();
     } catch { toast.error('Failed to update'); }
@@ -136,21 +156,28 @@ export function DetectionRules() {
 
   const openEdit = (rule) => {
     setEditRule(rule);
-    setForm({ rule_name: rule.rule_name, attack_type: rule.attack_type, pattern: rule.pattern, severity_level: rule.severity_level, description: rule.description });
+    setForm({
+      rule_name: rule.rule_name,
+      attack_type: rule.attack_type,
+      pattern: rule.pattern,
+      severity_level: rule.severity_level,
+      description: rule.description,
+    });
     setDialogOpen(true);
   };
 
   const severityColors = { critical: '#ff1744', high: '#ff6d00', medium: '#ffd600', low: '#00e676' };
 
+  // ─── Sandbox: test regex TANPA INSERT incident — detection.py test_payload → analyze() ───
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
     try {
       const body = sandboxTab === 0
-        ? { payload: payloadInput, path: '/search', method: 'GET' }
-        : { log_line: logInput };
-      const res = await testPayload(body);
-      setTestResult(res.data);
+        ? { payload: payloadInput, path: '/search', method: 'GET' }  // tab Payload
+        : { log_line: logInput };                                      // tab Log line
+      const res = await testPayload(body);  // POST /api/detection/test
+      setTestResult(res.data);              // { detected, threat: { attack_type, severity } }
     } catch (e) {
       const errMsg = e.response?.data?.error || 'Test failed';
       const hint = sandboxTab === 1
@@ -170,7 +197,6 @@ export function DetectionRules() {
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('rules.subtitle', { count: rules.filter(r => r.is_active).length })}</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {/* REVISI 3B: Add Rule hanya untuk admin */}
           {isAdmin && (
             <Button
               variant="outlined"
@@ -195,6 +221,7 @@ export function DetectionRules() {
         </Box>
       </Box>
 
+      {/* Sandbox — admin only; preview match sebelum rule dipakai log_monitor */}
       {isAdmin && (
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -284,7 +311,7 @@ export function DetectionRules() {
                 <TableCell>{t('rules.colAttack')}</TableCell>
                 <TableCell>{t('rules.colSeverity')}</TableCell>
                 <TableCell>{t('rules.colPattern')}</TableCell>
-                <TableCell>{t('rules.colMatches')}</TableCell>
+                <TableCell>{t('rules.colMatches')}</TableCell>  {/* match_count dari log_monitor saat rule kena */}
                 <TableCell align="center">{t('rules.colActive')}</TableCell>
                 {isAdmin && <TableCell align="center">{t('common.actions')}</TableCell>}
               </TableRow>
@@ -312,7 +339,6 @@ export function DetectionRules() {
                     <Chip label={rule.match_count || 0} size="small" sx={{ bgcolor: brandAlpha(0.1), color: 'primary.main' }} />
                   </TableCell>
                   <TableCell align="center">
-                    {/* Toggle hanya berfungsi jika admin, analyst hanya lihat */}
                     <Switch
                       size="small"
                       checked={rule.is_active}
@@ -321,7 +347,6 @@ export function DetectionRules() {
                       disabled={!isAdmin}
                     />
                   </TableCell>
-                  {/* REVISI 3B: Actions hanya untuk admin */}
                   {isAdmin && (
                     <TableCell align="center">
                       <Tooltip title={t('rules.edit')}><IconButton size="small" onClick={() => openEdit(rule)}><Edit sx={{ fontSize: 16, color: brandCyan.main }} /></IconButton></Tooltip>
@@ -335,7 +360,7 @@ export function DetectionRules() {
         </TableContainer>
       </Card>
 
-      {/* Dialog Create/Edit — hanya admin yang bisa buka */}
+      {/* Dialog create/edit — attack_type dari ATTACK_TYPES; pattern → regex di engine */}
       {isAdmin && (
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>{editRule ? t('rules.editTitle') : t('rules.createTitle')}</DialogTitle>

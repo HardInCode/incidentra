@@ -1,3 +1,13 @@
+/**
+ * SETTINGS PAGE — env-backed config (PostgreSQL settings table + .env fallback).
+ * Ctrl+F: SETTINGS_FLOW, handleSave, testNotification
+ *
+ * SETTINGS_FLOW:
+ *   getSettings → settings.py → detection_engine baca DETECTION_LAB_MODE_UI_ONLY, NOTIFY_*, dll
+ *   updateSettings → rules_dirty / engine reload kalau detection-related
+ *
+ * Pasangan backend: backend/app/api/settings.py, backend/app/core/settings_reader.py
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Button, Chip, Alert,
@@ -103,6 +113,7 @@ export default function Settings() {
     setEdited((prev) => ({ ...prev, [key]: value }));
   };
 
+  // ─── SETTINGS_FLOW: PUT /settings/ → app_settings → engine baca via settings_reader ───
   const handleSave = async () => {
     setSaving(true);
     try {

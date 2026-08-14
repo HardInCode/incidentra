@@ -1,3 +1,19 @@
+"""
+JWT GUARD — dipakai SEMUA blueprint user-facing (bukan endpoint spesifik).
+Ctrl+F: verify_token, require_role, AUTH_GUARD
+
+Bedakan dengan auth.py:
+  auth_middleware.py = CEK token setiap request (verify_token + require_role decorator)
+  auth.py            = BUAT token (login) + register + endpoint auth publik
+
+Alur per request:
+  api.js interceptor tempel Bearer → blueprint before_request verify_token()
+  → decode JWT → cek user masih active/pending/suspended di DB
+  → request.current_user = payload → route handler jalan
+  → @require_role('admin') tolak kalau role tidak cocok
+
+Dipanggil dari: incidents.py, rules.py, blocked_ips.py, settings.py, dll.
+"""
 import jwt
 import os
 from functools import wraps

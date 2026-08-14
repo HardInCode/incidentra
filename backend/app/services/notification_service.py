@@ -1,3 +1,22 @@
+"""
+EMAIL/TELEGRAM NOTIFICATIONS — dipanggil dari response_manager setelah respond().
+Ctrl+F: NOTIFY, _do_notify, _send_email, _send_telegram
+
+NOTIFY (external alert — beda NOTIFY_INAPP bell):
+  respond() → notify critical first offense / repeat offender
+  → _do_notify → SMTP email + Telegram HTTPS
+
+NOTIFY_INAPP (bell UI): backend/app/api/notifications.py
+
+Kapan email/Telegram terkirim (response_manager):
+  - critical severity (first offense)
+  - repeat offender threshold
+  BUKAN: high first offense, medium
+
+Railway Hobby: SMTP port 587/465 sering blocked → timeout 30s; Telegram OK (HTTPS).
+
+Settings keys: SMTP_*, TELEGRAM_*, ALERT_EMAIL — via Settings.js / app_settings
+"""
 import os
 import smtplib
 import logging
