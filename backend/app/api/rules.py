@@ -1,11 +1,19 @@
 """
 DETECTION RULES API — CRUD detection_rules + signal engine reload.
-Ctrl+F: create_rule, rules_dirty, RULES_FLOW
+Ctrl+F: create_rule, rules_dirty, RULES_FLOW, ADD_ATTACK_TYPE
 
-Alur tambah rule (UI → runtime):
-  DetectionRules.js handleSave → api.createRule → create_rule() → PostgreSQL detection_rules
-  → _signal_rules_dirty() → Redis rules_dirty=1
-  → detection_engine._maybe_reload_rules() → _load_rules_from_db() → analyze() pakai regex baru
+─── Jawaban sidang: "proses tambah rule baru" ───
+  1. Admin buka Detection Rules → isi rule_name, attack_type, pattern (regex), severity
+  2. handleSave → POST /api/rules/ → create_rule() → INSERT detection_rules (PostgreSQL)
+  3. _signal_rules_dirty() → Redis rules_dirty=1
+  4. log_monitor thread → analyze() → _maybe_reload_rules() → _load_rules_from_db()
+  5. Regex rule analyst di-merge dengan baseline OWASP (kecuali Lab Mode ON)
+  6. Log berikutnya yang match → incident + respond (PIPELINE normal)
+
+─── Beda "tambah rule" vs "tambah attack type" ───
+  Rule baru     = row baru di detection_rules (type harus sudah dikenal engine)
+  Type baru     = edit DETECTION_PATTERNS + attackTypes.js (tidak ada tabel master)
+  Pasangan: backend/app/core/detection_engine.py, frontend/src/constants/attackTypes.js
 
 Pasangan frontend: frontend/src/pages/DetectionRules.js
 Pasangan engine: backend/app/core/detection_engine.py (_load_rules_from_db)

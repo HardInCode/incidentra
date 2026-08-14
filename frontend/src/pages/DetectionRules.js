@@ -377,8 +377,8 @@ export function DetectionRules() {
               <FormControl fullWidth>
                 <InputLabel>{t('incidents.attackType')}</InputLabel>
                 <Select value={form.attack_type} label={t('incidents.attackType')} onChange={e => setForm(f => ({ ...f, attack_type: e.target.value }))}>
-                  {ATTACK_TYPES.map(t =>
-                    <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>
+                  {ATTACK_TYPES.map((type) =>
+                    <MenuItem key={type} value={type}>{type.replace(/_/g, ' ')}</MenuItem>
                   )}
                 </Select>
               </FormControl>

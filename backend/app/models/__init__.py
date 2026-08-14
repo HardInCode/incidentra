@@ -50,6 +50,15 @@ class User(db.Model):
 
 
 class DetectionRule(db.Model):
+    """
+    Rule analyst — baris CRUD dari Detection Rules UI.
+    Ctrl+F: RULES_FLOW
+
+    attack_type = db.String (bukan FK) — tidak ada tabel master attack_types.
+    Valid type untuk dropdown = ATTACK_TYPES (frontend) + keys DETECTION_PATTERNS (backend).
+    pattern = regex Python; severity_level override saat rule ini yang match pertama.
+    match_count naik di log_monitor saat rule_id tercatat di incident.
+    """
     __tablename__ = 'detection_rules'
 
     id = db.Column(db.Integer, primary_key=True)

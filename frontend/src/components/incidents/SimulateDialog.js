@@ -1,3 +1,10 @@
+/**
+ * SIMULATE / INJECT DIALOG — admin demo serangan dari Incidents page.
+ * Ctrl+F: SIMULATE_FLOW, INJECT_FLOW
+ *
+ * Mode Direct  → simulateAttack → detection.py /simulate (INSERT + respond, bypass log)
+ * Mode Inject  → injectLog      → detection.py /inject-log (PIPELINE penuh via access.log)
+ */
 import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,

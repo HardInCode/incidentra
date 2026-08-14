@@ -1,10 +1,18 @@
 /**
  * Master list attack_type (9 tipe) — BUKAN tabel DB, hardcoded constant.
- * Ctrl+F: ATTACK_TYPES, DETECTION_PATTERNS
+ * Ctrl+F: ATTACK_TYPES, DETECTION_PATTERNS, ADD_ATTACK_TYPE, RULES_FLOW
  *
- * Harus sync dengan backend/app/core/detection_engine.py → DETECTION_PATTERNS keys.
- * Dropdown DetectionRules.js & filter Incidents pakai array ini.
- * Tambah type baru → edit file ini + DETECTION_PATTERNS di backend.
+ * ─── Tidak ada master rule / master attack_type table ───
+ * PostgreSQL cuma punya detection_rules (rule analyst) + incidents.attack_type (string).
+ * Baseline deteksi = DETECTION_PATTERNS dict di detection_engine.py (hardcoded Python).
+ *
+ * Tambah RULE (type sudah ada):
+ *   DetectionRules.js → rules.py → detection_rules table → rules_dirty → engine reload
+ *
+ * Tambah TYPE baru (misal SSRF):
+ *   1. Tambah 'SSRF' di array ATTACK_TYPES di bawah
+ *   2. Tambah DETECTION_PATTERNS['SSRF'] di backend detection_engine.py
+ *   3. (Opsional) buat rule UI attack_type=SSRF
  */
 export const ATTACK_TYPES = [
   'SQL_INJECTION',      // OWASP A03

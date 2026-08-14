@@ -1,3 +1,11 @@
+/**
+ * INCIDENT DETAIL — satu incident + AI explain + notes + assign.
+ * Ctrl+F: INCIDENTS_FLOW, triggerExplanation, AI_EXPLAIN_FLOW
+ *
+ * AI_EXPLAIN_FLOW (beda CHATBOT):
+ *   triggerExplanation → POST /incidents/:id/explain → incidents.py → ai_service.py Groq sync
+ * Chatbot widget = general Q&A (chatbot.py)
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Grid, Divider,
