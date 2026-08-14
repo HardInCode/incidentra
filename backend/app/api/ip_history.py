@@ -1,3 +1,18 @@
+"""
+IP HISTORY API — profil agregat per source IP dari incidents.
+Ctrl+F: IP_HISTORY_FLOW, get_ip_history, risk_score
+
+IP_HISTORY_FLOW:
+  Klik IP di Incidents/BlockedIPs → IPHistoryDrawer.js → GET /ip/:ip/history
+  → query Incident WHERE source_ip = ip
+  → hitung risk_score, top attack types, top rules, block/whitelist status
+  → drawer bisa block/unblock langsung (api blocked_ips)
+
+Bukan sumber deteksi — analytics read-only atas data PIPELINE.
+
+Pasangan frontend: frontend/src/components/shared/IPHistoryDrawer.js
+Pasangan i18n summary: backend/app/i18n/ip_history_strings.py
+"""
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from app import db
@@ -20,14 +35,16 @@ def _check_auth():
 
 @ip_history_bp.route('/<ip_address>/history', methods=['GET'])
 def get_ip_history(ip_address):
-    """Return full IP history from incidents. Query: ?lang=en|id"""
+    """
+    IP_HISTORY_FLOW — agregasi incident per IP.
+    Query ?lang=en|id untuk pattern_summary teks.
+    """
     lang = resolve_lang(request.args.get('lang'))
-    # Query semua incidents dari IP ini
     incidents = Incident.query.filter_by(source_ip=ip_address).all()
     total = len(incidents)
 
     if total == 0:
-        # IP tidak ditemukan di incidents, kembalikan data kosong
+        # IP belum pernah trigger incident — tetap cek block/whitelist manual
         blocked_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=False).first()
         whitelist_entry = BlockedIP.query.filter_by(ip_address=ip_address, is_whitelist=True).first()
         return jsonify({
@@ -50,16 +67,13 @@ def get_ip_history(ip_address):
             'recent_incidents': [],
         })
 
-    # Hitung first_seen dan last_seen
     created_times = [i.created_at for i in incidents]
     first_seen = min(created_times)
     last_seen = max(created_times)
 
-    # Hitung frequency per day
     delta_days = max((last_seen - first_seen).total_seconds() / 86400, 1)
     frequency_per_day = round(total / delta_days, 2)
 
-    # Top attack types (group by attack_type)
     attack_counts = {}
     for i in incidents:
         attack_counts[i.attack_type] = attack_counts.get(i.attack_type, 0) + 1
@@ -68,7 +82,7 @@ def get_ip_history(ip_address):
         for k, v in sorted(attack_counts.items(), key=lambda x: -x[1])
     ]
 
-    # Top rules triggered (join detection_rules via rule_id)
+    # Join detection_rules via incident.rule_id — rule custom UI yang match
     rule_counts = {}
     for i in incidents:
         if i.rule_id:
@@ -81,7 +95,7 @@ def get_ip_history(ip_address):
         for k, v in sorted(rule_counts.items(), key=lambda x: -x[1])
     ]
 
-    # Risk score: (total * 10) + (critical_count * 20), cap 100
+    # risk_score formula: (total * 10) + (critical * 20), cap 100
     critical_count = sum(1 for i in incidents if i.severity == SeverityLevel.CRITICAL)
     risk_score = min((total * 10) + (critical_count * 20), 100)
 
@@ -109,7 +123,6 @@ def get_ip_history(ip_address):
     is_blocked = blocked_entry is not None
     is_whitelisted = whitelist_entry is not None
 
-    # Recent incidents (max 10, sort desc created_at)
     recent = sorted(incidents, key=lambda i: i.created_at, reverse=True)[:10]
     recent_incidents = [
         {

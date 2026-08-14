@@ -1,6 +1,19 @@
-"""Admin user management — approve pending self-registrations, assign roles,
-suspend/reactivate accounts, force password resets, and full CRUD for admins.
-Follows the same blueprint/audit pattern as app/api/blocked_ips.py."""
+"""
+USER MANAGEMENT API — admin CRUD akun SOC (bukan login/register).
+Ctrl+F: USERS_FLOW, list_users, update_user, create_user
+
+USERS_FLOW:
+  Self-register → auth.py register() → status=pending
+  Admin approve → Users.js PATCH /users/:id { status:active, role:analyst }
+  Admin suspend/reset password/delete → users.py
+
+Bedakan dengan auth.py:
+  auth.py     = login, register, JWT issue, support-contact, dropdown assign (/auth/users)
+  users.py    = halaman User Management penuh (admin only CRUD)
+
+Pasangan frontend: frontend/src/pages/Users.js
+Pasangan login: backend/app/api/auth.py (LOGIN_FLOW)
+"""
 import secrets
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash

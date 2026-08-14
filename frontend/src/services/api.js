@@ -1,11 +1,8 @@
 /**
  * SOC REST client — axios wrapper + JWT dari localStorage.
- * Ctrl+F: login, getDashboardStats, interceptors
- *
- * Alur login:
- *   Login.js → login() → POST /auth/login → auth.py
- * Alur dashboard:
- *   Dashboard.js → getDashboardStats() → GET /dashboard/stats → dashboard.py
+ * Ctrl+F: LOGIN_FLOW, RULES_FLOW, INCIDENTS_FLOW, UNBLOCK_FLOW,
+ *         NOTIFY_INAPP, SETTINGS_FLOW, CHATBOT_FLOW, IP_HISTORY_FLOW,
+ *         RATE_LIMIT_FLOW, TRAFFIC_FLOW, interceptors
  */
 import axios from 'axios';
 
@@ -45,9 +42,10 @@ export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getRecentIncidents = () => api.get('/dashboard/recent-incidents');
 export const getLogStatus = () => api.get('/dashboard/log-status');
 export const getNotificationsSummary = (sinceId = 0) =>
-  api.get('/notifications/summary', { params: { since_id: sinceId } });
+  api.get('/notifications/summary', { params: { since_id: sinceId } });  // NOTIFY_INAPP — NotificationBell.js
 
-// Incidents
+// ─── Incidents (Incidents.js) — INCIDENTS_FLOW ───
+// GET list dari PostgreSQL; status update → incidents.py
 export const getIncidents = (params) => api.get('/incidents/', { params });
 export const getIncident = (id) => api.get(`/incidents/${id}`);
 export const updateIncidentStatus = (id, status) => api.put(`/incidents/${id}/status`, { status });
@@ -62,41 +60,45 @@ export const triggerExplanation = (id, language = 'en', force = false) =>
 export const exportIncidentsCsv = (params) =>
   api.get('/incidents/export', { params, responseType: 'blob' });
 
-// Blocked IPs
-// REVISI 1C: support query params (sort_by, sort_dir, block_type, search)
+// ─── Blocked IPs (BlockedIPs.js) — UNBLOCK_FLOW ───
+// unblockIP → blocked_ips.py DELETE → Redis unblocked:{ip} + dedup waiver
 export const getBlockedIPs = (params) => api.get('/blocked-ips/', { params });
 export const addBlockedIP = (data) => api.post('/blocked-ips/', data);
 export const unblockIP = (id) => api.delete(`/blocked-ips/${id}`);
 export const updateBlockedIP = (id, data) => api.patch(`/blocked-ips/${id}`, data);
 
-// Rate limited IPs (JSON + Redis; no DB)
+// ─── Rate Limited (BlockedIPs.js tab 1) — RATE_LIMIT_FLOW ───
+// JSON + Redis — bukan PostgreSQL; vuln-web return 429
 export const getRateLimitedIPs = (params) => api.get('/rate-limited/', { params });
 export const clearRateLimit = (ip) => api.delete(`/rate-limited/${encodeURIComponent(ip)}`);
 export const extendRateLimit = (ip, data) => api.patch(`/rate-limited/${encodeURIComponent(ip)}`, data);
 
-// Detection Rules
-// REVISI 1B: support query params (sort_by, sort_dir, is_active, attack_type)
+// ─── Detection Rules (DetectionRules.js) — RULES_FLOW ───
+// createRule/updateRule/deleteRule → backend/app/api/rules.py → PostgreSQL detection_rules + rules_dirty
 export const getRules = (params) => api.get('/rules/', { params });
 export const createRule = (data) => api.post('/rules/', data);
 export const updateRule = (id, data) => api.put(`/rules/${id}`, data);
 export const deleteRule = (id) => api.delete(`/rules/${id}`);
 
-// IP History — REVISI 2
+// ─── IP History (IPHistoryDrawer.js) — IP_HISTORY_FLOW ───
 export const getIPHistory = (ip, lang = 'en') =>
   api.get(`/ip/${ip}/history`, { params: { lang } });
 
-// Live Traffic
+// ─── Live Traffic (LiveTraffic.js) — TRAFFIC_FLOW ───
 export const getRecentTraffic = (limit = 100) => api.get('/traffic/recent', { params: { limit } });
 
-// Detection testing
+// Sandbox regex — RULES_FLOW (tanpa INSERT incident)
 export const testPayload = (data) => api.post('/detection/test', data);
+// SIMULATE_FLOW — INSERT incident + respond() langsung (Incidents.js)
 export const simulateAttack = (data) => api.post('/detection/simulate', data);
+// INJECT_FLOW — tulis access.log + PIPELINE penuh
 export const injectLog = (data) => api.post('/detection/inject-log', data);
 
-// Chatbot
+// ─── Chatbot (ChatbotWidget.js) — CHATBOT_FLOW ───
 export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
-// ─── Auth (Login.js) ───
+// ─── Auth (Login.js) — LOGIN_FLOW ───
+// login → auth.py POST /login → JWT; interceptor bawah tempel Bearer ke semua request
 export const login = (username, password) => api.post('/auth/login', { username, password });
 export const register = (data) => api.post('/auth/register', data);
 export const getSupportContact = () => api.get('/auth/support-contact');
@@ -112,11 +114,11 @@ export const deleteUser = (id) => api.delete(`/users/${id}`);
 // Audit
 export const getAuditLogs = (params) => api.get('/audit/', { params });
 
-// Settings
+// ─── Settings (Settings.js) — SETTINGS_FLOW ───
 export const getSettings = () => api.get('/settings/');
 export const updateSettings = (data) => api.put('/settings/', data);
-export const testNotification = (channel) => api.post('/settings/test/notification', { channel });
+export const testNotification = (channel) => api.post('/settings/test/notification', { channel });  // NOTIFY test
 export const testAbuseIPDB = () => api.post('/settings/test/abuseipdb');
-export const testGroq = (data) => api.post('/settings/test/groq', data);
+export const testGroq = (data) => api.post('/settings/test/groq', data);  // CHATBOT + AI explain provider
 
 export default api;

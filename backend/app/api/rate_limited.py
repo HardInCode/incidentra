@@ -1,3 +1,21 @@
+"""
+RATE LIMITED IPs API — tab Rate Limited di BlockedIPs.js (bukan PostgreSQL).
+Ctrl+F: RATE_LIMIT_FLOW, list_rate_limited, clear_rate_limit, extend_rate_limit
+
+RATE_LIMIT_FLOW (hulu → hilir):
+  vuln-web security.py → terlalu banyak request → response_manager rate limit
+  → Redis ratelimit:{ip} + rate_limited.json (shared path vuln-web)
+  → BlockedIPs.js tab 1 fetchRateLimited → GET /rate-limited/
+  → admin clear/extend → DELETE/PATCH → clear_rate_limit_entry / update_rate_limit_entry
+
+Bedakan dengan UNBLOCK_FLOW (blocked_ips PostgreSQL):
+  Rate limit = sementara, JSON+Redis, 429 di vuln-web
+  Block = PostgreSQL + blocked_ips.json, 403
+
+Pasangan frontend: frontend/src/pages/BlockedIPs.js (tab Rate Limited)
+Pasangan write: backend/app/core/response_manager.py
+Pasangan enforce: vuln-web/middleware/security.py
+"""
 import os
 from urllib.parse import unquote
 
@@ -24,7 +42,7 @@ def _check_auth():
 
 def _window_seconds():
     from app.core.settings_reader import get_rate_limit_window
-    return get_rate_limit_window()
+    return get_rate_limit_window()  # SETTINGS RATE_LIMIT_WINDOW
 
 
 def _max_requests():
@@ -32,6 +50,7 @@ def _max_requests():
 
 
 def _build_items(ips, data, redis_client):
+    """Gabung JSON metadata + Redis TTL per IP untuk tampilan UI."""
     updated_at = data.get('updated_at')
     items = []
     for ip in ips:
@@ -49,10 +68,13 @@ def _build_items(ips, data, redis_client):
 
 @rate_limited_bp.route('/', methods=['GET'])
 def list_rate_limited():
+    """
+    RATE_LIMIT_FLOW read — BlockedIPs.js fetchRateLimited.
+    Auto-cleanup entry expired dari rate_limited.json saat list.
+    """
     data = _read_rate_limited_data()
     redis_client = get_redis_client()
 
-    # Physically clean up any expired entries from rate_limited.json
     import time
     now = time.time()
     rate_limited = data.get('rate_limited', [])
@@ -113,6 +135,7 @@ def list_rate_limited():
 @rate_limited_bp.route('/<path:ip_address>', methods=['DELETE'])
 @require_role('admin')
 def clear_rate_limit(ip_address):
+    """RATE_LIMIT clear — BlockedIPs.js handleClearRate → IP boleh request lagi di vuln-web."""
     ip = unquote(ip_address).strip()
     if not ip:
         return jsonify({'error': 'ip_address required'}), 400
@@ -122,7 +145,7 @@ def clear_rate_limit(ip_address):
         return jsonify({'error': 'IP not rate limited'}), 404
 
     redis_client = get_redis_client()
-    clear_rate_limit_entry(ip, redis_client)
+    clear_rate_limit_entry(ip, redis_client)  # hapus dari JSON + Redis ratelimit:{ip}
     log_audit('rate_limit.clear', resource_type='rate_limit', details={'ip': ip})
     return jsonify({'message': 'Rate limit cleared', 'ip_address': ip})
 
@@ -130,6 +153,7 @@ def clear_rate_limit(ip_address):
 @rate_limited_bp.route('/<path:ip_address>', methods=['PATCH'])
 @require_role('admin')
 def extend_rate_limit(ip_address):
+    """RATE_LIMIT extend — BlockedIPs.js handleExtend (perpanjang TTL / ubah max/window)."""
     ip = unquote(ip_address).strip()
     if not ip:
         return jsonify({'error': 'ip_address required'}), 400

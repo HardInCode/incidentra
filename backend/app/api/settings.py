@@ -1,3 +1,22 @@
+"""
+SETTINGS API — konfigurasi runtime (PostgreSQL app_settings + env fallback).
+Ctrl+F: SETTINGS_FLOW, update_settings, test_notification, SETTING_KEYS
+
+SETTINGS_FLOW:
+  Settings.js handleSave → PUT /settings/ → AppSetting table
+  → detection_engine baca via settings_reader / _get_setting
+  → DETECTION_LAB_MODE_UI_ONLY=ON → baseline OWASP OFF, cuma rule UI
+  → ubah BRUTE_FORCE/RATE_LIMIT → rules_dirty (engine reload)
+
+Test endpoints (admin):
+  /test/notification → notification_service _send_email / _send_telegram
+  /test/groq         → Groq API ping (sama provider dengan chatbot + AI explain)
+  /test/abuseipdb    → AbuseIPDB key valid
+
+Pasangan frontend: frontend/src/pages/Settings.js
+Pasangan baca config: backend/app/core/settings_reader.py
+Pasangan notify: backend/app/services/notification_service.py (NOTIFY)
+"""
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import AppSetting
@@ -9,26 +28,29 @@ settings_bp = Blueprint('settings', __name__)
 from app.api.auth_middleware import verify_token, require_role
 from app.services.audit_service import log_audit
 
+
 @settings_bp.before_request
 def _check_auth():
     return verify_token()
 
+
+# Whitelist key yang boleh disimpan — selain ini diabaikan saat PUT
 SETTING_KEYS = [
-    'GROQ_API_KEY', 'GROQ_MODEL',
+    'GROQ_API_KEY', 'GROQ_MODEL',                    # CHATBOT_FLOW + AI explain
     'ABUSEIPDB_API_KEY',
-    'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL', 'ADMIN_CONTACT_EMAIL',
-    'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
-    'BRUTE_FORCE_THRESHOLD', 'TEMP_BLOCK_DURATION', 'RATE_LIMIT_WINDOW',
-    'DETECTION_LAB_MODE_UI_ONLY',
+    'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'ALERT_EMAIL', 'ADMIN_CONTACT_EMAIL',  # NOTIFY email
+    'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',          # NOTIFY telegram
+    'BRUTE_FORCE_THRESHOLD', 'TEMP_BLOCK_DURATION', 'RATE_LIMIT_WINDOW',  # RATE_LIMIT_FLOW
+    'DETECTION_LAB_MODE_UI_ONLY',                      # RULES_FLOW lab mode
     'REPEAT_OFFENDER_THRESHOLD',
-    'ESCALATING_HIGH_DURATIONS',
+    'ESCALATING_HIGH_DURATIONS',                       # ESCALATING tiers
     'ESCALATING_CRITICAL_DURATIONS',
 ]
 SENSITIVE = ['API_KEY', 'PASSWORD', 'TOKEN', 'SECRET']
 
 
 def _get_raw(key: str) -> str:
-    """Get unmasked value — DB first, then env."""
+    """DB first, env fallback — dipakai test endpoints & notification_service."""
     s = AppSetting.query.filter_by(key=key).first()
     return s.value if (s and s.value) else os.getenv(key, '')
 
@@ -41,6 +63,7 @@ def _mask(key: str, value: str) -> str:
 
 @settings_bp.route('/', methods=['GET'])
 def get_settings():
+    """Settings.js load — value di-mask untuk API key/password."""
     result = {}
     for key in SETTING_KEYS:
         raw = _get_raw(key)
@@ -56,6 +79,7 @@ def get_settings():
 @settings_bp.route('/', methods=['PUT'])
 @require_role('admin')
 def update_settings():
+    """SETTINGS_FLOW step 1: persist ke app_settings — empty value = hapus override DB."""
     data = request.get_json()
     for key, value in data.items():
         if key not in SETTING_KEYS:
@@ -70,6 +94,7 @@ def update_settings():
             else:
                 db.session.add(AppSetting(key=key, value=value))
     db.session.commit()
+    # SETTINGS_FLOW step 2: flag engine reload kalau detection-related berubah
     if 'DETECTION_LAB_MODE_UI_ONLY' in data or any(
         k in data for k in ('BRUTE_FORCE_THRESHOLD', 'RATE_LIMIT_WINDOW', 'TEMP_BLOCK_DURATION')
     ):
@@ -87,6 +112,7 @@ def update_settings():
 @settings_bp.route('/test/notification', methods=['POST'])
 @require_role('admin')
 def test_notification():
+    """NOTIFY test — Settings.js tombol Test Email/Telegram (bukan incident nyata)."""
     from app.services.notification_service import _send_email, _send_telegram
     channel = request.get_json().get('channel', 'both')
     errors = []
@@ -127,17 +153,16 @@ def test_abuseipdb():
 @settings_bp.route('/test/groq', methods=['POST'])
 @require_role('admin')
 def test_groq():
+    """Test Groq — provider sama untuk CHATBOT_FLOW dan trigger_explanation."""
     data = request.get_json(silent=True) or {}
-    
-    # API key: use provided key (if not empty/masked), fallback to DB/Env
+
     key = data.get('api_key')
     if not key or '••••••' in key:
         key = _get_raw('GROQ_API_KEY')
-        
+
     if not key:
         return jsonify({'success': False, 'error': 'GROQ_API_KEY not configured'}), 400
 
-    # Model: use provided model, fallback to DB/Env
     selected_model = data.get('model') or _get_raw('GROQ_MODEL') or os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b')
 
     try:
@@ -164,4 +189,3 @@ def test_groq():
             'success': False,
             'error': f'Model "{selected_model}" test failed: {str(e)}',
         }), 400
-

@@ -1,6 +1,17 @@
 """
-INCIDENTS API — list/detail, status, notes, AI explanation trigger, simulate/export.
-Ctrl+F: trigger_explanation, simulate
+INCIDENTS API — baca/update data yang sudah dibuat PIPELINE.
+Ctrl+F: INCIDENTS_FLOW, trigger_explanation, bulk_update_status, export_incidents
+
+INCIDENTS_FLOW (hulu → hilir):
+  log_monitor PIPELINE → INSERT Incident → GET /api/incidents/ → Incidents.js fetchIncidents
+  Admin simulate → detection.py simulate_attack (bypass pipeline)
+  Analyst triage → PUT status / PATCH bulk-status
+
+Bukan sumber deteksi — cuma CRUD + export + AI explain di atas row PostgreSQL.
+
+Pasangan frontend: frontend/src/pages/Incidents.js, IncidentDetail.js
+Pasangan pipeline: backend/app/core/log_monitor.py (PIPELINE)
+Pasangan AI: backend/app/services/ai_service.py (Groq fallback chain)
 """
 from flask import Blueprint, request, jsonify
 import logging
@@ -17,7 +28,7 @@ from app.api.auth_middleware import verify_token, require_role
 
 
 def _parse_filter_datetime(value: str) -> datetime | None:
-    """Parse API date_from/date_to to naive UTC for DB comparison (created_at is naive UTC)."""
+    """Parse date_from/date_to query → naive UTC (created_at di DB naive UTC)."""
     if not value or not str(value).strip():
         return None
     try:
@@ -31,13 +42,14 @@ def _parse_filter_datetime(value: str) -> datetime | None:
     except ValueError:
         return None
 
+
 @incidents_bp.before_request
 def _check_auth():
     return verify_token()
 
 
 def _apply_incident_filters(query, args):
-    """Apply list/export filters shared between list and CSV export."""
+    """Filter shared list + export CSV — Incidents.js FilterBar kirim params ini."""
     severity = args.get('severity')
     status = args.get('status')
     attack_type = args.get('attack_type')
@@ -66,7 +78,7 @@ def _apply_incident_filters(query, args):
                 pass
         if enums:
             query = query.filter(Incident.status.in_(enums))
-    # Explicit export/list scope from SOC pages (ongoing vs all archive)
+    # list_scope=ongoing → antrian kerja (new + investigating); all → arsip penuh
     list_scope = (args.get('list_scope') or '').strip().lower()
     if list_scope == 'ongoing' and not status and not status_in:
         query = query.filter(
@@ -93,6 +105,7 @@ def _apply_incident_filters(query, args):
 
 @incidents_bp.route('/', methods=['GET'])
 def list_incidents():
+    """INCIDENTS_FLOW: baca rows dari PostgreSQL — hasil PIPELINE / simulate."""
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     sort_by = request.args.get('sort_by', 'created_at')
@@ -100,7 +113,6 @@ def list_incidents():
 
     query = _apply_incident_filters(Incident.query, request.args)
 
-    # Sorting
     if sort_by == 'severity':
         severity_order = case(
             (Incident.severity == SeverityLevel.CRITICAL, 4),
@@ -138,7 +150,7 @@ def list_incidents():
 @incidents_bp.route('/bulk-status', methods=['PATCH'])
 @require_role('admin', 'analyst')
 def bulk_update_status():
-    """Bulk-update status for multiple incidents. Admin + analyst (triage workflow)."""
+    """Triage massal — Incidents.js handleBulkStatus (resolved / false_positive)."""
     data = request.get_json() or {}
     ids = data.get('ids') or []
     new_status = data.get('status')
@@ -182,12 +194,14 @@ def bulk_update_status():
 
 @incidents_bp.route('/<int:incident_id>', methods=['GET'])
 def get_incident(incident_id):
+    """IncidentDetail.js — include_logs=True bawa raw log lines terkait."""
     incident = Incident.query.get_or_404(incident_id)
     return jsonify(incident.to_dict(include_logs=True))
 
 
 @incidents_bp.route('/<int:incident_id>/status', methods=['PUT'])
 def update_status(incident_id):
+    """Dropdown status per row — Incidents.js handleStatusChange."""
     incident = Incident.query.get_or_404(incident_id)
     data = request.get_json()
     new_status = data.get('status')
@@ -235,6 +249,7 @@ def assign_incident(incident_id):
 
 @incidents_bp.route('/<int:incident_id>/notes', methods=['POST'])
 def add_note(incident_id):
+    """Catatan analyst — IncidentDetail.js."""
     Incident.query.get_or_404(incident_id)
     data = request.get_json()
     note = IncidentNote(
@@ -250,14 +265,15 @@ def add_note(incident_id):
 @incidents_bp.route('/<int:incident_id>/explain', methods=['POST'])
 def trigger_explanation(incident_id):
     """
-    Always runs synchronously — explanation is in the response body.
-    No Celery, no polling. Uses Groq with fallback chain.
-    Falls back to rich static explanation if GROQ_API_KEY is not set.
-    Pass { "force": true } to delete an existing explanation and regenerate.
+    AI explain — sync Groq (bukan Celery). IncidentDetail triggerExplanation.
+    Ctrl+F: trigger_explanation, _call_groq_with_fallback
+
+    Alur:
+      GROQ_API_KEY ada → build_prompt → Groq chain → save JSON explanation
+      Tidak ada / gagal → _save_fallback_explanation (teks statis kaya)
     """
     incident = Incident.query.get_or_404(incident_id)
 
-    # Read body once — used for both lang and force params
     body = request.get_json(silent=True) or {}
     lang = body.get('language') or request.args.get('lang') or 'en'
     force = body.get('force', False)
@@ -265,7 +281,6 @@ def trigger_explanation(incident_id):
     if incident.explanation:
         if not force:
             return jsonify({'message': 'Already exists', 'explanation': incident.explanation.to_dict()})
-        # Force regenerate: delete existing and re-generate
         db.session.delete(incident.explanation)
         db.session.commit()
         db.session.refresh(incident)
@@ -315,7 +330,7 @@ def trigger_explanation(incident_id):
 
 @incidents_bp.route('/export', methods=['GET'])
 def export_incidents():
-    """Export incidents as CSV. Admin and analyst. Uses same filters as list."""
+    """CSV export — Incidents.js handleExportCsv; filter sama dengan list."""
     if request.current_user.get('role') not in ('admin', 'analyst'):
         return jsonify({'error': 'Insufficient permissions'}), 403
     import csv

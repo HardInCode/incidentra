@@ -1,3 +1,15 @@
+/**
+ * INCIDENTS LIST — work queue (ongoing) atau archive (all).
+ * Ctrl+F: INCIDENTS_FLOW, fetchIncidents, handleSimulate, handleBulkStatus
+ *
+ * INCIDENTS_FLOW (hulu → hilir):
+ *   log_monitor → detection_engine.analyze() → INSERT incidents → Dashboard/Incidents baca GET /incidents/
+ *   Admin simulate → simulateAttack → detection.py (inject tanpa vuln-web)
+ *
+ * Pasangan backend:
+ *   backend/app/api/incidents.py
+ *   backend/app/core/log_monitor.py (PIPELINE)
+ */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box, Card, Typography, Table, TableBody, TableCell,
@@ -29,7 +41,7 @@ import { ATTACK_TYPES } from '../constants/attackTypes';
 
 const STATUS_OPTIONS_ALL = ['new', 'investigating', 'resolved', 'false_positive'];
 
-/** Ongoing = work queue only (new + investigating). Resolved/archive → All Incidents. */
+/** Ongoing = antrian kerja (new + investigating). All = arsip termasuk resolved/false_positive. */
 function buildStatusQuery(mode, statusFilter) {
   if (mode === 'all') {
     return statusFilter ? { status: statusFilter } : {};
@@ -91,6 +103,7 @@ export default function Incidents({ mode = 'ongoing' }) {
 
   const fetchSeqRef = useRef(0);
 
+  // ─── INCIDENTS_FLOW: GET /api/incidents/ — rows dari PostgreSQL (hasil PIPELINE) ───
   const fetchIncidents = useCallback(async (overrides = {}) => {
     const seq = ++fetchSeqRef.current;
     setLoading(true);
@@ -298,6 +311,7 @@ export default function Incidents({ mode = 'ongoing' }) {
     }
   };
 
+  // Admin demo: inject payload langsung ke detection pipeline (tanpa vuln-web)
   const handleSimulate = async (data) => {
     try {
       await simulateAttack(data);

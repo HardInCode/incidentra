@@ -1,12 +1,12 @@
 /**
  * LOGIN & SELF-REGISTRATION PAGE
- * Ctrl+F: handleLogin, handleRegister, mode, AUTH_ERROR_I18N
+ * Ctrl+F: LOGIN_FLOW, handleLogin, handleRegister
  *
- * Alur login (hulu → hilir):
- *   Login.js handleLogin → api.js login() → auth.py POST /login → JWT
- *   → onLogin(token) → App.js handleLogin → localStorage → Dashboard
+ * LOGIN_FLOW (hulu → hilir):
+ *   handleLogin → api.login() → auth.py POST /login → JWT
+ *   → onLogin(token) → App.js → localStorage incidentra_token → axios interceptor
  *
- * Backend counterpart: backend/app/api/auth.py
+ * Pasangan backend: backend/app/api/auth.py
  */
 import React, { useState, useEffect } from 'react';
 import {

@@ -1,7 +1,14 @@
 """
-DETECTION RULES API — CRUD for detection_rules; sets Redis rules_dirty on write.
-Ctrl+F: update_rule (is_active toggle), create_rule
-Pairs with: detection_engine._load_rules_from_db
+DETECTION RULES API — CRUD detection_rules + signal engine reload.
+Ctrl+F: create_rule, rules_dirty, RULES_FLOW
+
+Alur tambah rule (UI → runtime):
+  DetectionRules.js handleSave → api.createRule → create_rule() → PostgreSQL detection_rules
+  → _signal_rules_dirty() → Redis rules_dirty=1
+  → detection_engine._maybe_reload_rules() → _load_rules_from_db() → analyze() pakai regex baru
+
+Pasangan frontend: frontend/src/pages/DetectionRules.js
+Pasangan engine: backend/app/core/detection_engine.py (_load_rules_from_db)
 """
 from flask import Blueprint, request, jsonify
 from app import db
@@ -14,12 +21,12 @@ rules_bp = Blueprint('rules', __name__)
 
 @rules_bp.before_request
 def _check_auth():
-    return verify_token()
+    return verify_token()  # JWT Bearer — axios interceptor di api.js
 
 
 @rules_bp.route('/', methods=['GET'])
 def list_rules():
-    # REVISI 1B: tambahkan query params untuk sort dan filter
+    """GET /api/rules/ — DetectionRules.js fetchRules(). Analyst & admin boleh baca."""
     sort_by = request.args.get('sort_by', 'created_at')
     sort_dir = request.args.get('sort_dir', 'desc')
     is_active = request.args.get('is_active')
@@ -27,16 +34,13 @@ def list_rules():
 
     query = DetectionRule.query
 
-    # Filter is_active
     if is_active is not None:
         active_bool = is_active.lower() == 'true'
         query = query.filter(DetectionRule.is_active == active_bool)
 
-    # Filter attack_type
     if attack_type:
         query = query.filter(DetectionRule.attack_type == attack_type)
 
-    # Sorting
     col_map = {
         'rule_name': DetectionRule.rule_name,
         'severity_level': DetectionRule.severity_level,
@@ -54,7 +58,7 @@ def list_rules():
 
 
 def _signal_rules_dirty():
-    """Signal the detection engine to immediately reload rules from the DB."""
+    """RULES_FLOW: flag Redis — log_monitor thread baca saat analyze() berikutnya."""
     try:
         from app.core.detection_engine import get_redis_client
         r = get_redis_client()
@@ -65,36 +69,37 @@ def _signal_rules_dirty():
 
 
 @rules_bp.route('/', methods=['POST'])
-@require_role('admin')  # REVISI 3: hanya admin
+@require_role('admin')  # cuma admin — analyst read-only di UI
 def create_rule():
+    """RULES_FLOW step 1: INSERT rule baru ke PostgreSQL."""
     data = request.get_json()
     try:
         rule = DetectionRule(
             rule_name=data['rule_name'],
-            attack_type=data['attack_type'],
-            pattern=data['pattern'],
-            severity_level=SeverityLevel(data['severity_level']),
+            attack_type=data['attack_type'],       # string — harus ada di DETECTION_PATTERNS / attackTypes.js
+            pattern=data['pattern'],               # regex Python — di-compile di detection_engine
+            severity_level=SeverityLevel(data['severity_level']),  # severity saat rule ini match
             description=data.get('description', ''),
             is_active=data.get('is_active', True),
         )
         db.session.add(rule)
         db.session.commit()
         log_audit('rule.create', resource_type='rule', resource_id=rule.id, details={'rule_name': rule.rule_name})
-        _signal_rules_dirty()
+        _signal_rules_dirty()  # RULES_FLOW step 2: paksa engine reload tanpa restart backend
         return jsonify(rule.to_dict()), 201
     except (KeyError, ValueError) as e:
         return jsonify({'error': str(e)}), 400
 
 
 @rules_bp.route('/<int:rule_id>', methods=['PUT'])
-@require_role('admin')  # REVISI 3: hanya admin
+@require_role('admin')
 def update_rule(rule_id):
+    """Edit / toggle is_active — DetectionRules.js handleToggle & openEdit."""
     rule = DetectionRule.query.get_or_404(rule_id)
     data = request.get_json()
     for field in ['rule_name', 'pattern', 'description', 'is_active']:
         if field in data:
             setattr(rule, field, data[field])
-    # BUG 9 FIX: update severity_level correctly
     if 'severity_level' in data:
         try:
             rule.severity_level = SeverityLevel(data['severity_level'])
@@ -102,13 +107,12 @@ def update_rule(rule_id):
             return jsonify({'error': f"Invalid severity_level: {data['severity_level']}"}), 400
     db.session.commit()
     log_audit('rule.update', resource_type='rule', resource_id=rule_id, details={'rule_name': rule.rule_name})
-    # BUG 9 FIX: Signal detection engine to reload rules
     _signal_rules_dirty()
     return jsonify(rule.to_dict())
 
 
 @rules_bp.route('/<int:rule_id>', methods=['DELETE'])
-@require_role('admin')  # REVISI 3: hanya admin
+@require_role('admin')
 def delete_rule(rule_id):
     rule = DetectionRule.query.get_or_404(rule_id)
     name = rule.rule_name
@@ -117,4 +121,3 @@ def delete_rule(rule_id):
     log_audit('rule.delete', resource_type='rule', resource_id=rule_id, details={'rule_name': name})
     _signal_rules_dirty()
     return jsonify({'message': 'Rule deleted'})
-

@@ -1,3 +1,13 @@
+/**
+ * LIVE TRAFFIC — tail nginx access.log via GET /traffic/recent.
+ * Ctrl+F: TRAFFIC_FLOW, fetchTraffic
+ *
+ * TRAFFIC_FLOW:
+ *   vuln-web middleware logging → access.log → traffic.py parse → tag attack/suspicious/blocked/normal
+ *   Bukan sumber incident INSERT — cuma monitoring real-time (PIPELINE pakai log_monitor terpisah)
+ *
+ * Pasangan backend: backend/app/api/traffic.py, vuln-web/middleware/logging.py
+ */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Table, TableBody, TableCell, TableHead, TableRow,
@@ -51,6 +61,7 @@ export default function LiveTraffic() {
   const [sortDir, setSortDir] = useState('desc');
   const [hideStatic, setHideStatic] = useState(true);
 
+  // ─── TRAFFIC_FLOW: polling access.log — pause = stop refresh UI ───
   const fetchTraffic = useCallback(async () => {
     if (paused) return;
     try {

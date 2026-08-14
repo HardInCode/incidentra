@@ -1,3 +1,11 @@
+/**
+ * IP HISTORY DRAWER — profil IP dari klik di Incidents/BlockedIPs.
+ * Ctrl+F: IP_HISTORY_FLOW, fetchHistory
+ *
+ * IP_HISTORY_FLOW:
+ *   getIPHistory(ip) → ip_history.py → agregasi incidents + risk_score
+ *   Bisa block/unblock langsung dari drawer (blocked_ips API)
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Drawer, Box, Typography, IconButton, Divider, Chip, CircularProgress,
@@ -67,6 +75,7 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
   const [actionLoading, setActionLoading] = useState(false);
   const navigate = useNavigate();
 
+  // IP_HISTORY_FLOW — refresh setelah block/unblock dari drawer
   const refreshData = () => getIPHistory(ip, language).then((res) => setData(res.data));
 
   useEffect(() => {
