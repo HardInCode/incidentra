@@ -1,12 +1,27 @@
 """
 DETECTION ENGINE — regex + threshold → threat dict atau None.
-Ctrl+F: analyze, DETECTION_PATTERNS, BruteForceTracker, SEVERITY, PIPELINE
+Ctrl+F: analyze, DETECTION_PATTERNS, BruteForceTracker, SEVERITY, PIPELINE,
+        ADD_ATTACK_TYPE, RULES_FLOW
 
 Urutan baca file ini (sesuai alur runtime):
-  ① DETECTION_PATTERNS     → baseline OWASP (hardcoded regex)
+  ① DETECTION_PATTERNS     → baseline OWASP (hardcoded regex) — BUKAN tabel DB master
   ② BruteForceTracker      → counter POST /login (bukan regex)
   ③ DetectionEngine        → compile rules + method analyze()
   ④ get_redis_client()     → helper koneksi Redis (optional)
+
+─── TIDAK ADA master attack_type table ───
+  attack_type = string bebas di detection_rules + incidents.
+  "Master" de facto = DETECTION_PATTERNS (dict Python) + frontend ATTACK_TYPES.
+
+  Tambah RULE BARU (type sudah ada, misal SQL_INJECTION):
+    DetectionRules.js → rules.py INSERT detection_rules → rules_dirty
+    → _load_rules_from_db() merge regex analyst + baseline OWASP
+
+  Tambah ATTACK TYPE BARU (misal SSRF):
+    1) frontend/src/constants/attackTypes.js → ATTACK_TYPES.push('SSRF')
+    2) DETECTION_PATTERNS['SSRF'] = { patterns, severity, mitre }  ← wajib baseline
+    3) (opsional) buat rule UI dengan attack_type=SSRF di Detection Rules
+    4) traffic.py TRAFFIC_ATTACK_PATTERNS kalau mau tag di Live Traffic
 
 Alur dipanggil dari log_monitor._process_log_line():
   parse_log_line(entry) → engine.analyze(entry) → threat dict | None
@@ -261,6 +276,11 @@ class DetectionEngine:
         self._lab_mode_cached = is_lab_mode_ui_only()
 
     def _load_rules_from_db(self):
+        """
+        RULES_FLOW step 3 (runtime): compile detection_rules + merge DETECTION_PATTERNS.
+        Dipanggil startup + _maybe_reload_rules() setelah rules_dirty.
+        attack_type di rule DB = string — tidak FK ke tabel master.
+        """
         """Load rule analyst aktif dari PostgreSQL + merge OWASP baseline (kecuali Lab mode).
 
         BRUTE_FORCE = threshold only — tidak compile regex.

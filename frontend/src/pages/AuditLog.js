@@ -1,3 +1,10 @@
+/**
+ * AUDIT LOG PAGE — baca jejak aksi admin (read-only).
+ * Ctrl+F: AUDIT_FLOW, fetchLogs
+ *
+ * Tulis audit: log_audit() di backend saat login, unblock, settings, approve user, dll.
+ * Pasangan backend: backend/app/api/audit.py, app/services/audit_service.py
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Card, Typography, Table, TableBody, TableCell,

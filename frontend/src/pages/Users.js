@@ -1,3 +1,11 @@
+/**
+ * USER MANAGEMENT — admin approve/suspend/CRUD akun.
+ * Ctrl+F: USERS_FLOW, handleApprove, handleCreate
+ *
+ * USERS_FLOW:
+ *   Register → auth.py status=pending → admin approve PATCH /users/:id { status:active, role }
+ * Beda auth.py: login/register/JWT vs users.py halaman admin penuh
+ */
 // Admin User Management: approve pending registrations, assign roles, suspend, reset password.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {

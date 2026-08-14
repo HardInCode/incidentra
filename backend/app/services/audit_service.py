@@ -1,3 +1,10 @@
+"""
+AUDIT WRITE — log_audit() dipanggil dari banyak endpoint saat aksi admin penting.
+Ctrl+F: AUDIT_FLOW, log_audit
+
+Contoh action string: auth.login, rule.create, blocked_ip.unblock, settings.update, user.approve
+Baca audit: audit.py GET /audit/ → AuditLog.js (admin only)
+"""
 import json
 from flask import request
 from app import db
