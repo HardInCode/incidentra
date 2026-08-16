@@ -29,7 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 def _get_setting(key: str) -> str:
-    """Read from AppSetting DB first, fall back to environment variable."""
+    """
+    Shared settings reader — DB app_settings first, env fallback.
+    Dipakai: notification_service, ai_service, chatbot, settings.py, settings_reader.
+    """
     env_val = (os.getenv(key, '') or '').strip()
     try:
         from app.models import AppSetting
@@ -60,9 +63,8 @@ def _frontend_base_url() -> str:
 
 def _do_notify(incident_id: int, severity: str = 'critical', block_hours: int = 0, offense_count: int = 0):
     """
-    Core notification logic.
-    Must be called within an active Flask app context.
-    Shared by Celery task and background thread fallback.
+    NOTIFY core — dipanggil response_manager._notify_async() setelah respond().
+    Kirim email + Telegram paralel (best-effort). Bukan bell UI (notifications.py).
     """
     from app.models import Incident, BlockedIP
     from datetime import timezone, timedelta
@@ -138,7 +140,7 @@ Review: {_frontend_base_url()}/incidents/{incident.id}
 
 @celery.task
 def notify_incident(incident_id: int, severity: str = 'critical', block_hours: int = 0, offense_count: int = 0):
-    """Celery task — delegates to shared core function."""
+    """Celery task — terdaftar; runtime aktual = thread di response_manager."""
     _do_notify(incident_id, severity, block_hours=block_hours, offense_count=offense_count)
 
 
@@ -204,6 +206,7 @@ def _send_email(subject: str, body: str) -> tuple:
 
 
 def _send_telegram(message: str):
+    """NOTIFY Telegram — HTTPS, works on Railway (unlike SMTP on Hobby plan)."""
     bot_token = _get_setting('TELEGRAM_BOT_TOKEN')
     chat_id = _get_setting('TELEGRAM_CHAT_ID')
     if not bot_token or not chat_id:

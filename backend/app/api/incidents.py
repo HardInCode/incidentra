@@ -1,17 +1,18 @@
 """
 INCIDENTS API — baca/update data yang sudah dibuat PIPELINE.
-Ctrl+F: INCIDENTS_FLOW, trigger_explanation, bulk_update_status, export_incidents
+Ctrl+F: INCIDENTS_FLOW, AI_EXPLAIN_FLOW, trigger_explanation, bulk_update_status
 
 INCIDENTS_FLOW (hulu → hilir):
   log_monitor PIPELINE → INSERT Incident → GET /api/incidents/ → Incidents.js fetchIncidents
   Admin simulate → detection.py simulate_attack (bypass pipeline)
   Analyst triage → PUT status / PATCH bulk-status
 
-Bukan sumber deteksi — cuma CRUD + export + AI explain di atas row PostgreSQL.
+AI_EXPLAIN_FLOW (beda CHATBOT):
+  IncidentDetail → POST /:id/explain → ai_service.py (sync Groq, simpan IncidentExplanation)
 
-Pasangan frontend: frontend/src/pages/Incidents.js, IncidentDetail.js
-Pasangan pipeline: backend/app/core/log_monitor.py (PIPELINE)
-Pasangan AI: backend/app/services/ai_service.py (Groq fallback chain)
+Pasangan frontend: Incidents.js, IncidentDetail.js
+Pasangan pipeline: log_monitor.py (PIPELINE)
+Pasangan AI: services/ai_service.py
 """
 from flask import Blueprint, request, jsonify
 import logging
@@ -194,9 +195,14 @@ def bulk_update_status():
 
 @incidents_bp.route('/<int:incident_id>', methods=['GET'])
 def get_incident(incident_id):
-    """IncidentDetail.js — include_logs=True bawa raw log lines terkait."""
-    incident = Incident.query.get_or_404(incident_id)
-    return jsonify(incident.to_dict(include_logs=True))
+    """IncidentDetail.js — include_logs=True bawa raw log lines terkait.
+
+    INCIDENT_CONTEXT_FLOW — satu-satunya SELECT yang menyuplai chatbot incident context:
+      response JSON → setIncident → setIncidentContext → ChatbotWidget JSON.stringify → chatbot.py
+      Chatbot TIDAK query ulang saat kirim pesan; explain (/explain) SELECT terpisah di trigger_explanation.
+    """
+    incident = Incident.query.get_or_404(incident_id)  # SELECT * FROM incidents WHERE id = ...
+    return jsonify(incident.to_dict(include_logs=True))   # logs, explanation, notes ikut jika ada
 
 
 @incidents_bp.route('/<int:incident_id>/status', methods=['PUT'])
@@ -265,12 +271,9 @@ def add_note(incident_id):
 @incidents_bp.route('/<int:incident_id>/explain', methods=['POST'])
 def trigger_explanation(incident_id):
     """
-    AI explain — sync Groq (bukan Celery). IncidentDetail triggerExplanation.
-    Ctrl+F: trigger_explanation, _call_groq_with_fallback
-
-    Alur:
-      GROQ_API_KEY ada → build_prompt → Groq chain → save JSON explanation
-      Tidak ada / gagal → _save_fallback_explanation (teks statis kaya)
+    AI_EXPLAIN_FLOW — sync Groq (bukan Celery, bukan chatbot).
+    IncidentDetail triggerExplanation → ai_service build_prompt + _call_groq_with_fallback
+    Fallback: _save_fallback_explanation (teks statis per attack_type)
     """
     incident = Incident.query.get_or_404(incident_id)
 

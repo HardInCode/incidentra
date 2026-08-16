@@ -1,6 +1,6 @@
 /**
  * SOC REST client — axios wrapper + JWT dari localStorage.
- * Ctrl+F: LOGIN_FLOW, RULES_FLOW, INCIDENTS_FLOW, UNBLOCK_FLOW,
+ * Ctrl+F: LOGIN_FLOW, RULES_FLOW, INCIDENTS_FLOW, INCIDENT_CONTEXT_FLOW, UNBLOCK_FLOW,
  *         NOTIFY_INAPP, SETTINGS_FLOW, CHATBOT_FLOW, IP_HISTORY_FLOW,
  *         RATE_LIMIT_FLOW, TRAFFIC_FLOW, interceptors
  */
@@ -47,6 +47,7 @@ export const getNotificationsSummary = (sinceId = 0) =>
 // ─── Incidents (Incidents.js) — INCIDENTS_FLOW ───
 // GET list dari PostgreSQL; status update → incidents.py
 export const getIncidents = (params) => api.get('/incidents/', { params });
+// INCIDENT_CONTEXT_FLOW — SELECT incidents (+ logs/notes/explanation) untuk Detail + chatbot context
 export const getIncident = (id) => api.get(`/incidents/${id}`);
 export const updateIncidentStatus = (id, status) => api.put(`/incidents/${id}/status`, { status });
 export const bulkUpdateIncidentStatus = (ids, status) =>
@@ -94,7 +95,9 @@ export const simulateAttack = (data) => api.post('/detection/simulate', data);
 // INJECT_FLOW — tulis access.log + PIPELINE penuh
 export const injectLog = (data) => api.post('/detection/inject-log', data);
 
-// ─── Chatbot (ChatbotWidget.js) — CHATBOT_FLOW ───
+// ─── Chatbot (ChatbotWidget.js) — CHATBOT_FLOW + INCIDENT_CONTEXT_FLOW ───
+// Body: { message, session_id, context? }
+// context = JSON.stringify(incident) dari ChatbotContext — chatbot.py sisipkan ke full_message Groq
 export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 
 // ─── Auth (Login.js) — LOGIN_FLOW ───

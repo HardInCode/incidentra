@@ -49,6 +49,7 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
             isAuthenticated
               ? (
                 <>
+                  {/* INCIDENT_CONTEXT_FLOW — Provider wajib: IncidentDetail set, ChatbotWidget read */}
                   <ChatbotProvider>
                     <Layout onLogout={onLogout}>
                       <Routes>

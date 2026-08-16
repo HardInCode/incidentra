@@ -187,6 +187,7 @@ def log_status():
 
 @dashboard_bp.route("/recent-incidents", methods=["GET"])
 def recent_incidents():
+    """10 incident terbaru — Dashboard sidebar (opsional widget)."""
     incidents = Incident.query.order_by(Incident.created_at.desc()).limit(10).all()
     return jsonify([i.to_dict() for i in incidents])
 

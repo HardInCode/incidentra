@@ -1,3 +1,18 @@
+"""
+THREAT INTEL — AbuseIPDB enrichment untuk incident (country + abuse score).
+Ctrl+F: THREAT_INTEL_FLOW, _do_reputation_check, check_ip_reputation
+
+THREAT_INTEL_FLOW:
+  log_monitor setelah INSERT incident → background thread _do_reputation_check()
+  → AbuseIPDB API → update incident.country_code + abuse_confidence_score
+  → Dashboard globe Attack Origins pakai country_code
+
+Celery task check_ip_reputation terdaftar tapi runtime pakai thread di log_monitor.
+Skip IP private/loopback — AbuseIPDB hanya IP publik.
+
+Settings: ABUSEIPDB_API_KEY — Settings.js test endpoint settings.py test_abuseipdb
+Pasangan: backend/app/core/log_monitor.py (panggil setelah incident dibuat)
+"""
 import os
 import requests
 import logging
@@ -9,12 +24,12 @@ ABUSEIPDB_URL = "https://api.abuseipdb.com/api/v2/check"
 
 def _do_reputation_check(incident_id: int, ip_address: str):
     """
-    Core logic — must be called within an active Flask app context.
-    Shared by Celery task and background thread fallback.
+    THREAT_INTEL_FLOW core — butuh Flask app context.
+    Dipanggil thread dari log_monitor (bukan blocking pipeline utama).
     """
     import ipaddress
 
-    # Skip private, loopback, and reserved IPs — AbuseIPDB rejects these
+    # Skip private, loopback, reserved — AbuseIPDB reject IP non-publik
     try:
         addr = ipaddress.ip_address(ip_address)
         if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_multicast:
@@ -49,5 +64,5 @@ def _do_reputation_check(incident_id: int, ip_address: str):
 
 @celery.task(bind=True, max_retries=2)
 def check_ip_reputation(self, incident_id: int, ip_address: str):
-    """Celery task — delegates to shared core function."""
+    """Celery wrapper — runtime aktual via thread di log_monitor."""
     _do_reputation_check(incident_id, ip_address)

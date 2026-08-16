@@ -13,7 +13,10 @@ from app.utils.net import get_client_ip
 
 
 def log_audit(action, resource_type=None, resource_id=None, details=None, user=None, ip_address=None):
-    """Record an audit log entry. Fails silently on error to avoid breaking main flows."""
+    """
+    AUDIT_FLOW write — dipanggil dari auth, rules, blocked_ips, settings, users, incidents, dll.
+    Gagal silent (rollback) supaya tidak break main flow.
+    """
     try:
         cu = user or getattr(request, 'current_user', None) or {}
         entry = AuditLog(

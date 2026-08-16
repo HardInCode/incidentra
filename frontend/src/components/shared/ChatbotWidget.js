@@ -1,10 +1,17 @@
 /**
  * FLOATING CHATBOT — Groq cybersecurity assistant (global di Layout).
- * Ctrl+F: CHATBOT_FLOW, handleSend, SESSION_ID
+ * Ctrl+F: CHATBOT_FLOW, INCIDENT_CONTEXT_FLOW, sendMessage, SESSION_ID
  *
  * CHATBOT_FLOW:
- *   handleSend → sendChatMessage → chatbot.py → Groq fallback chain
- *   Beda AI explain incident (IncidentDetail → incidents.py /explain)
+ *   sendMessage → sendChatMessage → chatbot.py chat_message → _get_groq_reply → Groq fallback
+ *
+ * INCIDENT_CONTEXT_FLOW:
+ *   useChatbotContext().incidentContext — di-set IncidentDetail.js (bukan dari sini).
+ *   Kalau user buka /incidents/:id → chip "Context: Incident #N — ATTACK_TYPE" tampil.
+ *   Setiap kirim pesan: context: JSON.stringify(incidentContext) → chatbot.py gabung full_message.
+ *   Di halaman lain incidentContext null → context: '' → chatbot jawab cyber umum saja.
+ *
+ * Beda AI_EXPLAIN_FLOW: explain = tombol di IncidentDetail, backend query + simpan IncidentExplanation.
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -137,6 +144,7 @@ function Message({ msg }) {
 export default function ChatbotWidget() {
   const theme = useTheme();
   const { t } = useLanguage();
+  // INCIDENT_CONTEXT_FLOW — baca state dari ChatbotContext (writer = IncidentDetail.js)
   const { incidentContext } = useChatbotContext();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -205,6 +213,7 @@ export default function ChatbotWidget() {
     setOpen(true);
   };
 
+  // CHATBOT_FLOW + INCIDENT_CONTEXT_FLOW — kirim ke POST /chatbot/message
   const sendMessage = async (text) => {
     const msg = text || input.trim();
     if (!msg) return;
@@ -217,6 +226,8 @@ export default function ChatbotWidget() {
     try {
       const res = await sendChatMessage({
         message: msg,
+        // Seluruh object incident dari GET /incidents/:id — backend tidak SELECT ulang.
+        // chatbot.py: full_message = "[Incident Context: {json}]\n\nQuestion: {msg}"
         context: incidentContext ? JSON.stringify(incidentContext) : '',
         session_id: SESSION_ID,
       });
@@ -312,6 +323,7 @@ export default function ChatbotWidget() {
           </IconButton>
         </Box>
 
+        {/* INCIDENT_CONTEXT_FLOW — indikator visual: context aktif hanya di halaman IncidentDetail */}
         {incidentContext && (
           <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover', borderBottom: `1px solid ${theme.palette.divider}` }}>
             <Chip

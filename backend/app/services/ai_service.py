@@ -1,7 +1,17 @@
 """
-AI ANALYST ONLY — Groq explanations for incidents (does NOT detect attacks).
-Ctrl+F: _call_groq_with_fallback, generate_explanation_task, _save_fallback_explanation
-Detection regex: detection_engine.DETECTION_PATTERNS (separate)
+AI EXPLAIN SERVICE — penjelasan incident per-row (bukan deteksi, bukan chatbot).
+Ctrl+F: AI_EXPLAIN_FLOW, _call_groq_with_fallback, trigger_explanation, _save_fallback_explanation
+
+AI_EXPLAIN_FLOW (beda CHATBOT_FLOW):
+  IncidentDetail.js → POST /incidents/:id/explain → incidents.py trigger_explanation()
+  → build_prompt(incident) → _call_groq_with_fallback → parse JSON → IncidentExplanation table
+
+CHATBOT_FLOW = chatbot.py — Q&A bebas, history in-memory, tidak simpan DB.
+
+Provider: Groq (GROQ_API_KEY dari Settings). Fallback chain = GROQ_FALLBACK_MODELS.
+generate_explanation_task (Celery) terdaftar tapi runtime pakai sync HTTP di incidents.py.
+
+Detection regex: detection_engine.DETECTION_PATTERNS — terpisah total dari file ini.
 """
 import os
 import logging
@@ -35,10 +45,9 @@ GROQ_FALLBACK_MODELS = [
 
 def _call_groq_with_fallback(prompt: str, max_tokens: int = 600):
     """
-    Try the configured primary model first, then fall back through
-    GROQ_FALLBACK_MODELS until one succeeds.
-    Returns (content_string, model_name_used).
-    Raises RuntimeError if all models fail.
+    AI_EXPLAIN_FLOW + CHATBOT — Groq dengan fallback chain.
+    Dipakai: incidents.py trigger_explanation, chatbot.py _get_groq_reply.
+    Returns (content_string, model_name_used). Raises jika semua model gagal.
     """
     from app.services.notification_service import _get_setting
     api_key = _get_setting('GROQ_API_KEY')
@@ -139,6 +148,7 @@ def save_groq_explanation(incident_id: int, raw: str, model_used: str) -> bool:
 
 
 def build_prompt(incident_data: dict, language: str = 'en') -> str:
+    """AI_EXPLAIN_FLOW — template prompt → Groq harus balas JSON 4 field."""
     lang = 'id' if language and str(language).lower().startswith('id') else 'en'
     lang_instruction = (
         'Respond in Indonesian (Bahasa Indonesia).'
@@ -171,6 +181,7 @@ Respond ONLY with the JSON object, no markdown, no extra text."""
 
 @celery.task(bind=True, max_retries=3, default_retry_delay=10)
 def generate_explanation_task(self, incident_id: int):
+    """Celery task — terdaftar tapi TIDAK dipanggil runtime; incidents.py explain sync."""
     from app.models import Incident
 
     try:
@@ -225,6 +236,7 @@ def generate_explanation_task(self, incident_id: int):
 
 
 def _save_fallback_explanation(incident_id: int):
+    """AI_EXPLAIN fallback — teks statis per attack_type kalau Groq off/gagal/parse error."""
     from app.models import Incident, IncidentExplanation
     try:
         incident = Incident.query.get(incident_id)
