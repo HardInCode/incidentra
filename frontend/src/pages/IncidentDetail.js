@@ -1,10 +1,16 @@
 /**
  * INCIDENT DETAIL — satu incident + AI explain + notes + assign.
- * Ctrl+F: INCIDENTS_FLOW, triggerExplanation, AI_EXPLAIN_FLOW
+ * Ctrl+F: INCIDENTS_FLOW, INCIDENT_CONTEXT_FLOW, triggerExplanation, AI_EXPLAIN_FLOW
  *
- * AI_EXPLAIN_FLOW (beda CHATBOT):
- *   triggerExplanation → POST /incidents/:id/explain → incidents.py → ai_service.py Groq sync
- * Chatbot widget = general Q&A (chatbot.py)
+ * INCIDENT_CONTEXT_FLOW (sumber data chatbot widget):
+ *   fetchIncident → getIncident(id) → incidents.py get_incident (SELECT incidents + logs)
+ *   → setIncident(res.data) → useEffect setIncidentContext(incident) → ChatbotContext
+ *   → ChatbotWidget kirim JSON.stringify(incident) sebagai field `context` ke chatbot.py
+ *   Backend chatbot TIDAK query DB untuk context — hanya terima string dari frontend.
+ *
+ * AI_EXPLAIN_FLOW (beda CHATBOT + beda INCIDENT_CONTEXT):
+ *   triggerExplanation → POST /incidents/:id/explain → incidents.py SELECT lagi → ai_service.py
+ * Chatbot widget = Q&A bebas + optional prefix incident JSON (chatbot.py full_message)
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -159,6 +165,9 @@ export default function IncidentDetail() {
   const currentUser = useCurrentUser();
   const { setIncidentContext } = useChatbotContext();
 
+  // INCIDENT_CONTEXT_FLOW — push incident ke ChatbotContext setiap kali fetchIncident selesai.
+  // incident null saat loading awal; setelah GET /incidents/:id → object penuh (logs, notes, dll).
+  // Cleanup saat unmount / pindah incident id → widget tidak bawa context incident lama.
   useEffect(() => {
     setIncidentContext(incident);
     return () => setIncidentContext(null);
@@ -170,10 +179,11 @@ export default function IncidentDetail() {
     }
   }, [currentUser?.role]);
 
+  // INCIDENTS_FLOW + INCIDENT_CONTEXT_FLOW — satu-satunya SELECT yang menyuplai chatbot context.
   const fetchIncident = async () => {
     try {
-      const res = await getIncident(id);
-      setIncident(res.data);
+      const res = await getIncident(id);  // → incidents.py Incident.query.get_or_404 + to_dict(include_logs=True)
+      setIncident(res.data);              // → trigger useEffect setIncidentContext di atas
     } catch (e) {
       toast.error('Failed to load incident');
     } finally {

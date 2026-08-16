@@ -1,6 +1,6 @@
 """
 CHATBOT API — Groq assistant cybersecurity (floating widget di Layout).
-Ctrl+F: CHATBOT_FLOW, chat_message, _get_groq_reply, guardrail
+Ctrl+F: CHATBOT_FLOW, INCIDENT_CONTEXT_FLOW, chat_message, _get_groq_reply, guardrail
 
 CHATBOT_FLOW:
   ChatbotWidget.js sendChatMessage → POST /chatbot/message
@@ -8,12 +8,19 @@ CHATBOT_FLOW:
   → _get_groq_reply → Groq fallback chain (sync ai_service.py models)
   → history in-memory per session_id (max 10 turn)
 
-Bedakan dengan AI explain incident:
-  CHATBOT = general cyber Q&A, widget global
-  trigger_explanation = incidents.py POST /explain → ai_service.py per incident
+INCIDENT_CONTEXT_FLOW (TIDAK ada SELECT di file ini):
+  ① Frontend: IncidentDetail GET /incidents/:id → incidents.py SELECT PostgreSQL once
+  ② IncidentDetail setIncidentContext(incident) via ChatbotContext.js
+  ③ ChatbotWidget POST body field `context` = JSON string incident
+  ④ chat_message(): full_message = "[Incident Context: {context}]\\n\\nQuestion: {user_message}"
+  ⑤ history.append user role full_message → _get_groq_reply — Groq baca prefix JSON
 
-Pasangan frontend: frontend/src/components/shared/ChatbotWidget.js
-Pasangan AI explain: backend/app/api/incidents.py (trigger_explanation)
+Bedakan dengan AI explain incident:
+  CHATBOT + context = string dari frontend, tidak simpan DB, Q&A bebas
+  AI_EXPLAIN = incidents.py POST /explain → SELECT DB → ai_service.build_prompt → IncidentExplanation
+
+Pasangan frontend: ChatbotContext.js, IncidentDetail.js, ChatbotWidget.js
+Pasangan SELECT context: backend/app/api/incidents.py get_incident (bukan chatbot.py)
 """
 from flask import Blueprint, request, jsonify
 import os
@@ -157,10 +164,12 @@ def _get_groq_reply(messages: list) -> tuple:
 
 @chatbot_bp.route('/message', methods=['POST'])
 def chat_message():
-    """CHATBOT_FLOW — ChatbotWidget.js kirim message + optional incident context."""
+    """CHATBOT_FLOW + INCIDENT_CONTEXT_FLOW — terima message + optional incident JSON string."""
     data = request.get_json()
     user_message = data.get('message', '').strip()
-    context = data.get('context', '')  # optional — konteks incident dari drawer/detail
+    # INCIDENT_CONTEXT_FLOW — bukan dari DB; JSON.stringify(incident) dari ChatbotWidget.js
+    # Kosong jika user tidak di halaman IncidentDetail (incidentContext null di frontend)
+    context = data.get('context', '')
     session_id = data.get('session_id', 'default')
 
     if not user_message:
@@ -179,11 +188,13 @@ def chat_message():
 
     history = _conversations[session_id]
 
+    # INCIDENT_CONTEXT_FLOW — gabung prefix JSON ke pertanyaan user sebelum kirim Groq.
+    # Tidak ada Incident.query di sini; data sudah di-fetch frontend via GET /incidents/:id.
     full_message = user_message
     if context:
         full_message = f"[Incident Context: {context}]\n\nQuestion: {user_message}"
 
-    history.append({'role': 'user', 'content': full_message})
+    history.append({'role': 'user', 'content': full_message})  # → _get_groq_reply(messages=history)
 
     if len(history) > 10:
         history = history[-10:]

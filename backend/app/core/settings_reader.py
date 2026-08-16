@@ -1,13 +1,12 @@
 """
-Runtime settings: AppSetting (PostgreSQL) first, then environment variables.
+Runtime settings reader — bridge Settings UI → detection_engine / response_manager.
+Ctrl+F: SETTINGS_FLOW, is_lab_mode_ui_only, get_escalating
 
-Ctrl+F anchors:
-  - Lab mode toggle key: DETECTION_LAB_MODE_UI_ONLY
-  - Brute-force threshold: BRUTE_FORCE_THRESHOLD
-  - Rate-limit window: RATE_LIMIT_WINDOW
-  - Temp block duration (seconds): TEMP_BLOCK_DURATION
-  - Repeat offender threshold: REPEAT_OFFENDER_THRESHOLD
-  - Escalating block durations (hours): ESCALATING_HIGH_DURATIONS, ESCALATING_CRITICAL_DURATIONS
+SETTINGS_FLOW:
+  Settings.js PUT /settings/ → app_settings table
+  → get_setting() / helpers di sini → dipakai saat analyze() / respond()
+
+Raw read: notification_service._get_setting (DB → env)
 """
 import os
 

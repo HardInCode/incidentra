@@ -56,7 +56,22 @@ def create_app(config_name=None):
 
     celery.Task = ContextTask
 
-    # Blueprints
+    # ─── API BLUEPRINT REGISTRY — mapping url_prefix → file (Ctrl+F keyword di masing-masing) ───
+    # /api/auth          LOGIN_FLOW, REGISTER_FLOW     auth.py
+    # /api/users         USERS_FLOW                     users.py
+    # /api/incidents     INCIDENTS_FLOW, AI_EXPLAIN     incidents.py
+    # /api/detection     RULES/INJECT/SIMULATE sandbox  detection.py
+    # /api/dashboard     DASHBOARD_FLOW                 dashboard.py
+    # /api/blocked-ips   UNBLOCK_FLOW                   blocked_ips.py
+    # /api/rate-limited  RATE_LIMIT_FLOW                rate_limited.py
+    # /api/rules         RULES_FLOW                     rules.py
+    # /api/chatbot       CHATBOT_FLOW                   chatbot.py
+    # /api/traffic       TRAFFIC_FLOW                     traffic.py
+    # /api/settings      SETTINGS_FLOW                    settings.py
+    # /api/ip            IP_HISTORY_FLOW                  ip_history.py
+    # /api/audit         AUDIT_FLOW                       audit.py
+    # /api/notifications NOTIFY_INAPP                     notifications.py
+    # /api/internal      INTERNAL (split deploy only)     internal.py
     from app.api.incidents import incidents_bp
     from app.api.detection import detection_bp
     from app.api.dashboard import dashboard_bp

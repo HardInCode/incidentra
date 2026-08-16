@@ -1,10 +1,15 @@
 """
 LOGIN & SELF-REGISTRATION — JWT issue on login, pending-approval signup, anti-spam.
-Ctrl+F: login, register, _make_token, _register_rate_limited, LOGIN_ERROR_CODES
+Ctrl+F: LOGIN_FLOW, REGISTER_FLOW, login, register, _make_token
 
-Alur login (hulu → hilir):
-  Login.js → api.js POST /auth/login → login() di sini → JWT
-  Token diverifikasi per-request: auth_middleware.py verify_token()
+LOGIN_FLOW:
+  Login.js → POST /auth/login → login() → JWT → auth_middleware verify_token()
+
+REGISTER_FLOW:
+  Login.js register → POST /auth/register → status=pending, role=null
+  → admin Users.js PATCH /users/:id { status:active, role:analyst } → bisa login
+
+GET /auth/users = dropdown assign incident (bukan User Management — itu users.py)
 """
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -87,7 +92,10 @@ def list_users():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """POST /api/auth/register — self-signup; status pending sampai admin approve."""
+    """
+    REGISTER_FLOW step 1 — self-signup; tidak bisa login sampai admin approve.
+    Rate limit 5/IP/jam via BruteForceTracker (Redis).
+    """
     ip = get_client_ip(request)
     if _register_rate_limited(ip):
         return jsonify({'error': 'register_rate_limited'}), 429

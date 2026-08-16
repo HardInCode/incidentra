@@ -93,8 +93,10 @@ def create_user():
 @users_bp.route('/<int:user_id>', methods=['PATCH'])
 @require_role('admin')
 def update_user(user_id):
-    """Approve a pending user (status=active + role), suspend/reactivate, or change role.
-    For password resets, use POST /<id>/reset-password instead."""
+    """
+    USERS_FLOW — approve pending / suspend / ubah role.
+    REGISTER_FLOW step 2: was_pending + status=active → user.approve audit → bisa login.
+    """
     user = User.query.get_or_404(user_id)
     data = request.get_json() or {}
     current_admin_id = request.current_user.get('user_id')
