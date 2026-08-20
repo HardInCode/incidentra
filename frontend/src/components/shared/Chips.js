@@ -1,5 +1,6 @@
 import React from 'react';
-import { Chip, useTheme } from '@mui/material';
+import { Chip, Tooltip, useTheme } from '@mui/material';
+import { GppBad } from '@mui/icons-material';
 import { useLanguage } from '../../context/LanguageContext';
 
 export function SeverityChip({ severity, size = 'small' }) {
@@ -72,14 +73,60 @@ export function AttackTypeChip({ type, size = 'small' }) {
     <Chip
       label={label}
       size={size}
-      variant="outlined"
       sx={{
         color: atk?.color,
         bgcolor: atk?.bg,
-        borderColor: atk?.border,
+        border: `1px solid ${atk?.border}`,
         fontSize: '0.7rem',
         fontWeight: 600,
         fontFamily: 'monospace',
+        letterSpacing: '0.02em',
+      }}
+    />
+  );
+}
+
+export function RepeatOffenderChip({ size = 'small', tooltip }) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const config = theme.semantic?.repeatOffender;
+  const chip = (
+    <Chip
+      icon={<GppBad sx={{ fontSize: 14 }} />}
+      label={t('blockedIps.repeatOffender')}
+      size={size}
+      sx={{
+        color: config?.color,
+        bgcolor: config?.bg,
+        border: `1px solid ${config?.border}`,
+        fontWeight: 700,
+        fontSize: '0.65rem',
+        height: 22,
+        '& .MuiChip-icon': { color: config?.color },
+      }}
+    />
+  );
+  if (tooltip) {
+    return <Tooltip title={tooltip}>{chip}</Tooltip>;
+  }
+  return chip;
+}
+
+export function BlockTypeChip({ blockType, size = 'small' }) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const sem = theme.semantic;
+  const config = blockType === 'permanent' ? sem?.chipBlocked : sem?.chipTemporary;
+  return (
+    <Chip
+      label={t(`blockType.${blockType}`)}
+      size={size}
+      sx={{
+        color: config?.color,
+        bgcolor: config?.bg,
+        border: `1px solid ${config?.border}`,
+        fontWeight: 700,
+        fontSize: '0.7rem',
       }}
     />
   );

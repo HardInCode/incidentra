@@ -24,6 +24,7 @@ import { Add, Delete, Edit, Refresh, Science, InfoOutlined } from '@mui/icons-ma
 import { toast } from 'react-toastify';
 import { getRules, createRule, updateRule, deleteRule, testPayload, getSettings } from '../services/api';
 import FilterBar from '../components/shared/FilterBar';
+import { AttackTypeChip, SeverityChip } from '../components/shared/Chips';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -166,8 +167,6 @@ export function DetectionRules() {
     setDialogOpen(true);
   };
 
-  const severityColors = { critical: '#ff1744', high: '#ff6d00', medium: '#ffd600', low: '#00e676' };
-
   // ─── Sandbox: test regex TANPA INSERT incident — detection.py test_payload → analyze() ───
   const handleTest = async () => {
     setTesting(true);
@@ -274,8 +273,10 @@ export function DetectionRules() {
               ) : testResult.detected ? (
                 <>
                   <Chip label={t('rules.detected')} color="error" size="small" sx={{ mb: 1 }} />
-                  <Typography variant="body2">Attack: <strong>{testResult.threat?.attack_type}</strong></Typography>
-                  <Typography variant="body2">Severity: <strong>{testResult.threat?.severity}</strong></Typography>
+                  <Typography variant="body2">Attack: <AttackTypeChip type={testResult.threat?.attack_type} /></Typography>
+                  <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    Severity: <SeverityChip severity={testResult.threat?.severity} />
+                  </Typography>
                   {testResult.threat?.rule_name && (
                     <Typography variant="body2">Rule: <strong>{testResult.threat.rule_name}</strong></Typography>
                   )}
@@ -323,12 +324,10 @@ export function DetectionRules() {
                 <TableRow key={rule.id} hover>
                   <TableCell sx={{ fontWeight: 600 }}>{rule.rule_name}</TableCell>
                   <TableCell>
-                    <Chip label={rule.attack_type.replace(/_/g, ' ')} size="small" variant="outlined"
-                      sx={{ color: brandCyan.main, borderColor: brandAlpha(0.3), fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                    <AttackTypeChip type={rule.attack_type} />
                   </TableCell>
                   <TableCell>
-                    <Chip label={t(`severity.${rule.severity_level}`)} size="small"
-                      sx={{ color: severityColors[rule.severity_level], bgcolor: `${severityColors[rule.severity_level]}22`, fontWeight: 700 }} />
+                    <SeverityChip severity={rule.severity_level} />
                   </TableCell>
                   <TableCell>
                     <Typography sx={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'text.secondary', maxWidth: 200 }} noWrap>

@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api, { getIPHistory } from '../../services/api';
 import { iconSize } from '../../theme';
+import { AttackTypeChip, SeverityChip } from './Chips';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatLocaleDate } from '../../utils/locale';
 
@@ -151,7 +152,6 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
     });
   };
 
-  const severityColors = { critical: '#ff1744', high: '#ff6d00', medium: '#ffd600', low: '#00e676' };
   const surface = sem?.surfaceMuted;
 
   return (
@@ -334,20 +334,10 @@ export default function IPHistoryDrawer({ ip, onClose, isAdmin = false }) {
                           {formatDateShort(inc.created_at)}
                         </TableCell>
                         <TableCell>
-                          <Typography sx={{ fontFamily: 'monospace', fontSize: '0.7rem', color: 'primary.main' }} noWrap>
-                            {inc.attack_type.replace(/_/g, ' ')}
-                          </Typography>
+                          <AttackTypeChip type={inc.attack_type} />
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={inc.severity}
-                            size="small"
-                            sx={{
-                              height: 18, fontSize: '0.65rem',
-                              color: severityColors[inc.severity],
-                              bgcolor: `${severityColors[inc.severity]}22`,
-                            }}
-                          />
+                          <SeverityChip severity={inc.severity} />
                         </TableCell>
                         <TableCell>
                           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{inc.status.replace('_', ' ')}</Typography>

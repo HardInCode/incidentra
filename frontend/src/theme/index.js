@@ -177,6 +177,11 @@ export function getSemanticTokens(isDark) {
       bg: isDark ? 'rgba(148,163,184,0.1)' : '#f8fafc',
       border: isDark ? 'rgba(148,163,184,0.35)' : '#cbd5e1',
     },
+    repeatOffender: {
+      color: isDark ? '#fca5a5' : '#991b1b',
+      bg: isDark ? 'rgba(239,68,68,0.16)' : '#fee2e2',
+      border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
+    },
     surfaceMuted: {
       bg: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
       border: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
