@@ -21,6 +21,7 @@ from app import db
 from app.models import User, Incident
 from app.api.auth_middleware import verify_token, require_role
 from app.services.audit_service import log_audit
+from app.utils.password_policy import validate_password
 
 users_bp = Blueprint('users', __name__)
 
@@ -68,8 +69,9 @@ def create_user():
         return jsonify({'error': 'username, email and password are required'}), 400
     if role not in VALID_ROLES:
         return jsonify({'error': f'role must be one of {VALID_ROLES}'}), 400
-    if len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+    ok, policy_err = validate_password(password)
+    if not ok:
+        return jsonify({'error': policy_err}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'Username already exists'}), 409
     if User.query.filter_by(email=email).first():
@@ -149,9 +151,11 @@ def reset_password(user_id):
     new_password = data.get('new_password')
     generated = not new_password
     if generated:
-        new_password = secrets.token_urlsafe(10)
-    elif len(new_password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        new_password = secrets.token_urlsafe(12) + 'A1!'
+    else:
+        ok, policy_err = validate_password(new_password)
+        if not ok:
+            return jsonify({'error': policy_err}), 400
 
     user.password_hash = generate_password_hash(new_password)
     db.session.commit()

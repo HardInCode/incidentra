@@ -104,6 +104,8 @@ export const sendChatMessage = (data) => api.post('/chatbot/message', data);
 // login → auth.py POST /login → JWT; interceptor bawah tempel Bearer ke semua request
 export const login = (username, password) => api.post('/auth/login', { username, password });
 export const register = (data) => api.post('/auth/register', data);
+export const forgotPassword = (email) => api.post('/auth/forgot-password', { email });
+export const resetPassword = (data) => api.post('/auth/reset-password', data);
 export const getSupportContact = () => api.get('/auth/support-contact');
 export const getUsers = () => api.get('/auth/users');
 

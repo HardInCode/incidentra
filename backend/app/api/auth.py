@@ -1,6 +1,6 @@
 """
 LOGIN & SELF-REGISTRATION — JWT issue on login, pending-approval signup, anti-spam.
-Ctrl+F: LOGIN_FLOW, REGISTER_FLOW, login, register, _make_token
+Ctrl+F: LOGIN_FLOW, REGISTER_FLOW, FORGOT_PASSWORD_FLOW, login, register, _make_token
 
 LOGIN_FLOW:
   Login.js → POST /auth/login → login() → JWT → auth_middleware verify_token()
@@ -9,23 +9,35 @@ REGISTER_FLOW:
   Login.js register → POST /auth/register → status=pending, role=null
   → admin Users.js PATCH /users/:id { status:active, role:analyst } → bisa login
 
+FORGOT_PASSWORD_FLOW:
+  Login.js forgot → POST /auth/forgot-password → email reset link
+  → /reset-password?token=… → POST /auth/reset-password
+
 GET /auth/users = dropdown assign incident (bukan User Management — itu users.py)
 """
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import os
+import secrets
+import hashlib
+import logging
 from datetime import datetime, timedelta
 from app import db
-from app.models import User
+from app.models import User, PasswordResetToken
 from app.services.audit_service import log_audit
 from app.api.auth_middleware import verify_token
 from app.utils.net import get_client_ip
+from app.utils.password_policy import validate_password
 
 auth_bp = Blueprint('auth', __name__)
+logger = logging.getLogger(__name__)
 
 REGISTER_RATE_LIMIT = 5
 REGISTER_RATE_WINDOW = 3600  # 1 jam
+FORGOT_RATE_LIMIT = 5
+FORGOT_RATE_WINDOW = 3600
+RESET_TOKEN_TTL = timedelta(hours=1)
 
 # Kode error machine-readable → frontend map ke i18n (Login.js AUTH_ERROR_I18N)
 # Jangan taruh teks user-facing di sini — hanya kode stabil
@@ -56,6 +68,29 @@ def _register_rate_limited(ip):
     )
     attempts = tracker.record_attempt(ip, '/auth/register')
     return attempts > REGISTER_RATE_LIMIT
+
+
+def _forgot_rate_limited(ip):
+    """Anti-spam forgot-password: max 5 attempt per IP per jam."""
+    from app.core.detection_engine import get_redis_client, BruteForceTracker
+    tracker = BruteForceTracker(
+        redis_client=get_redis_client(),
+        window_seconds=FORGOT_RATE_WINDOW,
+        threshold=FORGOT_RATE_LIMIT,
+    )
+    attempts = tracker.record_attempt(ip, '/auth/forgot-password')
+    return attempts > FORGOT_RATE_LIMIT
+
+
+def _hash_reset_token(raw_token: str) -> str:
+    pepper = os.getenv('SECRET_KEY', 'incidentra-secret')
+    return hashlib.sha256(f'{pepper}:{raw_token}'.encode()).hexdigest()
+
+
+def _frontend_reset_url(raw_token: str) -> str:
+    from app.services.notification_service import _frontend_base_url
+    base = _frontend_base_url().rstrip('/')
+    return f'{base}/reset-password?token={raw_token}'
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -107,8 +142,9 @@ def register():
 
     if not username or not email or not password:
         return jsonify({'error': 'register_fields_required'}), 400
-    if len(password) < 8:
-        return jsonify({'error': 'register_password_too_short'}), 400
+    ok, policy_err = validate_password(password)
+    if not ok:
+        return jsonify({'error': policy_err}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'username_exists'}), 409
     if User.query.filter_by(email=email).first():
@@ -137,6 +173,97 @@ def register():
         'message': 'registered',
         'user': user.to_dict(),
     }), 201
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    FORGOT_PASSWORD_FLOW step 1 — kirim reset link ke email terdaftar.
+    Selalu return 200 generik (jangan bocorkan apakah email ada).
+    """
+    ip = get_client_ip(request)
+    if _forgot_rate_limited(ip):
+        return jsonify({'error': 'forgot_rate_limited'}), 429
+
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'forgot_email_required'}), 400
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if user and user.is_active and user.status == 'active':
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = _hash_reset_token(raw_token)
+        PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).delete()
+        reset_row = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.utcnow() + RESET_TOKEN_TTL,
+        )
+        db.session.add(reset_row)
+        db.session.commit()
+
+        reset_url = _frontend_reset_url(raw_token)
+        from app.services.notification_service import send_password_reset_email
+        ok, err = send_password_reset_email(user.email, reset_url, user.username)
+        if not ok:
+            logger.warning(f"Password reset email failed for {user.username}: {err}")
+            if os.getenv('FLASK_ENV') == 'development' or os.getenv('DEBUG', '').lower() == 'true':
+                return jsonify({
+                    'message': 'reset_email_sent',
+                    'dev_reset_url': reset_url,
+                    'email_error': err,
+                })
+
+        log_audit(
+            'auth.forgot_password',
+            resource_type='user',
+            resource_id=user.id,
+            user={'user_id': None, 'username': user.username, 'role': user.role},
+            ip_address=ip,
+        )
+
+    return jsonify({'message': 'reset_email_sent'})
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """FORGOT_PASSWORD_FLOW step 2 — token + password baru."""
+    data = request.get_json() or {}
+    raw_token = (data.get('token') or '').strip()
+    password = data.get('password') or ''
+
+    if not raw_token:
+        return jsonify({'error': 'reset_token_required'}), 400
+    ok, policy_err = validate_password(password)
+    if not ok:
+        return jsonify({'error': policy_err}), 400
+
+    token_hash = _hash_reset_token(raw_token)
+    reset_row = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+    if not reset_row or reset_row.used_at or reset_row.expires_at < datetime.utcnow():
+        return jsonify({'error': 'reset_token_invalid'}), 400
+
+    user = User.query.get(reset_row.user_id)
+    if not user or not user.is_active or user.status != 'active':
+        return jsonify({'error': 'reset_token_invalid'}), 400
+
+    user.password_hash = generate_password_hash(password)
+    reset_row.used_at = datetime.utcnow()
+    PasswordResetToken.query.filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.id != reset_row.id,
+        PasswordResetToken.used_at.is_(None),
+    ).delete()
+    db.session.commit()
+
+    log_audit(
+        'auth.reset_password',
+        resource_type='user',
+        resource_id=user.id,
+        user={'user_id': user.id, 'username': user.username, 'role': user.role},
+    )
+    return jsonify({'message': 'password_reset_success'})
 
 
 @auth_bp.route('/support-contact', methods=['GET'])

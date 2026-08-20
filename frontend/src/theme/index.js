@@ -17,10 +17,10 @@ export function brandAlpha(alpha, isDark = true) {
 }
 
 export const severityColors = {
-  critical: '#ff1744',
-  high: '#ff6d00',
-  medium: '#ffd600',
-  low: '#00e676',
+  critical: '#dc2626',
+  high: '#ea580c',
+  medium: '#ca8a04',
+  low: '#059669',
 };
 
 export const iconSize = {
@@ -60,75 +60,122 @@ export function getInitialMode() {
 export function getSemanticTokens(isDark) {
   return {
     alertSuccess: {
-      bg: isDark ? 'rgba(0,230,118,0.12)' : 'rgba(0,168,132,0.14)',
-      border: isDark ? 'rgba(0,230,118,0.35)' : 'rgba(0,168,132,0.45)',
-      color: isDark ? '#00e676' : '#007a5e',
+      bg: isDark ? 'rgba(52,211,153,0.14)' : '#ecfdf5',
+      border: isDark ? 'rgba(52,211,153,0.35)' : '#a7f3d0',
+      color: isDark ? '#6ee7b7' : '#065f46',
     },
     alertWarning: {
-      bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.18)',
-      border: isDark ? 'rgba(255,214,0,0.35)' : 'rgba(230,162,0,0.45)',
-      color: isDark ? '#ffd600' : '#b45309',
+      bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
+      border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
+      color: isDark ? '#fde047' : '#854d0e',
     },
     alertError: {
-      bg: isDark ? 'rgba(255,23,68,0.12)' : 'rgba(244,67,54,0.12)',
-      border: isDark ? 'rgba(255,23,68,0.35)' : 'rgba(211,47,47,0.4)',
-      color: isDark ? '#ff1744' : '#c62828',
+      bg: isDark ? 'rgba(239,68,68,0.14)' : '#fef2f2',
+      border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
+      color: isDark ? '#fca5a5' : '#991b1b',
     },
     chipBlocked: {
-      bg: isDark ? 'rgba(255,23,68,0.15)' : 'rgba(244,67,54,0.12)',
-      color: isDark ? '#ff1744' : '#c62828',
-      border: isDark ? 'rgba(255,23,68,0.4)' : 'rgba(211,47,47,0.35)',
+      bg: isDark ? 'rgba(239,68,68,0.16)' : '#fef2f2',
+      color: isDark ? '#fca5a5' : '#991b1b',
+      border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
     },
     chipTemporary: {
-      bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.18)',
-      color: isDark ? '#ffd600' : '#b45309',
-      border: isDark ? 'rgba(255,214,0,0.35)' : 'rgba(230,162,0,0.4)',
+      bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
+      color: isDark ? '#fde047' : '#854d0e',
+      border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
     },
     chipExpired: {
-      bg: isDark ? 'rgba(136,146,164,0.15)' : 'rgba(158,158,158,0.2)',
-      color: isDark ? '#8892a4' : '#616161',
+      bg: isDark ? 'rgba(148,163,184,0.14)' : '#f1f5f9',
+      color: isDark ? '#94a3b8' : '#475569',
+      border: isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0',
     },
     chipIncident: {
-      bg: isDark ? 'rgba(255,109,0,0.12)' : 'rgba(255,109,0,0.14)',
-      color: isDark ? '#ff6d00' : '#e65100',
+      bg: isDark ? 'rgba(249,115,22,0.14)' : '#fff7ed',
+      color: isDark ? '#fdba74' : '#9a3412',
+      border: isDark ? 'rgba(249,115,22,0.35)' : '#fed7aa',
     },
     navActive: {
-      bg: isDark ? brandAlpha(0.12, true) : brandAlpha(0.1, false),
-      border: isDark ? brandAlpha(0.25, true) : brandAlpha(0.35, false),
+      bg: isDark ? brandAlpha(0.12, true) : brandAlpha(0.08, false),
+      border: isDark ? brandAlpha(0.25, true) : brandAlpha(0.22, false),
     },
     navHover: {
-      bg: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      bg: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.04)',
     },
     chipAdmin: {
-      color: '#ff6d00',
-      bg: isDark ? 'rgba(255,109,0,0.15)' : 'rgba(255,109,0,0.12)',
-      borderColor: isDark ? 'rgba(255,109,0,0.3)' : 'rgba(255,109,0,0.35)',
+      color: isDark ? '#fdba74' : '#9a3412',
+      bg: isDark ? 'rgba(249,115,22,0.14)' : '#fff7ed',
+      borderColor: isDark ? 'rgba(249,115,22,0.35)' : '#fed7aa',
     },
     chipAnalyst: {
-      color: isDark ? brandCyan.main : brandCyan.light,
-      bg: isDark ? brandAlpha(0.1, true) : brandAlpha(0.1, false),
-      borderColor: isDark ? brandAlpha(0.25, true) : brandAlpha(0.3, false),
+      color: isDark ? '#67e8f9' : '#0e7490',
+      bg: isDark ? 'rgba(34,211,238,0.12)' : '#ecfeff',
+      borderColor: isDark ? 'rgba(34,211,238,0.3)' : '#a5f3fc',
     },
     accountStatus: {
-      pending:   { color: isDark ? '#ffd600' : '#b45309', bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.18)' },
-      active:    { color: isDark ? '#00e676' : '#007a5e', bg: isDark ? 'rgba(0,230,118,0.12)' : 'rgba(0,168,132,0.12)' },
-      suspended: { color: isDark ? '#ff1744' : '#c62828', bg: isDark ? 'rgba(255,23,68,0.12)' : 'rgba(244,67,54,0.12)' },
+      pending: {
+        color: isDark ? '#fde047' : '#854d0e',
+        bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
+        border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
+      },
+      active: {
+        color: isDark ? '#6ee7b7' : '#065f46',
+        bg: isDark ? 'rgba(52,211,153,0.14)' : '#ecfdf5',
+        border: isDark ? 'rgba(52,211,153,0.35)' : '#a7f3d0',
+      },
+      suspended: {
+        color: isDark ? '#fca5a5' : '#991b1b',
+        bg: isDark ? 'rgba(239,68,68,0.14)' : '#fef2f2',
+        border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
+      },
     },
     severity: {
-      critical: { color: '#ff1744', bg: isDark ? 'rgba(255,23,68,0.15)' : 'rgba(244,67,54,0.12)', border: isDark ? 'rgba(255,23,68,0.4)' : 'rgba(211,47,47,0.35)' },
-      high:     { color: '#ff6d00', bg: isDark ? 'rgba(255,109,0,0.15)' : 'rgba(255,109,0,0.12)', border: isDark ? 'rgba(255,109,0,0.4)' : 'rgba(230,81,0,0.35)' },
-      medium:   { color: isDark ? '#ffd600' : '#f57f17', bg: isDark ? 'rgba(255,214,0,0.12)' : 'rgba(255,193,7,0.15)', border: isDark ? 'rgba(255,214,0,0.35)' : 'rgba(230,162,0,0.35)' },
-      low:      { color: isDark ? '#00e676' : '#007a5e', bg: isDark ? 'rgba(0,230,118,0.12)' : 'rgba(0,168,132,0.12)', border: isDark ? 'rgba(0,230,118,0.35)' : 'rgba(0,168,132,0.35)' },
+      critical: {
+        color: isDark ? '#fca5a5' : '#991b1b',
+        bg: isDark ? 'rgba(239,68,68,0.16)' : '#fee2e2',
+        border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
+      },
+      high: {
+        color: isDark ? '#fdba74' : '#9a3412',
+        bg: isDark ? 'rgba(249,115,22,0.16)' : '#ffedd5',
+        border: isDark ? 'rgba(249,115,22,0.35)' : '#fed7aa',
+      },
+      medium: {
+        color: isDark ? '#fde047' : '#854d0e',
+        bg: isDark ? 'rgba(234,179,8,0.14)' : '#fef9c3',
+        border: isDark ? 'rgba(234,179,8,0.35)' : '#fde047',
+      },
+      low: {
+        color: isDark ? '#6ee7b7' : '#065f46',
+        bg: isDark ? 'rgba(52,211,153,0.14)' : '#d1fae5',
+        border: isDark ? 'rgba(52,211,153,0.35)' : '#a7f3d0',
+      },
     },
     status: {
-      new:            { color: '#7c4dff', bg: isDark ? 'rgba(124,77,255,0.15)' : 'rgba(124,77,255,0.12)' },
-      investigating:  { color: '#00b0ff', bg: isDark ? 'rgba(0,176,255,0.15)' : 'rgba(3,169,244,0.12)' },
-      resolved:       { color: isDark ? '#00e676' : '#007a5e', bg: isDark ? 'rgba(0,230,118,0.12)' : 'rgba(0,168,132,0.12)' },
-      false_positive: { color: isDark ? '#8892a4' : '#5f6b7a', bg: isDark ? 'rgba(136,146,164,0.12)' : 'rgba(158,158,158,0.15)' },
+      new: {
+        color: isDark ? '#a5b4fc' : '#3730a3',
+        bg: isDark ? 'rgba(99,102,241,0.16)' : '#e0e7ff',
+        border: isDark ? 'rgba(99,102,241,0.35)' : '#c7d2fe',
+      },
+      investigating: {
+        color: isDark ? '#7dd3fc' : '#0369a1',
+        bg: isDark ? 'rgba(14,165,233,0.16)' : '#e0f2fe',
+        border: isDark ? 'rgba(14,165,233,0.35)' : '#bae6fd',
+      },
+      resolved: {
+        color: isDark ? '#6ee7b7' : '#065f46',
+        bg: isDark ? 'rgba(52,211,153,0.14)' : '#ecfdf5',
+        border: isDark ? 'rgba(52,211,153,0.35)' : '#a7f3d0',
+      },
+      false_positive: {
+        color: isDark ? '#94a3b8' : '#475569',
+        bg: isDark ? 'rgba(148,163,184,0.14)' : '#f1f5f9',
+        border: isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0',
+      },
     },
     attackType: {
-      color: isDark ? brandCyan.main : brandCyan.light,
-      border: isDark ? brandAlpha(0.3, true) : brandAlpha(0.35, false),
+      color: isDark ? '#cbd5e1' : '#475569',
+      bg: isDark ? 'rgba(148,163,184,0.1)' : '#f8fafc',
+      border: isDark ? 'rgba(148,163,184,0.35)' : '#cbd5e1',
     },
     surfaceMuted: {
       bg: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
@@ -224,10 +271,10 @@ export function createAppTheme(mode = 'dark') {
         light: brandCyan.main,
         contrastText: isDark ? '#0a0e1a' : '#ffffff',
       },
-      secondary: { main: '#7c4dff' },
-      error: { main: '#ff4444' },
-      warning: { main: '#ffaa00' },
-      success: { main: '#00e676' },
+      secondary: { main: '#6366f1' },
+      error: { main: '#dc2626' },
+      warning: { main: '#ca8a04' },
+      success: { main: '#059669' },
       background: isDark
         ? { default: '#0a0e1a', paper: '#111827' }
         : { default: '#f4f6f9', paper: '#ffffff' },

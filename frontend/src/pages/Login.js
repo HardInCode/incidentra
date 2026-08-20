@@ -1,23 +1,28 @@
 /**
  * LOGIN & SELF-REGISTRATION PAGE
- * Ctrl+F: LOGIN_FLOW, handleLogin, handleRegister
+ * Ctrl+F: LOGIN_FLOW, FORGOT_PASSWORD_FLOW, handleLogin, handleRegister
  *
  * LOGIN_FLOW (hulu → hilir):
  *   handleLogin → api.login() → auth.py POST /login → JWT
  *   → onLogin(token) → App.js → localStorage incidentra_token → axios interceptor
  *
+ * FORGOT_PASSWORD_FLOW:
+ *   forgot mode → POST /auth/forgot-password → email link
+ *   /reset-password?token=… → reset mode → POST /auth/reset-password
+ *
  * Pasangan backend: backend/app/api/auth.py
  */
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, TextField, Button, CircularProgress, Alert, Link,
   IconButton, Tooltip,
 } from '@mui/material';
 import { HelpOutline } from '@mui/icons-material';
-import { login, register, getSupportContact } from '../services/api';
+import { login, register, getSupportContact, forgotPassword, resetPassword } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { validatePassword } from '../utils/passwordPolicy';
 
-// Map kode error backend (auth.py) → key i18n — alert mengikuti bahasa app (en/id)
 const AUTH_ERROR_I18N = {
   invalid_credentials: 'login.invalidCredentials',
   account_pending: 'login.accountPending',
@@ -25,9 +30,15 @@ const AUTH_ERROR_I18N = {
   account_inactive: 'login.accountInactive',
   register_rate_limited: 'login.registerRateLimited',
   register_fields_required: 'login.registerFieldsRequired',
-  register_password_too_short: 'login.registerPasswordTooShortServer',
+  password_too_short: 'login.passwordTooShort',
+  password_policy_weak: 'login.passwordPolicyWeak',
+  registerPasswordTooShortServer: 'login.passwordTooShort',
   username_exists: 'login.usernameExists',
   email_exists: 'login.emailExists',
+  forgot_rate_limited: 'login.forgotRateLimited',
+  forgot_email_required: 'login.forgotEmailRequired',
+  reset_token_required: 'login.resetTokenInvalid',
+  reset_token_invalid: 'login.resetTokenInvalid',
 };
 
 const FALLBACK_CONTACT_EMAIL = 'admin@incidentra.local';
@@ -39,9 +50,17 @@ function translateAuthError(err, t, fallbackKey, contactEmail) {
   return t(fallbackKey);
 }
 
-export default function Login({ onLogin }) {
+function passwordPolicyMessage(t, code) {
+  if (code === 'password_too_short') return t('login.passwordTooShort');
+  return t('login.passwordPolicyWeak');
+}
+
+export default function Login({ onLogin, initialMode = 'login' }) {
   const { t } = useLanguage();
-  const [mode, setMode] = useState('login');
+  const [searchParams] = useSearchParams();
+  const urlToken = (searchParams.get('token') || '').trim();
+
+  const [mode, setMode] = useState(urlToken ? 'reset' : initialMode);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -60,15 +79,26 @@ export default function Login({ onLogin }) {
       });
   }, []);
 
-  // State form login
+  useEffect(() => {
+    if (urlToken) setMode('reset');
+  }, [urlToken]);
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  // State form register
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
+
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetToken, setResetToken] = useState(urlToken);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+
+  useEffect(() => {
+    if (urlToken) setResetToken(urlToken);
+  }, [urlToken]);
 
   const clearError = () => {
     if (error) setError('');
@@ -80,14 +110,12 @@ export default function Login({ onLogin }) {
     setInfo('');
   };
 
-  // ─── Login: POST /api/auth/login ───
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const res = await login(username, password);
       setError('');
-      // onLogin = prop dari App.js → simpan JWT + setIsAuthenticated(true)
       onLogin(res.data.token);
     } catch (err) {
       setError(translateAuthError(err, t, 'login.invalidCredentials', contactEmail));
@@ -96,8 +124,6 @@ export default function Login({ onLogin }) {
     }
   };
 
-  // ─── Register: validasi frontend dulu, lalu POST /api/auth/register ───
-  // confirmPassword cuma dicek di sini — backend tidak terima field itu
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
@@ -105,8 +131,9 @@ export default function Login({ onLogin }) {
       setError(t('login.passwordMismatch'));
       return;
     }
-    if (regPassword.length < 8) {
-      setError(t('login.passwordTooShort'));
+    const policyErr = validatePassword(regPassword);
+    if (policyErr) {
+      setError(passwordPolicyMessage(t, policyErr));
       return;
     }
     setLoading(true);
@@ -124,6 +151,70 @@ export default function Login({ onLogin }) {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const res = await forgotPassword(forgotEmail.trim());
+      const devUrl = res.data?.dev_reset_url;
+      setInfo(devUrl ? t('login.forgotSuccessDev', { url: devUrl }) : t('login.forgotSuccess'));
+      setForgotEmail('');
+    } catch (err) {
+      setError(translateAuthError(err, t, 'login.forgotFailed', contactEmail));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (newPassword !== newPasswordConfirm) {
+      setError(t('login.passwordMismatch'));
+      return;
+    }
+    const policyErr = validatePassword(newPassword);
+    if (policyErr) {
+      setError(passwordPolicyMessage(t, policyErr));
+      return;
+    }
+    if (!resetToken.trim()) {
+      setError(t('login.resetTokenInvalid'));
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword({ token: resetToken.trim(), password: newPassword });
+      setInfo(t('login.resetSuccess'));
+      setNewPassword('');
+      setNewPasswordConfirm('');
+      setResetToken('');
+      setMode('login');
+    } catch (err) {
+      setError(translateAuthError(err, t, 'login.resetFailed', contactEmail));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const titleKey = mode === 'register'
+    ? 'login.registerTitle'
+    : mode === 'forgot'
+      ? 'login.forgotTitle'
+      : mode === 'reset'
+        ? 'login.resetTitle'
+        : 'login.title';
+
+  const subtitleKey = mode === 'register'
+    ? 'login.registerSubtitle'
+    : mode === 'forgot'
+      ? 'login.forgotSubtitle'
+      : mode === 'reset'
+        ? 'login.resetSubtitle'
+        : 'login.subtitle';
 
   return (
     <Box sx={{
@@ -160,9 +251,9 @@ export default function Login({ onLogin }) {
               alt={t('brand.full')}
               sx={{ width: 64, height: 64, borderRadius: 3, mb: 2, objectFit: 'contain' }}
             />
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>{t('login.title')}</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>{t(titleKey)}</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-              {t('login.subtitle')}
+              {t(subtitleKey)}
             </Typography>
           </Box>
 
@@ -177,7 +268,7 @@ export default function Login({ onLogin }) {
             </Alert>
           )}
 
-          {mode === 'login' ? (
+          {mode === 'login' && (
             <>
               <form onSubmit={handleLogin}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -196,6 +287,11 @@ export default function Login({ onLogin }) {
                     onChange={e => { setPassword(e.target.value); clearError(); }}
                     autoComplete="current-password"
                   />
+                  <Box sx={{ textAlign: 'right', mt: -0.5 }}>
+                    <Link component="button" type="button" onClick={() => switchMode('forgot')} sx={{ fontSize: '0.85rem' }}>
+                      {t('login.forgotLink')}
+                    </Link>
+                  </Box>
                   <Button
                     type="submit"
                     fullWidth
@@ -219,7 +315,9 @@ export default function Login({ onLogin }) {
                 </Typography>
               </Box>
             </>
-          ) : (
+          )}
+
+          {mode === 'register' && (
             <>
               <form onSubmit={handleRegister}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -277,6 +375,95 @@ export default function Login({ onLogin }) {
                   {t('login.haveAccountPrompt')}{' '}
                   <Link component="button" type="button" onClick={() => switchMode('login')} sx={{ fontWeight: 700 }}>
                     {t('login.signIn')}
+                  </Link>
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {mode === 'forgot' && (
+            <>
+              <form onSubmit={handleForgotPassword}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label={t('login.email')}
+                    type="email"
+                    value={forgotEmail}
+                    onChange={e => { setForgotEmail(e.target.value); clearError(); }}
+                    autoComplete="email"
+                  />
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading || !forgotEmail.trim()}
+                    sx={{ mt: 1, py: 1.5, fontWeight: 700 }}
+                  >
+                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.forgotSubmit')}
+                  </Button>
+                </Box>
+              </form>
+
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  <Link component="button" type="button" onClick={() => switchMode('login')} sx={{ fontWeight: 700 }}>
+                    {t('login.backToSignIn')}
+                  </Link>
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {mode === 'reset' && (
+            <>
+              <form onSubmit={handleResetPassword}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {!urlToken && (
+                    <TextField
+                      fullWidth
+                      label={t('login.resetTokenLabel')}
+                      value={resetToken}
+                      onChange={e => { setResetToken(e.target.value); clearError(); }}
+                    />
+                  )}
+                  <TextField
+                    fullWidth
+                    label={t('login.newPassword')}
+                    type="password"
+                    value={newPassword}
+                    onChange={e => { setNewPassword(e.target.value); clearError(); }}
+                    autoComplete="new-password"
+                    helperText={t('login.passwordHint')}
+                  />
+                  <TextField
+                    fullWidth
+                    label={t('login.confirmPassword')}
+                    type="password"
+                    value={newPasswordConfirm}
+                    onChange={e => { setNewPasswordConfirm(e.target.value); clearError(); }}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading || !newPassword || !newPasswordConfirm || (!urlToken && !resetToken.trim())}
+                    sx={{ mt: 1, py: 1.5, fontWeight: 700 }}
+                  >
+                    {loading ? <CircularProgress size={24} color="inherit" /> : t('login.resetSubmit')}
+                  </Button>
+                </Box>
+              </form>
+
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  <Link component="button" type="button" onClick={() => switchMode('login')} sx={{ fontWeight: 700 }}>
+                    {t('login.backToSignIn')}
                   </Link>
                 </Typography>
               </Box>

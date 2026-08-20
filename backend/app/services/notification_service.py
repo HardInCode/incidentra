@@ -148,22 +148,24 @@ def notify_incident(incident_id: int, severity: str = 'critical', block_hours: i
 notify_critical_incident = notify_incident
 
 
-def _send_email(subject: str, body: str) -> tuple:
+def _send_email(subject: str, body: str, to_email: str = None) -> tuple:
     """NOTIFY: SMTP via env/Settings. Railway Hobby block port 587 → timeout; Telegram OK."""
     smtp_host = _get_setting('SMTP_HOST')
     smtp_port = int(_get_setting('SMTP_PORT') or 587)
     smtp_user = _get_setting('SMTP_USER')
     smtp_pass = _get_setting('SMTP_PASSWORD')
     alert_email = _get_setting('ALERT_EMAIL')
+    recipient = (to_email or alert_email or '').strip()
 
     missing = [
         name for name, val in (
             ('SMTP_HOST', smtp_host),
             ('SMTP_USER', smtp_user),
             ('SMTP_PASSWORD', smtp_pass),
-            ('ALERT_EMAIL', alert_email),
         ) if not val
     ]
+    if not recipient:
+        missing.append('recipient')
     if missing:
         msg = f"Email not configured — missing: {', '.join(missing)}"
         logger.warning(msg)
@@ -172,7 +174,7 @@ def _send_email(subject: str, body: str) -> tuple:
     try:
         msg = MIMEMultipart()
         msg['From'] = smtp_user
-        msg['To'] = alert_email
+        msg['To'] = recipient
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
 
@@ -181,16 +183,16 @@ def _send_email(subject: str, body: str) -> tuple:
             # Gmail / providers that require implicit TLS
             with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=timeout) as server:
                 server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, [alert_email], msg.as_string())
+                server.sendmail(smtp_user, [recipient], msg.as_string())
         else:
             with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as server:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
                 server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, [alert_email], msg.as_string())
+                server.sendmail(smtp_user, [recipient], msg.as_string())
 
-        logger.info(f"Alert email sent to {alert_email}.")
+        logger.info(f"Email sent to {recipient}.")
         return True, None
     except smtplib.SMTPAuthenticationError as e:
         hint = (
@@ -203,6 +205,23 @@ def _send_email(subject: str, body: str) -> tuple:
         err = f"Email send failed: {e}"
         logger.error(err)
         return False, err
+
+
+def send_password_reset_email(to_email: str, reset_url: str, username: str) -> tuple:
+    """Send self-service password reset link to the user's registered email."""
+    subject = '[Incidentra] Password reset request'
+    body = f"""Hello {username},
+
+We received a request to reset your Incidentra SOC account password.
+
+Open this link to choose a new password (valid for 1 hour):
+{reset_url}
+
+If you did not request this, you can ignore this email. Your password will not change.
+
+— Incidentra SOC Platform
+"""
+    return _send_email(subject, body, to_email=to_email)
 
 
 def _send_telegram(message: str):
