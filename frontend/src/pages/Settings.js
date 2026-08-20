@@ -32,6 +32,7 @@ import {
   unlockNotificationSound,
   playNotificationSound,
 } from '../utils/notificationSound';
+import { ConfigStatusChip } from '../components/shared/Chips';
 
 // Groq models — 5-model chain (quality → high daily quota fallback). Sync with ai_service.py.
 const GROQ_MODELS = [
@@ -41,22 +42,6 @@ const GROQ_MODELS = [
   'llama-3.1-8b-instant', // deprecated Aug 16 2026 — kept for 14.4K RPD sidang buffer
   'allam-2-7b',
 ];
-
-function ConfigBadge({ configured }) {
-  const { t } = useLanguage();
-  return (
-    <Chip
-      size="small"
-      label={configured ? `● ${t('common.configured')}` : `○ ${t('common.notSet')}`}
-      sx={{
-        bgcolor: configured ? 'rgba(0,230,118,0.15)' : 'rgba(136,146,164,0.2)',
-        color: configured ? '#00e676' : '#8892a4',
-        fontWeight: 600,
-        fontSize: '0.7rem',
-      }}
-    />
-  );
-}
 
 const APPEARANCE_OPTIONS = [
   { value: 'dark', label: 'Dark' },
@@ -286,7 +271,7 @@ export default function Settings() {
             <SettingsIcon sx={{ color: '#7c4dff' }} />
             <Typography variant="h6">AI Assistant (Groq)</Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>— Chatbot &amp; Incident Analysis</Typography>
-            <ConfigBadge configured={settings.GROQ_API_KEY?.configured} />
+            <ConfigStatusChip configured={settings.GROQ_API_KEY?.configured} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
             <TextField
@@ -345,7 +330,7 @@ export default function Settings() {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Typography variant="h6">{t('settings.abuseTitle')}</Typography>
-            <ConfigBadge configured={settings.ABUSEIPDB_API_KEY?.configured} />
+            <ConfigStatusChip configured={settings.ABUSEIPDB_API_KEY?.configured} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
             <TextField
@@ -389,7 +374,7 @@ export default function Settings() {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Typography variant="h6">{t('settings.emailTitle')}</Typography>
-            <ConfigBadge configured={settings.SMTP_HOST?.configured} />
+            <ConfigStatusChip configured={settings.SMTP_HOST?.configured} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
             <TextField label={t('settings.smtpHost')} size="small" value={getValue('SMTP_HOST')} onChange={(e) => setValue('SMTP_HOST', e.target.value)} />
@@ -434,7 +419,7 @@ export default function Settings() {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <Typography variant="h6">{t('settings.telegramTitle')}</Typography>
-            <ConfigBadge configured={settings.TELEGRAM_BOT_TOKEN?.configured} />
+            <ConfigStatusChip configured={settings.TELEGRAM_BOT_TOKEN?.configured} />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400 }}>
             <TextField

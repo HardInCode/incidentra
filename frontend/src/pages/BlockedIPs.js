@@ -29,7 +29,7 @@ import {
 } from '../services/api';
 import FilterBar from '../components/shared/FilterBar';
 import IPHistoryDrawer from '../components/shared/IPHistoryDrawer';
-import { RepeatOffenderChip, BlockTypeChip } from '../components/shared/Chips';
+import { RepeatOffenderChip, BlockTypeChip, ExpiryChip, MetricChip } from '../components/shared/Chips';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
@@ -359,45 +359,39 @@ export default function BlockedIPs() {
   const formatTtl = (seconds) => {
     if (!seconds || seconds <= 0) {
       return (
-        <Tooltip title={t('ipManagement.noTtlHint')}>
-          <Chip
-            label={t('ipManagement.noTtl')}
-            size="small"
-            sx={{ bgcolor: sem.chipTemporary.bg, color: sem.chipTemporary.color, fontSize: '0.7rem' }}
-          />
-        </Tooltip>
+        <ExpiryChip
+          variant="active"
+          label={t('ipManagement.noTtl')}
+          tooltip={t('ipManagement.noTtlHint')}
+        />
       );
     }
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     const label = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    return (
-      <Chip
-        label={t('ipManagement.ttlRemaining', { time: label })}
-        size="small"
-        sx={{ bgcolor: sem.chipTemporary.bg, color: sem.chipTemporary.color, fontSize: '0.7rem' }}
-      />
-    );
+    return <ExpiryChip variant="active" label={t('ipManagement.ttlRemaining', { time: label })} />;
   };
 
   const formatExpiry = (iso, blockType) => {
     if (blockType === 'permanent') {
-      return <Chip label={t('common.never')} size="small" sx={{ bgcolor: sem.chipBlocked.bg, color: sem.chipBlocked.color, fontSize: '0.7rem' }} />;
+      return <ExpiryChip variant="never" label={t('common.never')} />;
     }
     if (!iso) return '—';
     const expireDate = new Date(iso);
     const now = new Date();
     const diffMs = expireDate - now;
     if (diffMs <= 0) {
-      return <Chip label={t('common.expired')} size="small" sx={{ bgcolor: sem.chipExpired.bg, color: sem.chipExpired.color, fontSize: '0.7rem' }} />;
+      return <ExpiryChip variant="expired" label={t('common.expired')} />;
     }
     const hours = Math.floor(diffMs / 3600000);
     const mins = Math.floor((diffMs % 3600000) / 60000);
     const label = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     return (
-      <Tooltip title={formatDate(iso)}>
-        <Chip label={t('common.expiresIn', { time: label })} size="small" sx={{ bgcolor: sem.chipTemporary.bg, color: sem.chipTemporary.color, fontSize: '0.7rem' }} />
-      </Tooltip>
+      <ExpiryChip
+        variant="active"
+        label={t('common.expiresIn', { time: label })}
+        tooltip={formatDate(iso)}
+      />
     );
   };
 
@@ -513,7 +507,7 @@ export default function BlockedIPs() {
                     <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(ip.block_time)}</TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{formatExpiry(ip.expire_time, ip.block_type)}</TableCell>
                     <TableCell>
-                      <Chip label={ip.incident_count} size="small" sx={{ bgcolor: sem.chipIncident.bg, color: sem.chipIncident.color }} />
+                      <MetricChip label={ip.incident_count} />
                     </TableCell>
                     {isAdmin && (
                       <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
@@ -671,7 +665,7 @@ export default function BlockedIPs() {
                     <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{item.reason}</TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(item.block_time)}</TableCell>
                     <TableCell>
-                      <Chip label={item.incident_count} size="small" sx={{ bgcolor: sem.chipIncident.bg, color: sem.chipIncident.color }} />
+                      <MetricChip label={item.incident_count} />
                     </TableCell>
                     {isAdmin && (
                       <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
