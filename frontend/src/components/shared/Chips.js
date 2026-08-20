@@ -3,6 +3,19 @@ import { Chip, Tooltip, useTheme } from '@mui/material';
 import { GppBad } from '@mui/icons-material';
 import { useLanguage } from '../../context/LanguageContext';
 
+/** Shared chip styling from semantic tokens (border + readable text in light/dark). */
+export function chipSx(config, extra = {}) {
+  if (!config) return extra;
+  return {
+    color: config.color,
+    bgcolor: config.bg,
+    border: config.border ? `1px solid ${config.border}` : undefined,
+    fontWeight: 700,
+    fontSize: '0.7rem',
+    ...extra,
+  };
+}
+
 export function SeverityChip({ severity, size = 'small' }) {
   const theme = useTheme();
   const { t } = useLanguage();
@@ -121,13 +134,47 @@ export function BlockTypeChip({ blockType, size = 'small' }) {
     <Chip
       label={t(`blockType.${blockType}`)}
       size={size}
-      sx={{
-        color: config?.color,
-        bgcolor: config?.bg,
-        border: `1px solid ${config?.border}`,
-        fontWeight: 700,
-        fontSize: '0.7rem',
-      }}
+      sx={chipSx(config)}
     />
   );
+}
+
+/** Expiry / TTL chips — active (amber), expired (muted), never (red). */
+export function ExpiryChip({ variant = 'active', label, tooltip, size = 'small' }) {
+  const theme = useTheme();
+  const sem = theme.semantic;
+  const configByVariant = {
+    active: sem?.chipTemporary,
+    expired: sem?.chipExpired,
+    never: sem?.chipBlocked,
+  };
+  const chip = (
+    <Chip label={label} size={size} sx={chipSx(configByVariant[variant] || sem?.chipTemporary)} />
+  );
+  if (tooltip) {
+    return <Tooltip title={tooltip}>{chip}</Tooltip>;
+  }
+  return chip;
+}
+
+/** Settings integration status — configured vs not set. */
+export function ConfigStatusChip({ configured, size = 'small' }) {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const config = configured ? theme.semantic?.chipConfigured : theme.semantic?.chipNotConfigured;
+  return (
+    <Chip
+      label={configured ? `● ${t('common.configured')}` : `○ ${t('common.notSet')}`}
+      size={size}
+      sx={chipSx(config, { fontWeight: 600 })}
+    />
+  );
+}
+
+/** Numeric badge chips (incident count, rule matches). */
+export function MetricChip({ label, variant = 'incident', size = 'small' }) {
+  const theme = useTheme();
+  const sem = theme.semantic;
+  const config = variant === 'count' ? sem?.attackType : sem?.chipIncident;
+  return <Chip label={label} size={size} sx={chipSx(config, { fontWeight: 600 })} />;
 }

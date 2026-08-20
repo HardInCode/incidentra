@@ -89,6 +89,16 @@ export function getSemanticTokens(isDark) {
       color: isDark ? '#94a3b8' : '#475569',
       border: isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0',
     },
+    chipConfigured: {
+      bg: isDark ? 'rgba(52,211,153,0.14)' : '#ecfdf5',
+      color: isDark ? '#6ee7b7' : '#065f46',
+      border: isDark ? 'rgba(52,211,153,0.35)' : '#a7f3d0',
+    },
+    chipNotConfigured: {
+      bg: isDark ? 'rgba(148,163,184,0.14)' : '#f1f5f9',
+      color: isDark ? '#94a3b8' : '#64748b',
+      border: isDark ? 'rgba(148,163,184,0.3)' : '#e2e8f0',
+    },
     chipIncident: {
       bg: isDark ? 'rgba(249,115,22,0.14)' : '#fff7ed',
       color: isDark ? '#fdba74' : '#9a3412',
