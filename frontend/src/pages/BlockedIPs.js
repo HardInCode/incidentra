@@ -21,7 +21,7 @@ import {
   CircularProgress, RadioGroup, FormControlLabel, Radio, Select, MenuItem,
   FormControl, InputLabel, useTheme, Tabs, Tab,
 } from '@mui/material';
-import { Block, Add, Delete, Refresh, Edit, Timer, GppBad, CheckCircle } from '@mui/icons-material';
+import { Block, Add, Delete, Refresh, Edit, Timer, CheckCircle } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import {
   getBlockedIPs, addBlockedIP, unblockIP, updateBlockedIP,
@@ -29,6 +29,7 @@ import {
 } from '../services/api';
 import FilterBar from '../components/shared/FilterBar';
 import IPHistoryDrawer from '../components/shared/IPHistoryDrawer';
+import { RepeatOffenderChip, BlockTypeChip } from '../components/shared/Chips';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { useLanguage } from '../context/LanguageContext';
 import { formatLocaleDate } from '../utils/locale';
@@ -499,31 +500,15 @@ export default function BlockedIPs() {
                           {ip.ip_address}
                         </Button>
                         {ip.is_repeat_offender && (
-                          <Tooltip title={t('blockedIps.repeatOffenderTooltip', { threshold: ip.incident_count })}>
-                            <Chip
-                              icon={<GppBad sx={{ fontSize: 14 }} />}
-                              label={t('blockedIps.repeatOffender')}
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                fontWeight: 700,
-                                bgcolor: 'rgba(255,23,68,0.15)',
-                                color: '#ff1744',
-                                border: '1px solid rgba(255,23,68,0.3)',
-                                '& .MuiChip-icon': { color: '#ff1744' },
-                              }}
-                            />
-                          </Tooltip>
+                          <RepeatOffenderChip
+                            tooltip={t('blockedIps.repeatOffenderTooltip', { threshold: ip.incident_count })}
+                          />
                         )}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>{ip.reason}</TableCell>
                     <TableCell>
-                      <Chip label={t(`blockType.${ip.block_type}`)} size="small"
-                        sx={ip.block_type === 'permanent'
-                          ? { color: sem.chipBlocked.color, bgcolor: sem.chipBlocked.bg }
-                          : { color: sem.chipTemporary.color, bgcolor: sem.chipTemporary.bg }} />
+                      <BlockTypeChip blockType={ip.block_type} />
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatDate(ip.block_time)}</TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{formatExpiry(ip.expire_time, ip.block_type)}</TableCell>
