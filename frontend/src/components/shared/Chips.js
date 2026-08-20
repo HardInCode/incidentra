@@ -35,6 +35,7 @@ export function StatusChip({ status, size = 'small' }) {
       sx={{
         color: config.color,
         bgcolor: config.bg,
+        border: config.border ? `1px solid ${config.border}` : undefined,
         fontWeight: 600,
         fontSize: '0.7rem',
       }}
@@ -54,6 +55,7 @@ export function AccountStatusChip({ status, size = 'small' }) {
       sx={{
         color: config.color,
         bgcolor: config.bg,
+        border: config.border ? `1px solid ${config.border}` : undefined,
         fontWeight: 700,
         fontSize: '0.7rem',
         letterSpacing: '0.03em',
@@ -73,6 +75,7 @@ export function AttackTypeChip({ type, size = 'small' }) {
       variant="outlined"
       sx={{
         color: atk?.color,
+        bgcolor: atk?.bg,
         borderColor: atk?.border,
         fontSize: '0.7rem',
         fontWeight: 600,

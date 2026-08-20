@@ -45,6 +45,9 @@ function AppRoutes({ isAuthenticated, onLogin, onLogout }) {
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/" /> : <Login onLogin={onLogin} />
           } />
+          <Route path="/reset-password" element={
+            isAuthenticated ? <Navigate to="/" /> : <Login onLogin={onLogin} initialMode="reset" />
+          } />
           <Route path="/*" element={
             isAuthenticated
               ? (
