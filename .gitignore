@@ -47,6 +47,11 @@ Thumbs.db
 postgres_data/
 redis_data/
 
-# Docs — capstone/internal only (keep core docs/*.md in repo: README, GUIDE, ARCHITECTURE, DETECTION, AUDIT)
+# Docs — capstone/internal only
+# Keep in repo (public-facing): docs/README.md, GUIDE.md, ARCHITECTURE.md, AUDIT.md
+# Exclude: thesis reports, individual/group reports, large Word exports
 docs/additional/
 docs/archive/
+# Optional internal prep (uncomment to stop tracking; run: git rm -r --cached docs/PEMAHAMAN_PROGRESSIF.md docs/SIDANG_LATIHAN_QA.md)
+# docs/PEMAHAMAN_PROGRESSIF.md
+# docs/SIDANG_LATIHAN_QA.md
