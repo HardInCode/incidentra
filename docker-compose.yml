@@ -1,11 +1,12 @@
-# Incidentra — Docker Compose (selaras dengan setup manual di docs/GUIDE.md)
+# Incidentra — Docker Compose (local development)
 #
-# Opsional: edit backend/.env.docker (GROQ_API_KEY, DEMO_ADMIN_PASSWORD/DEMO_ANALYST_PASSWORD)
+# Quick start:
+#   cp backend/.env.docker.example backend/.env.docker
 #   docker compose up --build -d
 #
-# Dashboard: http://localhost:3000 — admin credentials: see backend/.env.docker if you set
-# DEMO_ADMIN_PASSWORD, otherwise check `docker compose logs backend` for the one-time
-# generated password (printed on first seed only).
+# Dashboard: http://localhost:3000
+# API:       http://localhost:5000/api
+# Lab:       http://localhost:5050
 
 services:
   postgres:
@@ -158,5 +159,3 @@ volumes:
 networks:
   incidentra_net:
     driver: bridge
-
-

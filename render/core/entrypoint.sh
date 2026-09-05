@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "=== Incidentra SOC - Railway combined core service starting ==="
+echo "=== Incidentra SOC — Render combined core service starting ==="
 
 echo "Waiting for PostgreSQL..."
 python -c "
@@ -60,7 +60,7 @@ init_db()
 "
   echo "vuln-web DB init complete."
 else
-  echo "ENABLE_LAB=false - skipping vuln-web init (lab endpoints disabled)."
+  echo "ENABLE_LAB=false — skipping vuln-web init (lab endpoints disabled)."
 fi
 
 echo "Starting log monitor..."

@@ -2,106 +2,190 @@
 
 **Intelligent Web-SOC Platform with Automated Incident Response**
 
-Web log monitoring platform for SMEs: attack detection, incident management in PostgreSQL, IP blocking & rate limiting, SOC dashboard (React).
+Real-time web log monitoring platform for SMEs — attack detection, automated incident management, IP blocking & rate limiting, and a SOC dashboard built with React and Flask.
 
-> Capstone — President University, Faculty of Computer Science
-
-**GitHub Repository:** [github.com/HardInCode/incidentra](https://github.com/HardInCode/incidentra)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
-## Quick start — Docker
+## Features
 
-```powershell
+- **Detection Engine** — SQLi, XSS, brute force, path traversal, LFI/RFI, scanner detection, command injection, file upload (malicious extensions)
+- **IP Management** — Blocked IPs + Rate Limited tabs with auto-escalation tiers
+- **Incident Lifecycle** — Ongoing vs archived incidents, bulk resolve, CSV export
+- **Live Traffic Monitor** — Real-time log streaming with attack classification
+- **SOC Dashboard** — Charts, severity breakdown, top attackers, threat timeline
+- **Automated Response** — IP auto-blocking, rate limiting, configurable thresholds
+- **AI Explanations** — Optional Groq AI integration for incident analysis
+- **Alert Notifications** — Email (SMTP) and Telegram bot integration
+- **Lab Environment** — Built-in vulnerable web app (`/lab`) for testing & demos
+- **Detection Rules** — Configurable rules with Lab Mode toggle (UI rules only vs OWASP baseline)
+- **Internationalization** — Multi-language support (EN/ID)
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    React Frontend (MUI)                       │
+│              SOC Dashboard · IP Management · Rules            │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ REST API (JWT)
+┌───────────────────────────▼──────────────────────────────────┐
+│                     Flask Backend API                         │
+│  Detection Engine · Log Monitor · Response Engine · Seeder    │
+├──────────────┬───────────────────────┬───────────────────────┤
+│  PostgreSQL  │        Redis          │     Celery Worker     │
+│  Incidents   │  Rate limit cache     │  Background tasks     │
+│  Users/Rules │  Escalation tiers     │  Scheduled checks     │
+│  Blocked IPs │  Block cache          │  Alert dispatch       │
+└──────────────┴───────────────────────┴───────────────────────┘
+                            │ Shared filesystem (access.log)
+┌───────────────────────────▼──────────────────────────────────┐
+│                vuln-web (Target Lab)                          │
+│  Intentionally vulnerable Flask app for attack simulation     │
+│  SQLi · XSS · CSRF · Command Injection · File Upload         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Quick Start — Docker
+
+```bash
 git clone https://github.com/HardInCode/incidentra.git
 cd incidentra
-copy backend\.env.docker.example backend\.env.docker
+cp backend/.env.docker.example backend/.env.docker
 docker compose up --build -d
 ```
 
 **Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
 
+| Service       | URL                          |
+|---------------|------------------------------|
+| SOC Dashboard | http://localhost:3000         |
+| Backend API   | http://localhost:5000/api     |
+| Target Lab    | http://localhost:5050         |
 
-| Service    | URL                                                    |
-| ---------- | ------------------------------------------------------ |
-| SOC UI     | [http://localhost:3000](http://localhost:3000)         |
-| API        | [http://localhost:5000/api](http://localhost:5000/api) |
-| Target lab | [http://localhost:5050](http://localhost:5050)         |
+**Login:** Check `backend/.env.docker` for `DEMO_ADMIN_PASSWORD`, or run `docker compose logs backend` and look for the one-time generated admin password (printed once on first seed).
 
-
-Login: check `backend\.env.docker` for `DEMO_ADMIN_PASSWORD` if you set one, otherwise run
-`docker compose logs backend` and look for the one-time generated admin password (printed
-once on first seed — see [docs/GUIDE.md](docs/GUIDE.md#environment-files)).  
-Optional: edit `backend\.env.docker` → `GROQ_API_KEY` (local file, do not commit).
+**Optional:** Edit `backend/.env.docker` → `GROQ_API_KEY` for AI-powered incident explanations.
 
 ---
 
-## Quick start — Manual
+## Quick Start — Manual
 
-Three terminals (full details in [docs/GUIDE.md](docs/GUIDE.md)):
+Three terminals:
 
-```powershell
-cd backend && copy .env.example .env && .\venv\Scripts\Activate.ps1 && pip install -r requirements.txt && python run.py
+```bash
+# Terminal 1: Backend
+cd backend && cp .env.example .env && pip install -r requirements.txt && python run.py
+
+# Terminal 2: Frontend
 cd frontend && npm install && npm start
-cd vuln-web && .\venv\Scripts\Activate.ps1 && pip install -r requirements.txt && python app.py
+
+# Terminal 3: Vulnerable target (optional)
+cd vuln-web && pip install -r requirements.txt && python app.py
 ```
 
-Reset demo: `python scripts/reset_incidentra.py --clear-logs` (from repo root, backend venv active).
+**Reset demo data:** `python scripts/reset_incidentra.py --clear-logs` (from repo root, backend venv active).
 
 ---
 
-## Ports & login
+## Deployment
 
+### Frontend → Vercel (Free)
 
-| Service        | URL                                                    | Credentials                                      |
-| -------------- | ------------------------------------------------------ | ------------------------------------------------- |
-| SOC Dashboard  | [http://localhost:3000](http://localhost:3000)         | `admin` / see `.env`/`.env.docker` or startup log |
-| Backend API    | [http://localhost:5000/api](http://localhost:5000/api) | JWT after login                                  |
-| vuln-web (lab) | [http://localhost:5050](http://localhost:5050)         | `admin` / `password` (shop demo)                 |
+1. Import repo on [Vercel](https://vercel.com) → set root directory to `frontend`
+2. Set environment variable: `REACT_APP_API_URL=https://<your-render-backend>.onrender.com/api`
+3. Deploy — Vercel auto-detects React and handles routing via `vercel.json`
 
+### Backend → Render.com (Free Tier)
 
----
+1. Connect repo on [Render](https://render.com) → New Blueprint Instance
+2. Render auto-detects `render.yaml` and provisions:
+   - **incidentra-core** — Docker web service (backend + vuln-web + Celery + log monitor)
+   - **incidentra-db** — PostgreSQL database
+   - **incidentra-redis** — Redis cache
+3. Set additional environment variables:
+   - `CORS_ORIGINS=https://<your-vercel-app>.vercel.app`
+   - `DEMO_ADMIN_PASSWORD=<your-password>` (or leave blank for auto-generated)
+   - `GROQ_API_KEY=<key>` (optional, for AI explanations)
+4. Deploy
 
-## Documentation
+> **Note:** Render free tier spins down after 15 minutes of inactivity. First request after idle has a ~30–60s cold start. Sufficient for portfolio demos.
 
-**Full map:** [docs/README.md](docs/README.md)
+### Docker Compose (Self-hosted)
 
-| File | Purpose |
-|------|---------|
-| [docs/GUIDE.md](docs/GUIDE.md) | Run the system (Docker/manual), defense demo, troubleshooting |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, detection engine, API reference, team guide |
-| [docs/AUDIT.md](docs/AUDIT.md) | **Full defense audit — July 2026** (~100 scenarios, A–J) |
+For full local or VPS deployment with all 6 services:
 
----
-
-## Key features (July 2026)
-
-- Detection: SQLi, XSS, brute force, path traversal, LFI/RFI, scanner, command injection, file upload (malicious extensions); **Lab mode** in Settings (UI rules only, for defense demo)
-- **IP Management** (`/blocked-ips`): **Blocked** + **Rate Limited** tabs
-- Ongoing vs archived incidents, bulk resolve, CSV export, live traffic, rules, audit
-- Docker: 6 services (postgres, redis, vuln-web, backend, celery, frontend)
-- Optional Phase 3 lab: set `vuln-web/.env` → `VULN_UNSAFE_CMD=1` / `VULN_UNSAFE_UPLOAD=1` — restart vuln-web; see [docs/GUIDE.md](docs/GUIDE.md)
-
----
-
-## Structure
-
-```
-backend/     Flask API, log monitor, detection
-frontend/    React + MUI
-vuln-web/    Vulnerable target + access.log + JSON enforcement
-scripts/     reset, seed, init SQL
-docs/        Documentation
+```bash
+docker compose up --build -d
 ```
 
 ---
 
-## Team
+## Project Structure
 
+```
+backend/     Flask API, detection engine, log monitor, Celery tasks
+frontend/    React + Material UI SOC dashboard
+vuln-web/    Intentionally vulnerable target app + access.log
+scripts/     Database reset and seed utilities
+render/      Render.com deployment config (Dockerfile, entrypoint, WSGI)
+```
 
-| Name                       | NIM          | Role                     |
-| -------------------------- | ------------ | ------------------------ |
-| Hardin Irfan               | 001202300066 | Project Lead & Backend   |
-| Zaidan Mahfudz Azzam Saidi | 001202300144 | Security & QA            |
+---
 
+## Tech Stack
 
+| Layer     | Technology                                          |
+|-----------|-----------------------------------------------------|
+| Frontend  | React 18, Material UI 5, Chart.js, React Router 6   |
+| Backend   | Flask 3, SQLAlchemy 2, Flask-Migrate, Gunicorn       |
+| Database  | PostgreSQL 15, Redis 7                               |
+| Workers   | Celery 5 (worker + beat scheduler)                   |
+| Auth      | JWT (PyJWT)                                          |
+| Container | Docker Compose, multi-stage builds                   |
+| AI        | Groq API (optional)                                  |
+| Alerts    | SMTP email, Telegram bot                             |
+
+---
+
+## Environment Variables
+
+See [`backend/.env.example`](backend/.env.example) for the full list. Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `SECRET_KEY` | JWT signing key |
+| `CORS_ORIGINS` | Allowed frontend origins (comma-separated) |
+| `GROQ_API_KEY` | Groq AI API key for incident explanations |
+| `ABUSEIPDB_API_KEY` | AbuseIPDB API key for IP reputation |
+| `DEMO_ADMIN_PASSWORD` | Admin password (auto-generated if blank) |
+
+---
+
+## Screenshots
+
+> Screenshots coming soon — run locally with Docker to preview the full dashboard.
+
+---
+
+## License
+
+MIT
+
+---
+
+## Author
+
+**Hardin Irfan** — [GitHub](https://github.com/HardInCode)
