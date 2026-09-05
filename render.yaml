@@ -19,17 +19,17 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: incidentra-redis
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: incidentra-redis
           property: connectionString
       - key: CELERY_RESULT_BACKEND
         fromService:
-          type: redis
+          type: keyvalue
           name: incidentra-redis
           property: connectionString
       - key: FLASK_ENV
@@ -48,20 +48,13 @@ services:
         value: "10"
       - key: BRUTE_FORCE_THRESHOLD
         value: "10"
-      # Set these manually after deploy:
-      # - CORS_ORIGINS (your Vercel frontend URL)
-      # - DEMO_ADMIN_PASSWORD / DEMO_ANALYST_PASSWORD
-      # - GROQ_API_KEY, GROQ_MODEL (optional, for AI explanations)
-      # - ABUSEIPDB_API_KEY (optional, for IP reputation)
-      # - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL (optional)
-      # - TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (optional)
+
+  - type: keyvalue
+    name: incidentra-redis
+    plan: free
+    ipAllowList: []
 
 databases:
   - name: incidentra-db
     plan: free
     databaseName: incidentra_db
-
-redis:
-  - name: incidentra-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru
