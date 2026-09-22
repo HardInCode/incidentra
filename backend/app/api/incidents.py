@@ -19,9 +19,11 @@ import logging
 logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from sqlalchemy import case
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models import Incident, IncidentNote, IncidentStatus, SeverityLevel, User
 from app.services.audit_service import log_audit
+from app.api.dashboard import invalidate_dashboard_cache
 
 incidents_bp = Blueprint('incidents', __name__)
 
@@ -113,6 +115,8 @@ def list_incidents():
     sort_dir = request.args.get('sort_dir', 'desc')
 
     query = _apply_incident_filters(Incident.query, request.args)
+    # Eager load relationships to prevent 40+ N+1 queries during to_dict()
+    query = query.options(joinedload(Incident.assigned_user), joinedload(Incident.explanation))
 
     if sort_by == 'severity':
         severity_order = case(
@@ -186,6 +190,7 @@ def bulk_update_status():
         )
 
     db.session.commit()
+    invalidate_dashboard_cache()
     return jsonify({
         'message': f'Updated {len(updated)} incident(s)',
         'updated': updated,
@@ -218,6 +223,7 @@ def update_status(incident_id):
         if new_status == 'resolved':
             incident.resolved_at = datetime.utcnow()
         db.session.commit()
+        invalidate_dashboard_cache()
         log_audit(
             'incident.status_change',
             resource_type='incident',

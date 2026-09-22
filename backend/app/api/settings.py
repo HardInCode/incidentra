@@ -63,15 +63,20 @@ def _mask(key: str, value: str) -> str:
 
 @settings_bp.route('/', methods=['GET'])
 def get_settings():
-    """Settings.js load — value di-mask untuk API key/password."""
+    """Settings.js load — optimized with single batch DB query."""
+    # Batch fetch all database overrides in ONE query (replaces 26 sequential queries!)
+    db_records = AppSetting.query.all()
+    db_settings = {s.key: s.value for s in db_records}
+
     result = {}
     for key in SETTING_KEYS:
-        raw = _get_raw(key)
-        s = AppSetting.query.filter_by(key=key).first()
+        db_val = db_settings.get(key)
+        raw = db_val if (db_val is not None and db_val != '') else os.getenv(key, '')
+        has_db_override = key in db_settings and db_settings[key] is not None and db_settings[key] != ''
         result[key] = {
             'value': _mask(key, raw),
             'configured': bool(raw),
-            'source': 'database' if s else 'env',
+            'source': 'database' if has_db_override else 'env',
         }
     return jsonify(result)
 
