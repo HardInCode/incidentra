@@ -125,5 +125,6 @@ export const updateSettings = (data) => api.put('/settings/', data);
 export const testNotification = (channel) => api.post('/settings/test/notification', { channel });  // NOTIFY test
 export const testAbuseIPDB = () => api.post('/settings/test/abuseipdb');
 export const testGroq = (data) => api.post('/settings/test/groq', data);  // CHATBOT + AI explain provider
+export const dangerReset = (data) => api.post('/settings/danger-reset', data);  // DANGER ZONE reset
 
 export default api;

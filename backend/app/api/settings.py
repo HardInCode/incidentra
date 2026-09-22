@@ -189,3 +189,96 @@ def test_groq():
             'success': False,
             'error': f'Model "{selected_model}" test failed: {str(e)}',
         }), 400
+
+
+@settings_bp.route('/danger-reset', methods=['POST'])
+@require_role('admin')
+def danger_reset():
+    """
+    DANGER ZONE — Full administrative reset:
+    - Deletes all incidents, incident_logs, explanations, notes.
+    - Clears blocked_ips (DB and JSON state).
+    - Clears web server access.log (if exists).
+    - Resets detection rule match counts back to 0.
+    - Flushes Redis cache and dedup keys.
+    - Users, detection_rules, and app_settings are preserved.
+    """
+    import json
+    from app.models import (
+        Incident, IncidentNote, IncidentExplanation, IncidentLog, BlockedIP, DetectionRule
+    )
+    from app.api.dashboard import invalidate_dashboard_cache
+    from app.core.detection_engine import get_redis_client
+
+    data = request.get_json(silent=True) or {}
+    reset_incidents = data.get('reset_incidents', True)
+    reset_blocked = data.get('reset_blocked_ips', True)
+    clear_traffic = data.get('clear_traffic_logs', True)
+
+    results = []
+
+    try:
+        if reset_incidents:
+            # Delete child tables first to avoid FK constraint violations
+            IncidentNote.query.delete()
+            IncidentExplanation.query.delete()
+            IncidentLog.query.delete()
+            Incident.query.delete()
+            # Reset detection rules match counter
+            DetectionRule.query.update({DetectionRule.match_count: 0})
+            results.append('Incidents, logs, and notes reset to 0')
+
+        if reset_blocked:
+            BlockedIP.query.delete()
+            # Reset blocked_ips.json and rate_limited.json
+            for p_env in ['BLOCKED_IPS_JSON_PATH', 'RATE_LIMITED_JSON_PATH']:
+                p = os.getenv(p_env, '')
+                fallback = '/app/shared/blocked_ips.json' if 'BLOCKED' in p_env else '/app/shared/rate_limited.json'
+                target = p if (p and os.path.exists(p)) else fallback
+                if os.path.exists(target):
+                    try:
+                        empty_data = {'blocked': [], 'updated_at': ''} if 'BLOCKED' in p_env else {'rate_limited': [], 'updated_at': ''}
+                        with open(target, 'w') as f:
+                            json.dump(empty_data, f)
+                    except Exception:
+                        pass
+            results.append('Blocked IPs and rate limit state cleared')
+
+        if clear_traffic:
+            log_path = os.getenv('WEB_SERVER_LOG_PATH', '/app/shared/access.log')
+            if os.path.exists(log_path):
+                try:
+                    with open(log_path, 'w') as f:
+                        f.write('')
+                    results.append('Web access.log truncated')
+                except Exception:
+                    pass
+
+        # Flush Redis cache
+        r = get_redis_client()
+        if r:
+            try:
+                r.flushdb()
+                results.append('Redis cache and dedup counters flushed')
+            except Exception:
+                pass
+
+        invalidate_dashboard_cache()
+
+        db.session.commit()
+
+        log_audit(
+            'system.danger_reset',
+            resource_type='system',
+            details={'actions': results},
+        )
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'System state has been reset successfully.',
+            'details': results,
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Reset failed: {str(e)}'}), 500

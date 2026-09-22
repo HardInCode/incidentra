@@ -23,6 +23,12 @@ class BaseConfig:
         'DATABASE_URL',
         'postgresql+psycopg://incidentra:incidentra123@localhost:5432/incidentra_db'
     ))
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 5,
+        'max_overflow': 10,
+    }
 
     # Redis
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')

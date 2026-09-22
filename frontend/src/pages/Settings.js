@@ -12,11 +12,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Button, Chip, Alert,
   Select, MenuItem, FormControl, InputLabel, IconButton, InputAdornment,
-  FormControlLabel, Switch,
+  FormControlLabel, Switch, Dialog, DialogTitle, DialogContent,
+  DialogContentText, DialogActions, CircularProgress,
 } from '@mui/material';
 import {
   Visibility, VisibilityOff, Save, Settings as SettingsIcon, Palette, History, Notifications,
-  VolumeUp,
+  VolumeUp, DeleteForever, Warning,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useThemeMode } from '../context/ThemeContext';
@@ -24,7 +25,7 @@ import { useLanguage } from '../context/LanguageContext';
 import useCurrentUser from '../hooks/useCurrentUser';
 import { toast } from 'react-toastify';
 import {
-  getSettings, updateSettings, testNotification, testAbuseIPDB, testGroq,
+  getSettings, updateSettings, testNotification, testAbuseIPDB, testGroq, dangerReset,
 } from '../services/api';
 import {
   isNotificationSoundEnabled,
@@ -67,6 +68,32 @@ export default function Settings() {
   const [showKeys, setShowKeys] = useState({});
   const [testResults, setTestResults] = useState({ groq: null, abuseipdb: null, email: null, telegram: null });
   const [alertSound, setAlertSound] = useState(isNotificationSoundEnabled);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const handleDangerReset = async () => {
+    if (resetConfirmText.trim().toUpperCase() !== 'RESET') return;
+    setResetting(true);
+    try {
+      const res = await dangerReset({
+        reset_incidents: true,
+        reset_blocked_ips: true,
+        clear_traffic_logs: true,
+      });
+      if (res.data?.success) {
+        toast.success(res.data.message || 'Incidentra reset successfully!');
+        setResetDialogOpen(false);
+        setResetConfirmText('');
+      } else {
+        toast.error(res.data?.error || 'Reset failed');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to reset system');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -549,6 +576,39 @@ export default function Settings() {
               </Box>
             </CardContent>
           </Card>
+
+          {/* Section 7 — Danger Zone (Admin Only) */}
+          <Card sx={{
+            mb: 3,
+            border: '1px solid',
+            borderColor: 'error.main',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(244, 67, 54, 0.05)' : 'rgba(244, 67, 54, 0.02)',
+          }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Warning color="error" />
+                <Typography variant="h6" color="error.main" sx={{ fontWeight: 700 }}>
+                  {language === 'id' ? 'Zona Bahaya (Danger Zone)' : 'Danger Zone'}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {language === 'id'
+                  ? 'Reset seluruh data insiden, catatan analitis, daftar blocked IP, traffic access log, dan cache antrian ke kondisi awal bersih (0 insiden). Akun pengguna dan aturan deteksi (detection rules) tetap aman tersimpan.'
+                  : 'Reset all incidents, notes, blocked IPs, traffic access logs, and queue caches back to a clean initial state (0 incidents). User accounts and detection rules remain safe and untouched.'}
+              </Typography>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteForever />}
+                onClick={() => {
+                  setResetConfirmText('');
+                  setResetDialogOpen(true);
+                }}
+              >
+                {language === 'id' ? 'Reset Semua Data Insiden & Log' : 'Reset All Incidents & Logs'}
+              </Button>
+            </CardContent>
+          </Card>
         </>
       )}
 
@@ -561,6 +621,54 @@ export default function Settings() {
       >
         {saving ? t('common.saving') : t('common.save')}
       </Button>
+
+      {/* Danger Zone Confirmation Dialog */}
+      <Dialog
+        open={resetDialogOpen}
+        onClose={() => !resetting && setResetDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+          <Warning color="error" />
+          {language === 'id' ? 'Konfirmasi Reset Sistem' : 'Confirm System Reset'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {language === 'id'
+              ? 'Tindakan ini akan menghapus semua insiden, log serangan, catatan analisis, dan daftar blocked IP secara permanen. Pengaturan aturan deteksi dan akun admin tidak akan terhapus.'
+              : 'This action will permanently delete all incidents, attack logs, investigation notes, and blocked IP lists. Your detection rules and user accounts will be kept.'}
+          </DialogContentText>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {language === 'id'
+              ? 'Tindakan ini tidak dapat dibatalkan. Ketik "RESET" di bawah ini untuk melanjutkan konfirmasi.'
+              : 'This action cannot be undone. Type "RESET" below to confirm.'}
+          </Alert>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            placeholder="RESET"
+            value={resetConfirmText}
+            onChange={(e) => setResetConfirmText(e.target.value)}
+            disabled={resetting}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setResetDialogOpen(false)} disabled={resetting} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDangerReset}
+            disabled={resetConfirmText.trim().toUpperCase() !== 'RESET' || resetting}
+            startIcon={resetting ? <CircularProgress size={18} color="inherit" /> : <DeleteForever />}
+          >
+            {resetting ? (language === 'id' ? 'Mereset...' : 'Resetting...') : (language === 'id' ? 'Hapus & Reset Sekarang' : 'Reset Everything Now')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
