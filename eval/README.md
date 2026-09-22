@@ -33,9 +33,10 @@ python eval/eval_detection.py
 
 ## Known limitations
 - Synthetic corpus (60 samples), not captured production traffic.
-- Two SQL-injection variants (type-cast / blind) were missed; one
-  command-injection sample was mis-tagged as path traversal due to
-  first-match category resolution in the engine.
+- Four of 30 attack samples were not correctly labeled: two SQL-injection
+  variants (type-cast / blind) went undetected, and two samples (one
+  command-injection, one LFI/RFI) were mis-tagged as path traversal due
+  to first-match category resolution in the engine.
 - Throughput figure is component-level (regex matching only), not a
   full end-to-end concurrent-load stress test (Docker + Redis + Postgres
   under load). Full-system stress testing is noted as future work.
