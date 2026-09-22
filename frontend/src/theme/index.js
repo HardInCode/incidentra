@@ -17,11 +17,22 @@ export function brandAlpha(alpha, isDark = true) {
 }
 
 export const severityColors = {
-  critical: '#dc2626',
-  high: '#ea580c',
-  medium: '#ca8a04',
+  critical: '#e05252',
+  high: '#d4652a',
+  medium: '#b8860b',
   low: '#059669',
 };
+
+/** Warna chart — lebih distinct/saturasi untuk legibilitas visual di grafik.
+ *  Lebih vibrant dari severityColors tapi bukan neon.
+ *  Dipakai di Chart.js (donut, line) agar tiap severity terlihat berbeda jelas. */
+export const chartSeverityColors = {
+  critical: '#e04545',   // warm red — clearly red
+  high: '#e07820',      // warm orange — clearly orange, distinct from red
+  medium: '#c49820',    // amber-gold
+  low: '#2da870',       // teal-green
+};
+
 
 export const iconSize = {
   nav: 24,
@@ -65,9 +76,9 @@ export function getSemanticTokens(isDark) {
       color: isDark ? '#6ee7b7' : '#065f46',
     },
     alertWarning: {
-      bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
-      border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
-      color: isDark ? '#fde047' : '#854d0e',
+      bg: isDark ? 'rgba(180,130,0,0.1)' : '#fefce8',
+      border: isDark ? 'rgba(180,130,0,0.28)' : '#fde68a',
+      color: isDark ? '#c9a54a' : '#854d0e',
     },
     alertError: {
       bg: isDark ? 'rgba(239,68,68,0.14)' : '#fef2f2',
@@ -80,9 +91,9 @@ export function getSemanticTokens(isDark) {
       border: isDark ? 'rgba(239,68,68,0.35)' : '#fecaca',
     },
     chipTemporary: {
-      bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
-      color: isDark ? '#fde047' : '#854d0e',
-      border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
+      bg: isDark ? 'rgba(180,130,0,0.1)' : '#fefce8',
+      color: isDark ? '#c9a54a' : '#854d0e',
+      border: isDark ? 'rgba(180,130,0,0.28)' : '#fde68a',
     },
     chipExpired: {
       bg: isDark ? 'rgba(148,163,184,0.14)' : '#f1f5f9',
@@ -123,9 +134,9 @@ export function getSemanticTokens(isDark) {
     },
     accountStatus: {
       pending: {
-        color: isDark ? '#fde047' : '#854d0e',
-        bg: isDark ? 'rgba(234,179,8,0.14)' : '#fefce8',
-        border: isDark ? 'rgba(234,179,8,0.35)' : '#fde68a',
+        color: isDark ? '#c9a54a' : '#854d0e',
+        bg: isDark ? 'rgba(180,130,0,0.1)' : '#fefce8',
+        border: isDark ? 'rgba(180,130,0,0.28)' : '#fde68a',
       },
       active: {
         color: isDark ? '#6ee7b7' : '#065f46',
@@ -150,9 +161,9 @@ export function getSemanticTokens(isDark) {
         border: isDark ? 'rgba(249,115,22,0.35)' : '#fed7aa',
       },
       medium: {
-        color: isDark ? '#fde047' : '#854d0e',
-        bg: isDark ? 'rgba(234,179,8,0.14)' : '#fef9c3',
-        border: isDark ? 'rgba(234,179,8,0.35)' : '#fde047',
+        color: isDark ? '#c9a54a' : '#854d0e',
+        bg: isDark ? 'rgba(180,130,0,0.1)' : '#fef9c3',
+        border: isDark ? 'rgba(180,130,0,0.28)' : '#e9c84a',
       },
       low: {
         color: isDark ? '#6ee7b7' : '#065f46',
@@ -287,8 +298,8 @@ export function createAppTheme(mode = 'dark') {
         contrastText: isDark ? '#0a0e1a' : '#ffffff',
       },
       secondary: { main: '#6366f1' },
-      error: { main: '#dc2626' },
-      warning: { main: '#ca8a04' },
+      error: { main: '#c94444', dark: '#a83636', light: '#e06868' },
+      warning: { main: '#b8860b' },
       success: { main: '#059669' },
       background: isDark
         ? { default: '#0a0e1a', paper: '#111827' }

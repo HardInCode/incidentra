@@ -272,7 +272,7 @@ export default function Users() {
                             size="small"
                             disabled={isSelf(user)}
                             onClick={() => (user.status === 'suspended' ? handleQuickStatus(user, 'active') : handleQuickStatus(user, 'suspended'))}
-                            sx={{ color: user.status === 'suspended' ? brandCyan.light : '#ff9800', mr: 0.5 }}
+                            sx={{ color: user.status === 'suspended' ? brandCyan.light : '#c9882a', mr: 0.5 }}
                           >
                             {user.status === 'suspended' ? <CheckCircle sx={{ fontSize: 18 }} /> : <Block sx={{ fontSize: 18 }} />}
                           </IconButton>
@@ -291,7 +291,7 @@ export default function Users() {
                     </Tooltip>
                     <Tooltip title={isSelf(user) ? t('users.cannotModifySelf') : t('users.delete')}>
                       <span>
-                        <IconButton size="small" disabled={isSelf(user)} onClick={() => openDelete(user)} sx={{ color: '#ff4444' }}>
+                        <IconButton size="small" disabled={isSelf(user)} onClick={() => openDelete(user)} sx={{ color: 'rgba(201, 68, 68, 0.7)' }}>
                           <Delete sx={{ fontSize: 18 }} />
                         </IconButton>
                       </span>

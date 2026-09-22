@@ -24,7 +24,7 @@ import {
   LineElement, PointElement, Tooltip as ChartTooltip, Legend, Filler,
 } from 'chart.js';
 import { getDashboardStats, getLogStatus } from '../services/api';
-import { iconSize, brandCyan } from '../theme';
+import { iconSize, brandCyan, severityColors, chartSeverityColors } from '../theme';
 import { SeverityChip, AttackTypeChip } from '../components/shared/Chips';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
@@ -112,13 +112,13 @@ function SystemStatusBanner({ status, t }) {
         {t('dashboard.systemStatus', { label })}
       </Typography>
       {status.status === 'critical' && (
-        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff1744', ml: 'auto', animation: 'pulse 1s infinite' }} />
+        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: severityColors.critical, ml: 'auto', animation: 'pulse 1s infinite' }} />
       )}
     </Box>
   );
 }
 
-const SEV_LINE_COLORS = { critical: '#ff1744', high: '#ff6d00', medium: '#ffd600', low: '#00e676' };
+const SEV_LINE_COLORS = { critical: chartSeverityColors.critical, high: chartSeverityColors.high, medium: chartSeverityColors.medium, low: chartSeverityColors.low };
 
 function countScale(tickColor, gridColor, values = []) {
   const max = values.length ? Math.max(...values, 0) : 0;
@@ -215,7 +215,7 @@ export default function Dashboard() {
     labels: stats?.attack_breakdown?.map(a => a.type.replace(/_/g, ' ')) || [],
     datasets: [{
       data: attackCounts,
-      backgroundColor: ['#ff1744','#ff6d00','#ffd600','#7c4dff','#00b0ff','#00e676'],
+      backgroundColor: [chartSeverityColors.critical, chartSeverityColors.high, chartSeverityColors.medium, '#7c4dff', '#00b0ff', chartSeverityColors.low],
       borderWidth: 0,
     }],
   };
@@ -311,7 +311,7 @@ export default function Dashboard() {
             title={t('dashboard.last24h')}
             value={stats?.last_24h}
             icon={<BugReport />}
-            color="#ff6d00"
+            color={severityColors.high}
             subtitle={t('dashboard.newDetections')}
             onClick={() => navigate('/incidents/all')}
             clickHint={t('dashboard.goAllIncidents')}
@@ -322,7 +322,7 @@ export default function Dashboard() {
             title={t('dashboard.blockedIps')}
             value={stats?.blocked_ips}
             icon={<Block />}
-            color="#ff1744"
+            color={severityColors.critical}
             subtitle={t('dashboard.activeBlocks')}
             onClick={() => navigate('/blocked-ips')}
             clickHint={t('dashboard.goBlockedIps')}

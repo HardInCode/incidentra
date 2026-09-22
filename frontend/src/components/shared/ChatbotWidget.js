@@ -152,6 +152,7 @@ export default function ChatbotWidget() {
   const [loading, setLoading] = useState(false);
   const [fabPos, setFabPos] = useState(() => loadSavedPosition() || defaultPosition());
   const messagesEndRef = useRef(null);
+  // dragRef: tracks active drag state; pointer capture handles event routing
   const dragRef = useRef({ active: false, moved: false, offsetX: 0, offsetY: 0, startX: 0, startY: 0 });
 
   useEffect(() => {
@@ -166,6 +167,7 @@ export default function ChatbotWidget() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // onPointerMove: fires reliably via pointer capture even outside element
   const onPointerMove = useCallback((e) => {
     if (!dragRef.current.active) return;
     const dx = e.clientX - dragRef.current.startX;
@@ -179,19 +181,20 @@ export default function ChatbotWidget() {
     }));
   }, []);
 
-  const onPointerUp = useCallback(() => {
+  // onPointerUp: fires reliably via pointer capture; release capture here
+  const onPointerUp = useCallback((e) => {
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
     setFabPos((p) => {
       localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(p));
       return p;
     });
-  }, [onPointerMove]);
+  }, []);
 
   const onFabPointerDown = (e) => {
     if (e.button !== 0) return;
+    e.preventDefault(); // prevent text selection while dragging
     const rect = e.currentTarget.getBoundingClientRect();
     dragRef.current = {
       active: true,
@@ -201,13 +204,17 @@ export default function ChatbotWidget() {
       startX: e.clientX,
       startY: e.clientY,
     };
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
+    // setPointerCapture: routes ALL pointermove/pointerup to this element
+    // until releasePointerCapture — fixes "still following after release" bug
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
   };
 
-  const onFabClick = () => {
+  const onFabClick = (e) => {
+    // Suppress click when finishing a drag (moved beyond threshold)
     if (dragRef.current.moved) {
       dragRef.current.moved = false;
+      e.preventDefault();
+      e.stopPropagation();
       return;
     }
     setOpen(true);
@@ -260,6 +267,8 @@ export default function ChatbotWidget() {
       <Tooltip title={t('chatbot.dragHint')} placement="left">
         <IconButton
           onPointerDown={onFabPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
           onClick={onFabClick}
           sx={{
             position: 'fixed',
@@ -267,13 +276,18 @@ export default function ChatbotWidget() {
             top: fabPos.y,
             width: FAB_SIZE,
             height: FAB_SIZE,
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
+            background: 'linear-gradient(135deg, #00b4c8 0%, #0084a8 60%, #4f5db8 100%)',
+            boxShadow: '0 4px 18px rgba(0, 180, 200, 0.38), 0 2px 6px rgba(0,0,0,0.3)',
+            color: '#fff',
             zIndex: 1200,
             cursor: 'grab',
             '&:active': { cursor: 'grabbing' },
-            '&:hover': { bgcolor: 'primary.dark' },
-            transition: 'background-color 0.2s',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #00c7d4 0%, #009ab8 60%, #5e6fd4 100%)',
+              boxShadow: '0 6px 22px rgba(0, 199, 212, 0.5), 0 2px 8px rgba(0,0,0,0.35)',
+              transform: 'scale(1.06)',
+            },
+            transition: 'all 0.22s ease',
             p: 0,
             overflow: 'hidden',
           }}

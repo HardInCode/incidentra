@@ -24,9 +24,9 @@ import { formatLogTime, parseNginxLogTime } from '../utils/locale';
 import { brandCyan } from '../theme';
 
 const TAG_COLORS = {
-  attack: '#ff4444',
-  suspicious: '#ffaa00',
-  blocked: '#ff6d00',
+  attack: '#d94545',
+  suspicious: '#b8860b',
+  blocked: '#c0622a',
   normal: brandCyan.main,
 };
 
@@ -40,13 +40,13 @@ const TAG_ICONS = {
 const METHOD_COLORS = {
   GET: brandCyan.main,
   POST: '#7c4dff',
-  DELETE: '#ff4444',
-  PUT: '#ffaa00',
+  DELETE: '#c94444',
+  PUT: '#b8860b',
 };
 
 function getStatusColor(status) {
-  if (status >= 500) return '#ff4444';
-  if (status >= 400) return '#ffaa00';
+  if (status >= 500) return '#c94444';
+  if (status >= 400) return '#b8860b';
   return brandCyan.main;
 }
 

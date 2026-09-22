@@ -581,13 +581,13 @@ export default function Settings() {
           <Card sx={{
             mb: 3,
             border: '1px solid',
-            borderColor: 'error.main',
-            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(244, 67, 54, 0.05)' : 'rgba(244, 67, 54, 0.02)',
+            borderColor: 'rgba(201, 68, 68, 0.35)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(201, 68, 68, 0.04)' : 'rgba(180, 50, 50, 0.02)',
           }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                <Warning color="error" />
-                <Typography variant="h6" color="error.main" sx={{ fontWeight: 700 }}>
+                <Warning sx={{ color: 'rgba(201, 68, 68, 0.85)' }} />
+                <Typography variant="h6" sx={{ fontWeight: 700, color: 'rgba(201, 68, 68, 0.9)' }}>
                   {language === 'id' ? 'Zona Bahaya (Danger Zone)' : 'Danger Zone'}
                 </Typography>
               </Box>
@@ -598,11 +598,18 @@ export default function Settings() {
               </Typography>
               <Button
                 variant="outlined"
-                color="error"
                 startIcon={<DeleteForever />}
                 onClick={() => {
                   setResetConfirmText('');
                   setResetDialogOpen(true);
+                }}
+                sx={{
+                  color: 'rgba(201, 68, 68, 0.85)',
+                  borderColor: 'rgba(201, 68, 68, 0.45)',
+                  '&:hover': {
+                    borderColor: 'rgba(201, 68, 68, 0.75)',
+                    bgcolor: 'rgba(201, 68, 68, 0.08)',
+                  },
                 }}
               >
                 {language === 'id' ? 'Reset Semua Data Insiden & Log' : 'Reset All Incidents & Logs'}
@@ -629,8 +636,8 @@ export default function Settings() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
-          <Warning color="error" />
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'rgba(201, 68, 68, 0.9)' }}>
+          <Warning sx={{ color: 'rgba(201, 68, 68, 0.85)' }} />
           {language === 'id' ? 'Konfirmasi Reset Sistem' : 'Confirm System Reset'}
         </DialogTitle>
         <DialogContent>
@@ -660,10 +667,15 @@ export default function Settings() {
           </Button>
           <Button
             variant="contained"
-            color="error"
             onClick={handleDangerReset}
             disabled={resetConfirmText.trim().toUpperCase() !== 'RESET' || resetting}
             startIcon={resetting ? <CircularProgress size={18} color="inherit" /> : <DeleteForever />}
+            sx={{
+              bgcolor: 'rgba(180, 50, 50, 0.85)',
+              color: '#fff',
+              '&:hover': { bgcolor: 'rgba(160, 40, 40, 0.95)' },
+              '&:disabled': { bgcolor: 'rgba(150, 100, 100, 0.3)', color: 'rgba(255,255,255,0.4)' },
+            }}
           >
             {resetting ? (language === 'id' ? 'Mereset...' : 'Resetting...') : (language === 'id' ? 'Hapus & Reset Sekarang' : 'Reset Everything Now')}
           </Button>

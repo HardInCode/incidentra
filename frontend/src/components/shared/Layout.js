@@ -226,15 +226,22 @@ export default function Layout({ children, onLogout }) {
               onLogout();
               if (isMobile) setMobileOpen(false);
             }}
-            sx={{ borderRadius: 2, justifyContent: (expanded || isMobile) ? 'flex-start' : 'center', px: (expanded || isMobile) ? 2 : 1.5 }}
+            sx={{
+              borderRadius: 2,
+              justifyContent: (expanded || isMobile) ? 'flex-start' : 'center',
+              px: (expanded || isMobile) ? 2 : 1.5,
+              '&:hover': {
+                bgcolor: 'rgba(201, 68, 68, 0.08)',
+              },
+            }}
           >
-            <ListItemIcon sx={{ color: 'error.main', minWidth: (expanded || isMobile) ? 40 : 'auto' }}>
+            <ListItemIcon sx={{ color: 'rgba(201, 68, 68, 0.75)', minWidth: (expanded || isMobile) ? 40 : 'auto' }}>
               <Logout />
             </ListItemIcon>
             {(expanded || isMobile) && (
               <ListItemText
                 primary={t('common.logout')}
-                primaryTypographyProps={{ fontSize: '0.8rem', color: 'error.main' }}
+                primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(201, 68, 68, 0.75)' }}
               />
             )}
           </ListItem>
