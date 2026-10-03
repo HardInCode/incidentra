@@ -44,9 +44,9 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Fallback chain — sync dengan ai_service.GROQ_FALLBACK_MODELS dan Settings.js GROQ_MODELS
 GROQ_MODELS = [
     'openai/gpt-oss-120b',
-    'qwen/qwen3.6-27b',
+    'qwen/qwen3.8-27b',
     'openai/gpt-oss-20b',
-    'llama-3.1-8b-instant',
+    'openai/gpt-oss-safeguard-20b',
     'allam-2-7b',
 ]
 

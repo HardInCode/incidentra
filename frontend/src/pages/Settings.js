@@ -38,9 +38,9 @@ import { ConfigStatusChip } from '../components/shared/Chips';
 // Groq models — 5-model chain (quality → high daily quota fallback). Sync with ai_service.py.
 const GROQ_MODELS = [
   'openai/gpt-oss-120b',
-  'qwen/qwen3.6-27b',
+  'qwen/qwen3.8-27b',
   'openai/gpt-oss-20b',
-  'llama-3.1-8b-instant', // deprecated Aug 16 2026 — kept for 14.4K RPD sidang buffer
+  'openai/gpt-oss-safeguard-20b',
   'allam-2-7b',
 ];
 
